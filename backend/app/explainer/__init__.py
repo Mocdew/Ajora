@@ -1,23 +1,31 @@
-"""GenAI explainer — turns Ajora's *already-computed* structured insight objects
-into clear, trustworthy natural-language explanations.
+"""Re-export shim — the grounded explainer now lives in ``engine.explainer``.
 
-Hard rule of this package: **Claude explains numbers, it never computes them.** The
-engine (stage-1 dedup, and later the communal-finance classifier) owns every figure;
-the explainer may only restate figures that are present in the structured insight
-object it is handed. See ``GROUNDING.md`` for the full grounding contract.
-
-Nothing here is stateful and nothing here touches a database — it is a pure function
-from an insight object to an explanation (plus a grounding report), per the
-no-database architecture in ``CLAUDE.md``.
+Kept so historical ``app.explainer`` import paths (tests, scripts) keep resolving,
+exactly like the ``app.dedup`` / ``app.schemas`` shims. Importing any ``app.*``
+module runs ``app/__init__`` first, which puts the repo root on ``sys.path`` so
+``engine`` is importable.
 """
 
 from __future__ import annotations
 
-from .client import AnthropicExplainerClient, ExplainerClient, StubExplainerClient
-from .explainer import DEFAULT_MODEL, Explainer, ExplanationResult, UngroundedExplanation
-from .facts import build_facts, collect_allowed_numbers
-from .grounding import GroundingReport, extract_numbers, verify_grounded
-from .prompt import SYSTEM_PROMPT, build_user_prompt
+import app as _app  # noqa: F401  (ensures the repo root is on sys.path for `engine`)
+
+from engine.explainer import (  # noqa: F401
+    AnthropicExplainerClient,
+    DEFAULT_MODEL,
+    Explainer,
+    ExplainerClient,
+    ExplanationResult,
+    GroundingReport,
+    StubExplainerClient,
+    SYSTEM_PROMPT,
+    UngroundedExplanation,
+    build_facts,
+    build_user_prompt,
+    collect_allowed_numbers,
+    extract_numbers,
+    verify_grounded,
+)
 
 __all__ = [
     "AnthropicExplainerClient",
