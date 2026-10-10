@@ -20,7 +20,13 @@ from pathlib import Path
 from typing import List, Tuple
 
 from engine.communal.classifier import CommunalClassifier
-from engine.communal.evaluation import ALL_TAGS, CommunalMetrics, evaluate
+from engine.communal.evaluation import (
+    ALL_TAGS,
+    CommunalMetrics,
+    evaluate,
+    evaluate_insights,
+)
+from engine.communal.insights import insights_from_result
 from engine.dedup.engine import DedupEngine
 from engine.schemas.transaction import TransactionBatch
 
@@ -51,16 +57,20 @@ def run(data_dir: Path) -> int:
     dedup = DedupEngine()
     classifier = CommunalClassifier()
     agg_tp = agg_fp = agg_fn = 0
+    ins_tp = ins_fp = ins_fn = 0
 
     print(f"\nAjora communal-classification harness — data dir: {data_dir}\n" + "=" * 78)
 
     for label, path in datasets:
         batch = load_batch(path)
         dres = dedup.dedup(batch.transactions, batch.user)
+        # Insights operate on the DEDUPED ledger — communal patterns emerge after dedup.
         result = classifier.classify(
-            batch.transactions, batch.user, skip_ids=set(dres.internal_transfer_ids)
+            dres.deduped_transactions, batch.user, skip_ids=set(dres.internal_transfer_ids)
         )
         metrics: CommunalMetrics = evaluate(result, batch)
+        insights = insights_from_result(result, dres.totals.net_income)
+        ins_metrics = evaluate_insights(insights, batch)
 
         by_id = {t.id: t for t in batch.transactions}
         gold = {t.id: t.communal_tag for t in batch.transactions}
@@ -91,6 +101,29 @@ def run(data_dir: Path) -> int:
             )
             print(f"  relationships: {rels}")
 
+        # relationship-insight layer (the API / explainer contract)
+        if insights.insights:
+            print(f"  insights (net income ₦{insights.net_income_ngn:,.0f}):")
+            for ins in insights.insights:
+                print(
+                    f"    • {ins.counterparty:16} {ins.relationship_type:16} "
+                    f"out ₦{ins.total_out_ngn:>10,.0f}  in ₦{ins.total_in_ngn:>10,.0f}  "
+                    f"net ₦{ins.net_position_ngn:>10,.0f}  "
+                    f"{ins.pct_of_net_income:5.2f}% of net income  "
+                    f"{ins.cadence}×{ins.count}  [{ins.tier} {ins.confidence:.2f}]"
+                )
+        ins_tp += ins_metrics.tp
+        ins_fp += ins_metrics.fp
+        ins_fn += ins_metrics.fn
+        itag = "OK" if ins_metrics.exact else "MISMATCH"
+        print(
+            f"  insight-type detection: {itag}  tp {ins_metrics.tp} fp {ins_metrics.fp} fn {ins_metrics.fn}"
+        )
+        if ins_metrics.false_positives:
+            print(f"    spurious: {sorted(ins_metrics.false_positives)}")
+        if ins_metrics.false_negatives:
+            print(f"    missed:   {sorted(ins_metrics.false_negatives)}")
+
         # misclassifications
         for tid, g in gold.items():
             p = pred.get(tid)
@@ -104,9 +137,14 @@ def run(data_dir: Path) -> int:
     mr = agg_tp / (agg_tp + agg_fn) if (agg_tp + agg_fn) else 1.0
     mf = 2 * mp * mr / (mp + mr) if (mp + mr) else 0.0
     print("AGGREGATE (micro-averaged over all communal transactions)")
-    print(f"  precision {mp:.4f}  recall {mr:.4f}  F1 {mf:.4f}   "
-          f"(tp {agg_tp}, fp {agg_fp}, fn {agg_fn})\n")
-    return 0 if (agg_fp == 0 and agg_fn == 0) else 2
+    print(f"  per-class     precision {mp:.4f}  recall {mr:.4f}  F1 {mf:.4f}   "
+          f"(tp {agg_tp}, fp {agg_fp}, fn {agg_fn})")
+    ip = ins_tp / (ins_tp + ins_fp) if (ins_tp + ins_fp) else 1.0
+    ir = ins_tp / (ins_tp + ins_fn) if (ins_tp + ins_fn) else 1.0
+    print(f"  insight-type  precision {ip:.4f}  recall {ir:.4f}            "
+          f"(tp {ins_tp}, fp {ins_fp}, fn {ins_fn})\n")
+    ok = agg_fp == 0 and agg_fn == 0 and ins_fp == 0 and ins_fn == 0
+    return 0 if ok else 2
 
 
 def main() -> None:

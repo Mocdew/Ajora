@@ -14,10 +14,17 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
-from ..schemas.communal import CommunalResult, CommunalTag
+from ..schemas.communal import (
+    CommunalInsights,
+    CommunalResult,
+    CommunalTag,
+    RelationshipType,
+)
 from ..schemas.transaction import TransactionBatch
+from .graph import counterparty_key
+from .insights import TAG_TO_TYPE
 
 ALL_TAGS: List[CommunalTag] = [
     "ajo", "ajo_payout", "dependent", "informal_loan_out", "loan_repayment", "remittance_in",
@@ -86,3 +93,78 @@ def evaluate(result: CommunalResult, batch: TransactionBatch) -> CommunalMetrics
         if (tp[tag] + fp[tag] + fn[tag]) > 0
     }
     return CommunalMetrics(per_class=per_class)
+
+
+# --- insight-level detection accuracy -----------------------------------------------
+# Does the relationship-insight layer surface the right relationship TYPES (and no
+# spurious ones)? We measure at (counterparty, relationship_type) granularity against
+# the gold `communal_tag`: each gold-tagged transaction's counterparty + mapped type is
+# a relationship that must be detected exactly once.
+
+Relationship = Tuple[str, RelationshipType]
+
+
+@dataclass(frozen=True)
+class InsightDetectionMetrics:
+    detected: Set[Relationship]
+    gold: Set[Relationship]
+
+    @property
+    def true_positives(self) -> Set[Relationship]:
+        return self.detected & self.gold
+
+    @property
+    def false_positives(self) -> Set[Relationship]:
+        return self.detected - self.gold
+
+    @property
+    def false_negatives(self) -> Set[Relationship]:
+        return self.gold - self.detected
+
+    @property
+    def tp(self) -> int:
+        return len(self.true_positives)
+
+    @property
+    def fp(self) -> int:
+        return len(self.false_positives)
+
+    @property
+    def fn(self) -> int:
+        return len(self.false_negatives)
+
+    @property
+    def precision(self) -> float:
+        return self.tp / (self.tp + self.fp) if (self.tp + self.fp) else 1.0
+
+    @property
+    def recall(self) -> float:
+        return self.tp / (self.tp + self.fn) if (self.tp + self.fn) else 1.0
+
+    @property
+    def exact(self) -> bool:
+        """Every gold relationship detected and nothing spurious."""
+        return self.fp == 0 and self.fn == 0
+
+
+def gold_relationships(batch: TransactionBatch) -> Set[Relationship]:
+    """The relationships the insight layer should surface, derived from `communal_tag`.
+
+    Eval-only: uses the ground-truth label. The engine itself never calls this.
+    """
+    gold: Set[Relationship] = set()
+    for t in batch.transactions:
+        if t.communal_tag is None:
+            continue
+        key = counterparty_key(t)
+        if key is None:
+            continue
+        gold.add((key, TAG_TO_TYPE[t.communal_tag]))  # type: ignore[index]
+    return gold
+
+
+def evaluate_insights(insights: CommunalInsights, batch: TransactionBatch) -> InsightDetectionMetrics:
+    detected: Set[Relationship] = {
+        (ins.counterparty, ins.relationship_type) for ins in insights.insights
+    }
+    return InsightDetectionMetrics(detected=detected, gold=gold_relationships(batch))
