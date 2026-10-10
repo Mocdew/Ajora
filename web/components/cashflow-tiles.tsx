@@ -13,6 +13,8 @@ import { Card } from "@/components/ui/card";
 import { AnimatedNaira } from "@/components/animated-naira";
 import { useDashboard } from "@/lib/api/dashboard";
 import { useDedup } from "@/components/dedup-context";
+import { usePersona } from "@/components/persona-context";
+import { QueryError } from "@/components/query-error";
 import { cn, formatNaira } from "@/lib/utils";
 
 const compact: Intl.NumberFormatOptions = {
@@ -116,26 +118,25 @@ function TilesSkeleton() {
  * reads as a reveal.
  */
 export function CashflowTiles() {
-  const { data, isLoading, isError } = useDashboard();
+  const { userId } = usePersona();
+  const { data, isLoading, isError, error, refetch } = useDashboard(userId);
   const { deduped } = useDedup();
 
+  if (isError) {
+    return (
+      <div className="sm:col-span-2 xl:col-span-3">
+        <QueryError error={error} onRetry={() => refetch()} />
+      </div>
+    );
+  }
   if (isLoading || !data) {
-    if (isError) {
-      return (
-        <Card className="p-5 sm:col-span-2 xl:col-span-3">
-          <p className="text-sm text-negative">
-            Couldn&apos;t load your cashflow. Please retry.
-          </p>
-        </Card>
-      );
-    }
     return <TilesSkeleton />;
   }
 
   const active = deduped ? data.deduped : data.naive;
-  const incomeRemoved = data.naive.income - data.deduped.income;
-  const spendingRemoved = data.naive.spending - data.deduped.spending;
-  const pctLabel = `${Math.round(data.phantomTransfers.pctOfRawInflow * 100)}%`;
+  const incomeRemoved = data.phantom.incomeRemoved;
+  const spendingRemoved = data.phantom.spendingRemoved;
+  const pctLabel = `${Math.round(data.phantom.incomeInflationPct)}%`;
   const netPositive = active.net >= 0;
 
   return (
@@ -155,8 +156,8 @@ export function CashflowTiles() {
             chip={
               deduped ? (
                 <Chip tone="inflated" icon={ArrowDown}>
-                  {formatNaira(incomeRemoved, compact)} phantom · {pctLabel} of
-                  raw
+                  {formatNaira(incomeRemoved, compact)} phantom · {pctLabel}{" "}
+                  inflation
                 </Chip>
               ) : (
                 <Chip tone="inflated">

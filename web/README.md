@@ -15,10 +15,52 @@ bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+(The team dev server runs on **:3100** — `npm run dev -- -p 3100`.)
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Talking to the Ajora engine (FastAPI)
+
+The frontend never calls the FastAPI engine directly from the browser — the engine's
+CORS allow-list is pinned to the `:3000` origin and sends credentials, so a cross-origin
+fetch would be blocked. Instead, **Next proxies the engine** via a server-side rewrite
+(see `next.config.ts`):
+
+```
+/api/engine/:path*   →   ${AJORA_API_BASE}/:path*
+```
+
+Because the rewrite runs server-side, the browser only ever makes **same-origin** calls
+to `/api/engine/...`, so CORS never applies — regardless of which port Next runs on.
+
+Set the engine base in `.env.local` (git-ignored):
+
+```
+AJORA_API_BASE=http://localhost:8000
+```
+
+`AJORA_API_BASE` is a **server-only** var (read when the Next server starts). For
+staging/prod, point it at the deployed engine URL — no frontend code changes needed.
+
+Run the engine from the repo root:
+
+```bash
+.venv/bin/python -m uvicorn api.main:app --port 8000
+```
+
+### Regenerating the API types
+
+TypeScript types are generated from the engine's live OpenAPI schema with
+[`openapi-typescript`](https://openapi-ts.dev) into `lib/api/engine-schema.d.ts`
+(friendly aliases live in `lib/api/engine-types.ts`). With the engine running:
+
+```bash
+npm run gen:api
+```
+
+## Fonts
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load fonts.
 
 ## Learn More
 

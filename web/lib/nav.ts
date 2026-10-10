@@ -39,7 +39,6 @@ export const navItems: NavItem[] = [
     href: "/communal",
     icon: Users,
     description: "Ajo, dependents, lending & remittances",
-    comingSoon: true,
   },
   {
     title: "Audit",

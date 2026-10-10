@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { AjoraWordmark } from "@/components/ajora-wordmark";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
+import { PersonaSwitcher } from "@/components/shell/persona-switcher";
 
 export function TopBar() {
   return (
@@ -21,6 +22,7 @@ export function TopBar() {
           <ShieldCheck className="h-3.5 w-3.5 text-teal" aria-hidden />
           Consent-first · demo data
         </span>
+        <PersonaSwitcher />
         <ThemeToggle />
         <span
           className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground"

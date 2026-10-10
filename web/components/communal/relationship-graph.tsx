@@ -2,26 +2,29 @@
 
 import * as React from "react";
 import type cytoscape from "cytoscape";
-import { cn } from "@/lib/utils";
-import { useCommunal } from "@/lib/api/communal";
-import type { CommunalGraph } from "@/lib/api/stub/communal";
+import { Users } from "lucide-react";
+import { cn, formatNaira } from "@/lib/utils";
+import { useRelationshipGraph } from "@/lib/api/communal";
+import { usePersona } from "@/components/persona-context";
+import { QueryError } from "@/components/query-error";
+import { Card } from "@/components/ui/card";
+import { prettyName, type Flow } from "@/lib/communal-insights";
+import type { GraphResponse, GraphNode } from "@/lib/api/engine-types";
 
 /**
- * Relationship graph — Cytoscape.js, mounted by hand (useRef + useEffect) rather
- * than through a React wrapper, so there's no wrapper version to chase and the
- * whole thing stays a client-only concern. Cytoscape is dynamically imported
- * inside the effect, so it never runs during SSR.
+ * Relationship graph — Cytoscape.js, mounted by hand (useRef + useEffect) so there's
+ * no React-wrapper version to chase; Cytoscape is dynamically imported inside the
+ * effect so it never runs during SSR.
  *
  * ── Visual encoding (validated with the dataviz skill) ──────────────────────
- * Cytoscape styles are plain JS, so the brand tokens are mirrored here as hex,
- * per theme (the CSS vars aren't readable from inside the canvas). A node-link
- * graph is an "all-pairs" form — any two nodes can sit side by side — which caps
- * categorical color at 3 hues per the skill. So color carries the 2-way money
- * DIRECTION (+ the user), and ROLE rides on node SHAPE + an always-on name label
- * + the legend. Identity is never color-alone; edge arrows + edge colors
- * reinforce direction. The two direction hues (teal #2FA58C in, amber #E5A23B /
- * #C27E1E out) pass the validator's CVD, normal-vision and (dark) contrast gates
- * in both modes; the light contrast WARN is relieved by the permanent labels.
+ * A node-link graph is an "all-pairs" form (any two nodes can sit side by side), so
+ * categorical color is capped at 3 saturated hues. Color therefore carries money
+ * DIRECTION (teal = in/owed-to-you, amber = out) plus the green user hub, with a
+ * neutral gray for balanced (ajo, net ≈ 0) ties — a diverging-style neutral midpoint,
+ * not a 4th category. ROLE rides on node SHAPE + an always-on name label + the legend,
+ * so identity is never color-alone. The direction pair passes the validator's CVD,
+ * normal-vision and contrast gates in both modes (light amber's sub-3:1 is relieved by
+ * the permanent labels + legend + the insight-card figures above).
  */
 
 type Theme = "light" | "dark";
@@ -30,6 +33,7 @@ interface Palette {
   self: string;
   in: string;
   out: string;
+  neutral: string;
   ink: string;
   edgeLabelBg: string;
   border: string;
@@ -37,30 +41,31 @@ interface Palette {
 
 const PALETTES: Record<Theme, Palette> = {
   light: {
-    self: "#0E3A2E", // --primary, deep forest green (hero)
+    self: "#0E3A2E", // --primary, deep forest green (hero hub)
     in: "#2FA58C", // --teal / --chart-true — money in / owed to you
     out: "#E5A23B", // --gold / --chart-inflated — money out
+    neutral: "#8A948C", // green-gray — balanced two-way (ajo)
     ink: "#0D2B22", // --foreground
     edgeLabelBg: "#FFFFFF", // --card
     border: "#E1DDD1", // --border
   },
   dark: {
-    self: "#3FA87F", // brighter green on the dark card so the hub reads
-    in: "#2FA58C", // teal holds its step in dark (validated)
-    out: "#C27E1E", // amber steps down into the dark lightness band (validated)
-    ink: "#F2EFE6", // --foreground (dark)
-    edgeLabelBg: "#123A2E", // --card (dark)
+    self: "#3FA87F",
+    in: "#2FA58C",
+    out: "#C27E1E",
+    neutral: "#7E8C86",
+    ink: "#F2EFE6",
+    edgeLabelBg: "#123A2E",
     border: "#1E4A3C",
   },
 };
 
-/** Node shape per role — the secondary (non-color) identity channel.
- * `as const` keeps these as literal NodeShape values for the Cytoscape style. */
+/** Node shape per relationship role — the secondary (non-color) identity channel. */
 const SHAPE = {
-  self: "ellipse",
-  thrift: "round-rectangle",
+  user: "ellipse",
+  ajo_esusu: "round-rectangle",
   dependent: "ellipse",
-  lending: "diamond",
+  informal_lending: "diamond",
   remittance: "hexagon",
 } as const;
 
@@ -69,30 +74,104 @@ function readTheme(): Theme {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
-function buildElements(graph: CommunalGraph): cytoscape.ElementDefinition[] {
-  const nodes: cytoscape.ElementDefinition[] = graph.nodes.map((n) => ({
-    data: {
-      id: n.id,
-      label: n.label,
-      type: n.type,
-      direction: n.direction,
-      amount: n.amount ?? 0,
-    },
-  }));
-  const edges: cytoscape.ElementDefinition[] = graph.edges.map((e) => ({
-    data: {
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      label: e.label ?? "",
-      direction: e.direction,
-      amount: e.amount,
-    },
-  }));
-  return [...nodes, ...edges];
+/** Money flow relative to the user for a counterparty node. Mirrors insightFlow. */
+function nodeFlow(n: GraphNode): Flow {
+  switch (n.relationship_type) {
+    case "dependent":
+      return "out";
+    case "ajo_esusu":
+      return Math.abs(n.net_position_ngn) < 1 ? "neutral" : n.net_position_ngn > 0 ? "out" : "in";
+    case "informal_lending":
+      return n.net_position_ngn >= 0 ? "in" : "out";
+    case "remittance":
+      return n.total_in_ngn >= n.total_out_ngn ? "in" : "out";
+    default:
+      return "neutral";
+  }
 }
 
-function buildStylesheet(p: Palette): cytoscape.StylesheetJson {
+/** Gross volume on a tie — drives node size + edge width. */
+function nodeVolume(n: GraphNode): number {
+  return Math.max(n.total_out_ngn, n.total_in_ngn, Math.abs(n.net_position_ngn));
+}
+
+const compact: Intl.NumberFormatOptions = {
+  notation: "compact",
+  maximumFractionDigits: 1,
+};
+
+/** Short, money-first edge label. */
+function edgeLabel(n: GraphNode): string {
+  const flow = nodeFlow(n);
+  switch (n.relationship_type) {
+    case "informal_lending":
+      return flow === "in"
+        ? `owes ${formatNaira(n.net_position_ngn, compact)}`
+        : `you owe ${formatNaira(Math.abs(n.net_position_ngn), compact)}`;
+    case "ajo_esusu":
+      return `${formatNaira(n.total_out_ngn, compact)} ⇄`;
+    case "remittance":
+      return flow === "in"
+        ? `${formatNaira(n.total_in_ngn, compact)} in`
+        : `${formatNaira(n.total_out_ngn, compact)} out`;
+    case "dependent":
+    default:
+      return `${formatNaira(n.total_out_ngn, compact)} out`;
+  }
+}
+
+interface Built {
+  elements: cytoscape.ElementDefinition[];
+  volMin: number;
+  volMax: number;
+}
+
+function buildElements(graph: GraphResponse): Built {
+  const counterparties = graph.nodes.filter((n) => n.kind !== "user");
+  const vols = counterparties.map(nodeVolume).filter((v) => v > 0);
+  const volMin = vols.length ? Math.min(...vols) : 0;
+  const volMax = vols.length ? Math.max(...vols) : 1;
+
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+
+  const nodes: cytoscape.ElementDefinition[] = graph.nodes.map((n) => {
+    const isUser = n.kind === "user";
+    return {
+      data: {
+        id: n.id,
+        label: isUser ? n.label : prettyName(n.label),
+        role: isUser ? "user" : n.relationship_type ?? "dependent",
+        direction: isUser ? "self" : nodeFlow(n),
+        volume: isUser ? 0 : nodeVolume(n),
+      },
+    };
+  });
+
+  const edges: cytoscape.ElementDefinition[] = graph.edges.map((e) => {
+    // The engine emits source = __user__. For flows that arrive at the user
+    // (money owed/received), flip so the arrow points back at the hub.
+    const other = byId.get(e.target === "__user__" ? e.source : e.target);
+    const flow = other ? nodeFlow(other) : "neutral";
+    const pointsAtUser = flow === "in";
+    return {
+      data: {
+        id: e.id,
+        source: pointsAtUser ? e.target : e.source,
+        target: pointsAtUser ? e.source : e.target,
+        label: other ? edgeLabel(other) : e.label,
+        direction: flow,
+        volume: other ? nodeVolume(other) : e.total_ngn,
+      },
+    };
+  });
+
+  return { elements: [...nodes, ...edges], volMin, volMax };
+}
+
+function buildStylesheet(p: Palette, volMin: number, volMax: number): cytoscape.StylesheetJson {
+  // Guard the mapData domain so a single-tie (or equal-volume) graph still sizes.
+  const lo = volMin;
+  const hi = volMax > volMin ? volMax : volMin + 1;
   return [
     {
       selector: "node",
@@ -107,27 +186,27 @@ function buildStylesheet(p: Palette): cytoscape.StylesheetJson {
         "text-wrap": "wrap",
         "text-max-width": "96px",
         "border-width": 2,
-        "border-color": p.edgeLabelBg, // surface ring so overlapping marks separate
+        "border-color": p.edgeLabelBg,
         "transition-property": "border-width, border-color",
         "transition-duration": 120,
       },
     },
-    // Size by monthly volume (counterparties only — self is fixed below).
     {
-      selector: "node[amount > 0]",
+      selector: "node[volume > 0]",
       style: {
-        width: "mapData(amount, 30000, 80000, 44, 66)",
-        height: "mapData(amount, 30000, 80000, 44, 66)",
+        width: `mapData(volume, ${lo}, ${hi}, 44, 66)`,
+        height: `mapData(volume, ${lo}, ${hi}, 44, 66)`,
       },
     },
     // Color by money direction.
     { selector: 'node[direction = "in"]', style: { "background-color": p.in } },
     { selector: 'node[direction = "out"]', style: { "background-color": p.out } },
+    { selector: 'node[direction = "neutral"]', style: { "background-color": p.neutral } },
     {
       selector: 'node[direction = "self"]',
       style: {
         "background-color": p.self,
-        color: p.self, // the hub's own label leans on its hue, below the node
+        color: p.self,
         width: 74,
         height: 74,
         "font-size": 14,
@@ -135,21 +214,18 @@ function buildStylesheet(p: Palette): cytoscape.StylesheetJson {
       },
     },
     // Shape by role.
-    { selector: 'node[type = "thrift"]', style: { shape: SHAPE.thrift } },
-    { selector: 'node[type = "dependent"]', style: { shape: SHAPE.dependent } },
-    { selector: 'node[type = "lending"]', style: { shape: SHAPE.lending } },
-    { selector: 'node[type = "remittance"]', style: { shape: SHAPE.remittance } },
-    { selector: 'node[type = "self"]', style: { shape: SHAPE.self } },
+    { selector: 'node[role = "ajo_esusu"]', style: { shape: SHAPE.ajo_esusu } },
+    { selector: 'node[role = "dependent"]', style: { shape: SHAPE.dependent } },
+    { selector: 'node[role = "informal_lending"]', style: { shape: SHAPE.informal_lending } },
+    { selector: 'node[role = "remittance"]', style: { shape: SHAPE.remittance } },
+    { selector: 'node[role = "user"]', style: { shape: SHAPE.user } },
     // Hover emphasis.
-    {
-      selector: "node.hl",
-      style: { "border-width": 3, "border-color": p.ink },
-    },
+    { selector: "node.hl", style: { "border-width": 3, "border-color": p.ink } },
     // Edges — directional, colored + arrowed by money direction.
     {
       selector: "edge",
       style: {
-        width: "mapData(amount, 30000, 80000, 2, 5)",
+        width: `mapData(volume, ${lo}, ${hi}, 2, 5)`,
         "curve-style": "bezier",
         "target-arrow-shape": "triangle",
         "arrow-scale": 1.1,
@@ -174,16 +250,25 @@ function buildStylesheet(p: Palette): cytoscape.StylesheetJson {
       style: { "line-color": p.out, "target-arrow-color": p.out },
     },
     {
+      // Balanced ties read as two-way: arrows at both ends, neutral gray.
+      selector: 'edge[direction = "neutral"]',
+      style: {
+        "line-color": p.neutral,
+        "target-arrow-color": p.neutral,
+        "source-arrow-color": p.neutral,
+        "source-arrow-shape": "triangle",
+      },
+    },
+    {
       selector: "edge.hl",
-      style: { opacity: 1, width: "mapData(amount, 30000, 80000, 3, 6)" },
+      style: { opacity: 1, width: `mapData(volume, ${lo}, ${hi}, 3, 6)` },
     },
   ];
 }
 
 const LAYOUT: cytoscape.ConcentricLayoutOptions = {
   name: "concentric",
-  // Self at the dead center, every counterparty on the ring around it.
-  concentric: (node) => (node.data("type") === "self" ? 2 : 1),
+  concentric: (node) => (node.data("direction") === "self" ? 2 : 1),
   levelWidth: () => 1,
   minNodeSpacing: 46,
   padding: 28,
@@ -253,6 +338,10 @@ function Legend() {
             Money out
           </span>
           <span className="inline-flex items-center gap-1.5 text-foreground">
+            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: "#8A948C" }} aria-hidden />
+            Balanced (two-way)
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-foreground">
             <span className="h-3 w-3 rounded-full" style={{ backgroundColor: "hsl(var(--primary))" }} aria-hidden />
             You
           </span>
@@ -264,13 +353,13 @@ function Legend() {
         </p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-foreground">
           <span className="inline-flex items-center gap-1.5">
-            <ShapeGlyph shape="round-rect" /> Thrift group
+            <ShapeGlyph shape="round-rect" /> Ajo / esusu
           </span>
           <span className="inline-flex items-center gap-1.5">
             <ShapeGlyph shape="circle" /> Dependent
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <ShapeGlyph shape="diamond" /> Lender (owes you)
+            <ShapeGlyph shape="diamond" /> Informal lending
           </span>
           <span className="inline-flex items-center gap-1.5">
             <ShapeGlyph shape="hex" /> Remittance
@@ -281,14 +370,38 @@ function Legend() {
   );
 }
 
+/** Empty state for a persona with only the user node (no communal ties). */
+function EmptyGraph() {
+  return (
+    <Card className="flex h-[460px] flex-col items-center justify-center gap-3 border-dashed bg-muted/10 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+        <Users className="h-6 w-6 text-muted-foreground" aria-hidden />
+      </span>
+      <div className="space-y-1">
+        <p className="text-base font-semibold text-foreground">
+          No relationships to graph yet
+        </p>
+        <p className="mx-auto max-w-md text-sm text-muted-foreground">
+          This persona has no communal counterparties for the period — just them.
+          Switch personas to explore a richer relationship web.
+        </p>
+      </div>
+    </Card>
+  );
+}
+
 export function RelationshipGraph() {
-  const { data, isLoading, isError } = useCommunal();
+  const { userId } = usePersona();
+  const { data, isLoading, isError, error, refetch } =
+    useRelationshipGraph(userId);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const cyRef = React.useRef<cytoscape.Core | null>(null);
-  // Re-render the graph when the <html> `dark` class flips.
   const [theme, setTheme] = React.useState<Theme>("light");
 
-  // Track the active theme via the same `.dark` class the theme toggle sets.
+  const hasCounterparties = Boolean(
+    data && data.nodes.some((n) => n.kind !== "user"),
+  );
+
   React.useEffect(() => {
     setTheme(readTheme());
     const obs = new MutationObserver(() => setTheme(readTheme()));
@@ -299,9 +412,8 @@ export function RelationshipGraph() {
     return () => obs.disconnect();
   }, []);
 
-  // Mount / rebuild the Cytoscape instance. Rebuilt on data or theme change.
   React.useEffect(() => {
-    if (!data || !containerRef.current) return;
+    if (!data || !hasCounterparties || !containerRef.current) return;
     let disposed = false;
     let cy: cytoscape.Core | null = null;
 
@@ -310,19 +422,19 @@ export function RelationshipGraph() {
       if (disposed || !containerRef.current) return;
 
       const palette = PALETTES[theme];
+      const { elements, volMin, volMax } = buildElements(data);
       cy = cytoscapeLib({
         container: containerRef.current,
-        elements: buildElements(data.graph),
-        style: buildStylesheet(palette),
+        elements,
+        style: buildStylesheet(palette, volMin, volMax),
         layout: LAYOUT,
         minZoom: 0.4,
         maxZoom: 2.5,
         wheelSensitivity: 0.2,
-        autoungrabify: false, // nodes stay draggable
+        autoungrabify: false,
       });
       cyRef.current = cy;
 
-      // Hover: lift the node and its incident edges.
       cy.on("mouseover", "node", (evt: cytoscape.EventObject) => {
         const n = evt.target;
         n.addClass("hl");
@@ -342,20 +454,17 @@ export function RelationshipGraph() {
       if (cy) cy.destroy();
       cyRef.current = null;
     };
-  }, [data, theme]);
+  }, [data, hasCounterparties, theme]);
 
   if (isError) {
-    return (
-      <p className="flex h-[460px] items-center justify-center text-sm text-negative">
-        Couldn&apos;t load the relationship graph.
-      </p>
-    );
+    return <QueryError error={error} onRetry={() => refetch()} />;
   }
   if (isLoading || !data) return <GraphSkeleton />;
+  if (!hasCounterparties) return <EmptyGraph />;
 
-  const summary = data.graph.nodes
-    .filter((n) => n.type !== "self")
-    .map((n) => n.label)
+  const summary = data.nodes
+    .filter((n) => n.kind !== "user")
+    .map((n) => prettyName(n.label))
     .join(", ");
 
   return (
@@ -363,9 +472,9 @@ export function RelationshipGraph() {
       <figcaption className="sr-only">
         Relationship graph of your communal money flows. You are at the center,
         connected to {summary}. Teal nodes and arrows are money coming in or owed
-        to you; amber are money going out. Node shape encodes the relationship
-        type; node size scales with the monthly amount. Figures are listed in the
-        insight cards above.
+        to you; amber are money going out; gray are balanced two-way ties. Node
+        shape encodes the relationship type; node size scales with the amount.
+        Figures are listed in the insight cards above.
       </figcaption>
 
       <div
@@ -374,7 +483,7 @@ export function RelationshipGraph() {
         aria-label="Interactive relationship graph; a text summary and the figures are in the insight cards above and the legend below."
         className={cn(
           "h-[460px] w-full rounded-md border border-border bg-muted/20",
-          "touch-none", // let Cytoscape own gestures inside the canvas
+          "touch-none",
         )}
       />
 

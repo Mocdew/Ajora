@@ -1,10 +1,13 @@
 /**
- * Stub API client for Ajora.
+ * API client for Ajora.
  *
- * There is no live backend yet. When the FastAPI service and its
- * OpenAPI-generated types land, replace `request()` internals with the typed
- * client and point `API_BASE_URL` at the service. The surface here is kept
- * intentionally small so call sites (via TanStack Query) don't change.
+ * The live backend is the FastAPI app `api.main:app` (run from the repo root:
+ * `.venv/bin/python -m uvicorn api.main:app --reload`), served at API_BASE_URL
+ * (http://localhost:8000 by default; override with NEXT_PUBLIC_API_BASE_URL). It
+ * exposes /users, /users/{id}/{transactions,cashflow,insights,graph,explanations}.
+ * Most call sites still default to local stubs; set NEXT_PUBLIC_USE_LIVE_API=1 to
+ * hit the service. The surface here is kept intentionally small so call sites (via
+ * TanStack Query) don't change.
  */
 
 export const API_BASE_URL =

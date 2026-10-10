@@ -1,28 +1,48 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/api/client";
-import {
-  fetchCommunalStub,
-  type CommunalResponse,
-} from "@/lib/api/stub/communal";
+import { engineGet, engineKeys, type EngineError } from "@/lib/api/engine";
+import type {
+  InsightsResponse,
+  GraphResponse,
+} from "@/lib/api/engine-types";
 
 /**
- * Communal-finance query.
+ * Communal-finance queries — the real insight list and the relationship graph,
+ * both per-persona and keyed by `userId`.
  *
- * Today this resolves the local stub (`fetchCommunalStub`). When the FastAPI
- * insight engine exists, swap the `queryFn` for a call to the typed client, e.g.
+ * NOTE the double nesting on insights: the endpoint returns
+ * `{ user_id, full_name, insights: { insights: CommunalInsight[], net_income_ngn } }`.
+ * `useCommunalInsights` returns the outer `InsightsResponse`; read the array as
+ * `data.insights.insights`.
  *
- *   queryFn: () => request<CommunalResponse>("/communal")
- *
- * Nothing else changes: the key, the return type, and every call site stay the
- * same (mirrors `useDashboard`).
+ * A persona with no communal relationships (e.g. Adaeze) returns an empty
+ * `insights.insights` array and a graph with only the `__user__` node — the
+ * components render explicit empty states for that.
  */
-export function useCommunal() {
-  return useQuery<CommunalResponse>({
-    queryKey: queryKeys.communal,
-    queryFn: fetchCommunalStub,
+
+export function useCommunalInsights(userId: string) {
+  return useQuery<InsightsResponse, EngineError>({
+    queryKey: engineKeys.insights(userId),
+    enabled: Boolean(userId),
+    queryFn: ({ signal }) =>
+      engineGet<InsightsResponse>(
+        `/users/${encodeURIComponent(userId)}/insights`,
+        signal,
+      ),
   });
 }
 
-export type { CommunalResponse };
+export function useRelationshipGraph(userId: string) {
+  return useQuery<GraphResponse, EngineError>({
+    queryKey: engineKeys.graph(userId),
+    enabled: Boolean(userId),
+    queryFn: ({ signal }) =>
+      engineGet<GraphResponse>(
+        `/users/${encodeURIComponent(userId)}/graph`,
+        signal,
+      ),
+  });
+}
+
+export type { InsightsResponse, GraphResponse };

@@ -8,6 +8,8 @@ import {
   Globe,
   ArrowDownLeft,
   ArrowUpRight,
+  ArrowLeftRight,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -17,16 +19,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn, formatNaira } from "@/lib/utils";
-import { useCommunal } from "@/lib/api/communal";
+import { useCommunalInsights } from "@/lib/api/communal";
+import { usePersona } from "@/components/persona-context";
+import { QueryError } from "@/components/query-error";
+import {
+  RELATIONSHIP_LABEL,
+  composeInsightSentence,
+  insightFlow,
+  insightHeadline,
+  prettyName,
+  type Flow,
+} from "@/lib/communal-insights";
+import type {
+  CommunalInsight,
+  RelationshipType,
+} from "@/lib/api/engine-types";
 
 const compact: Intl.NumberFormatOptions = {
   notation: "compact",
   maximumFractionDigits: 1,
 };
 
-/** Per-category accent, expressed as a CSS-var hsl() so it themes automatically.
- * These are card chrome (icon tint, hairline), not a data encoding — the figure
- * and labels carry meaning, so they're exempt from the categorical-palette cap. */
+/** Per-type card chrome (icon + accent). Card chrome, not a data encoding — the
+ * figures and labels carry meaning — so exempt from the categorical-palette cap. */
 type Accent = "teal" | "gold" | "positive";
 const accentColor: Record<Accent, string> = {
   teal: "hsl(var(--teal))",
@@ -34,48 +49,72 @@ const accentColor: Record<Accent, string> = {
   positive: "hsl(var(--positive))",
 };
 
+const TYPE_CHROME: Record<RelationshipType, { icon: LucideIcon; accent: Accent }> = {
+  ajo_esusu: { icon: Repeat, accent: "teal" },
+  dependent: { icon: HeartHandshake, accent: "gold" },
+  informal_lending: { icon: HandCoins, accent: "positive" },
+  remittance: { icon: Globe, accent: "teal" },
+};
+
+const flowMeta: Record<Flow, { icon: LucideIcon; label: string; className: string }> = {
+  out: { icon: ArrowUpRight, label: "Money out", className: "text-[hsl(var(--gold))]" },
+  in: { icon: ArrowDownLeft, label: "Money in", className: "text-teal" },
+  neutral: {
+    icon: ArrowLeftRight,
+    label: "Two-way",
+    className: "text-muted-foreground",
+  },
+};
+
 interface Stat {
   label: string;
   value: string;
 }
 
-interface InsightCardProps {
-  icon: LucideIcon;
-  accent: Accent;
-  category: string;
-  /** Direction of the money relative to the user, shown as an icon + word. */
-  flow: "in" | "out";
-  /** Big pre-formatted headline figure (e.g. "₦50k"). */
-  headline: string;
-  /** Short qualifier after the headline (e.g. "/ month"). */
-  headlineSuffix?: string;
-  /** Supporting mini-stats row. */
-  stats: Stat[];
-  /** The deck-phrased human sentence. */
-  detail: string;
+/** The per-type supporting mini-stats row, from real fields. */
+function statsFor(ins: CommunalInsight): Stat[] {
+  const base: Stat[] = [
+    { label: "Transactions", value: String(ins.count) },
+    { label: "Cadence", value: ins.cadence },
+  ];
+  switch (ins.relationship_type) {
+    case "informal_lending":
+      return [
+        { label: "Lent", value: formatNaira(ins.total_out_ngn, compact) },
+        { label: "Repaid", value: formatNaira(ins.total_in_ngn, compact) },
+        { label: "To", value: prettyName(ins.counterparty) },
+      ];
+    case "ajo_esusu":
+      return [
+        { label: "Contributed", value: formatNaira(ins.total_out_ngn, compact) },
+        { label: "Collected", value: formatNaira(ins.total_in_ngn, compact) },
+        { label: "Moves", value: String(ins.count) },
+      ];
+    case "dependent":
+      return [
+        { label: "Of net income", value: `${ins.pct_of_net_income.toFixed(1)}%` },
+        ...base,
+      ];
+    case "remittance":
+      return [
+        { label: "Of net income", value: `${ins.pct_of_net_income.toFixed(1)}%` },
+        { label: "Cadence", value: ins.cadence },
+      ];
+    default:
+      return base;
+  }
 }
 
-const flowMeta = {
-  out: { icon: ArrowUpRight, label: "Money out", className: "text-[hsl(var(--gold))]" },
-  in: { icon: ArrowDownLeft, label: "Money in", className: "text-teal" },
-} as const;
-
-function InsightCard({
-  icon: Icon,
-  accent,
-  category,
-  flow,
-  headline,
-  headlineSuffix,
-  stats,
-  detail,
-}: InsightCardProps) {
+function InsightCard({ ins }: { ins: CommunalInsight }) {
+  const { icon: Icon, accent } = TYPE_CHROME[ins.relationship_type];
   const color = accentColor[accent];
+  const flow = insightFlow(ins);
   const Flow = flowMeta[flow].icon;
+  const headline = insightHeadline(ins);
+  const stats = statsFor(ins);
 
   return (
     <Card className="flex flex-col overflow-hidden">
-      {/* Accent hairline — the category's color as a thin top rule. */}
       <div aria-hidden className="h-1 w-full" style={{ backgroundColor: color }} />
       <CardHeader className="gap-3 pb-3">
         <div className="flex items-center justify-between gap-3">
@@ -95,18 +134,23 @@ function InsightCard({
             {flowMeta[flow].label}
           </span>
         </div>
-        <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {category}
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          {RELATIONSHIP_LABEL[ins.relationship_type]}
+          {ins.tier === "medium" ? (
+            <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-muted-foreground">
+              confirm
+            </span>
+          ) : null}
         </CardTitle>
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col gap-4">
         <div className="flex items-baseline gap-1.5">
           <span className="font-display text-3xl font-semibold tabular-nums tracking-tight text-foreground">
-            {headline}
+            {formatNaira(headline.value, compact)}
           </span>
-          {headlineSuffix ? (
-            <span className="text-sm text-muted-foreground">{headlineSuffix}</span>
+          {headline.suffix ? (
+            <span className="text-sm text-muted-foreground">{headline.suffix}</span>
           ) : null}
         </div>
 
@@ -124,7 +168,7 @@ function InsightCard({
         </dl>
 
         <p className="mt-auto border-t border-border/70 pt-3 text-sm leading-relaxed text-muted-foreground">
-          {detail}
+          {composeInsightSentence(ins)}
         </p>
       </CardContent>
     </Card>
@@ -135,16 +179,35 @@ function CardSkeleton() {
   return <div className="h-64 w-full animate-pulse rounded-lg bg-muted/50" />;
 }
 
-/** The four communal-finance insight cards, driven by the stubbed `/communal`. */
+/** Clean empty state for a persona with no communal relationships (e.g. Adaeze). */
+function EmptyInsights() {
+  return (
+    <Card className="flex flex-col items-center justify-center gap-3 p-10 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+        <Users className="h-6 w-6 text-muted-foreground" aria-hidden />
+      </span>
+      <div className="space-y-1">
+        <p className="text-base font-semibold text-foreground">
+          No communal relationships detected for this period
+        </p>
+        <p className="mx-auto max-w-md text-sm text-muted-foreground">
+          Once this persona&apos;s deduped ledger shows recurring ajo/esusu,
+          dependent support, informal lending or remittances, they&apos;ll appear
+          here. Try another persona from the switcher to see the invisible economy.
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+/** The communal-finance insight cards, driven by the live `/insights` endpoint. */
 export function CommunalInsightCards() {
-  const { data, isLoading, isError } = useCommunal();
+  const { userId } = usePersona();
+  const { data, isLoading, isError, error, refetch } =
+    useCommunalInsights(userId);
 
   if (isError) {
-    return (
-      <p className="text-sm text-negative">
-        Couldn&apos;t load communal insights.
-      </p>
-    );
+    return <QueryError error={error} onRetry={() => refetch()} />;
   }
   if (isLoading || !data) {
     return (
@@ -156,68 +219,16 @@ export function CommunalInsightCards() {
     );
   }
 
-  const { ajo, dependents, lending, remittances } = data.insights;
-  const pct = Math.round(dependents.pctOfTakeHome * 100);
+  const insights = data.insights.insights ?? [];
+  if (insights.length === 0) {
+    return <EmptyInsights />;
+  }
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <InsightCard
-        icon={Repeat}
-        accent="teal"
-        category="Ajo / esusu"
-        flow="out"
-        headline={formatNaira(ajo.monthlyContribution, compact)}
-        headlineSuffix="/ month"
-        stats={[
-          { label: "Rotation", value: `${ajo.rotationPosition} of ${ajo.rotationSize}` },
-          { label: "Next payout", value: ajo.nextPayoutLabel },
-          { label: "Payout", value: formatNaira(ajo.nextPayoutAmount, compact) },
-        ]}
-        detail={ajo.detail}
-      />
-
-      <InsightCard
-        icon={HeartHandshake}
-        accent="gold"
-        category='Dependents · "black tax"'
-        flow="out"
-        headline={formatNaira(dependents.monthlySupport, compact)}
-        headlineSuffix="/ month"
-        stats={[
-          { label: "Dependents", value: String(dependents.dependentCount) },
-          { label: "Of take-home", value: `${pct}%` },
-        ]}
-        detail={dependents.detail}
-      />
-
-      <InsightCard
-        icon={HandCoins}
-        accent="positive"
-        category="Informal lending"
-        flow="in"
-        headline={formatNaira(lending.outstanding, compact)}
-        headlineSuffix="outstanding"
-        stats={[
-          { label: "Lent", value: formatNaira(lending.lent, compact) },
-          { label: "Returned", value: formatNaira(lending.returned, compact) },
-          { label: "To", value: lending.counterpartyName },
-        ]}
-        detail={lending.detail}
-      />
-
-      <InsightCard
-        icon={Globe}
-        accent="teal"
-        category="Remittances"
-        flow={remittances.direction === "inbound" ? "in" : "out"}
-        headline={formatNaira(remittances.monthlyAmount, compact)}
-        headlineSuffix="/ month"
-        stats={[
-          { label: "Destination", value: remittances.destinationLabel },
-          { label: "Cadence", value: remittances.cadence },
-        ]}
-        detail={remittances.detail}
-      />
+      {insights.map((ins) => (
+        <InsightCard key={`${ins.relationship_type}:${ins.counterparty}`} ins={ins} />
+      ))}
     </div>
   );
 }

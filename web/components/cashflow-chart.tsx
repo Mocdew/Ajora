@@ -3,6 +3,8 @@
 import * as React from "react";
 import {
   ComposedChart,
+  BarChart,
+  Bar,
   Area,
   Line,
   XAxis,
@@ -11,8 +13,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useDashboard } from "@/lib/api/dashboard";
+import { useDashboard, type DashboardViewModel } from "@/lib/api/dashboard";
 import { useDedup } from "@/components/dedup-context";
+import { usePersona } from "@/components/persona-context";
+import { QueryError } from "@/components/query-error";
 import { cn, formatNaira } from "@/lib/utils";
 
 const compact: Intl.NumberFormatOptions = {
@@ -49,8 +53,17 @@ function Swatch({ color, dashed }: { color: string; dashed?: boolean }) {
   );
 }
 
-/** Crosshair tooltip: month, both figures, and the phantom delta — ink text + dots. */
-function ChartTooltip({
+function ChartSkeleton() {
+  return <div className="h-72 w-full animate-pulse rounded-md bg-muted/50" />;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Mode A — derived monthly series (personas whose ledger reconciles with the
+ * engine totals, i.e. no cross-currency legs). Raw vs true income, with the
+ * shaded band = phantom self-transfers removed.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+function SeriesTooltip({
   active,
   payload,
   label,
@@ -95,32 +108,8 @@ function ChartTooltip({
   );
 }
 
-function ChartSkeleton() {
-  return <div className="h-72 w-full animate-pulse rounded-md bg-muted/50" />;
-}
-
-/**
- * Cashflow-over-time, income view. Two lines — raw (inflated) and true
- * (deduped) — with the shaded band between them standing in for the phantom
- * self-transfers removed. The dedup toggle emphasizes whichever line is the
- * active story; the gap itself is always visible because the gap IS the pitch.
- *
- * Form = emphasis (1 hue + context), per the dataviz skill. Identity never
- * rides on color alone: a legend is always present, both line-ends are
- * directly labeled (ink text + a colored dot), and a full table view backs it.
- */
-export function CashflowChart() {
-  const { data, isLoading, isError } = useDashboard();
+function SeriesChart({ data }: { data: DashboardViewModel }) {
   const { deduped } = useDedup();
-
-  if (isError) {
-    return (
-      <p className="flex h-72 items-center justify-center text-sm text-negative">
-        Couldn&apos;t load the cashflow series.
-      </p>
-    );
-  }
-  if (isLoading || !data) return <ChartSkeleton />;
 
   const rows: Row[] = data.series.map((p) => ({
     month: p.month,
@@ -130,11 +119,9 @@ export function CashflowChart() {
   }));
   const last = rows.length - 1;
 
-  // Emphasis follows the toggle; both lines stay on screen.
   const trueEmph = deduped;
   const surface = "hsl(var(--card))";
 
-  // End-of-line direct label: a colored dot (the mark) + ink value text.
   const endLabel = (color: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const EndLabel = (props: any) => {
@@ -204,8 +191,8 @@ export function CashflowChart() {
       <div
         className="h-72 w-full"
         role="img"
-        aria-label={`Monthly income over ${data.periodLabel}. Raw income runs about ${Math.round(
-          data.phantomTransfers.pctOfRawInflow * 100,
+        aria-label={`Monthly income. Raw income runs about ${Math.round(
+          data.phantom.incomeInflationPct,
         )} percent higher than true income; the gap is phantom self-transfers removed by dedup. Full figures in the table below.`}
       >
         <ResponsiveContainer width="100%" height="100%">
@@ -249,7 +236,7 @@ export function CashflowChart() {
               domain={[0, "auto"]}
             />
             <Tooltip
-              content={<ChartTooltip />}
+              content={<SeriesTooltip />}
               cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1 }}
             />
 
@@ -351,5 +338,253 @@ export function CashflowChart() {
         </div>
       </details>
     </figure>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Mode B — before/after bars (fallback for a cross-currency persona whose raw
+ * ledger can't be summed client-side into the NGN-normalized engine totals).
+ * Straight from `before_after`: raw vs true, for Income and Spending.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+interface BarRow {
+  category: "Income" | "Spending";
+  raw: number;
+  true: number;
+  phantom: number;
+}
+
+function BarsTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: BarRow }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-border bg-popover p-3 text-sm shadow-md">
+      <p className="mb-2 font-medium text-popover-foreground">{row.category}</p>
+      <dl className="space-y-1.5">
+        <div className="flex items-center justify-between gap-6">
+          <dt className="flex items-center gap-2 text-muted-foreground">
+            <Swatch color={SERIES.true.color} /> True (deduped)
+          </dt>
+          <dd className="font-medium tabular-nums text-popover-foreground">
+            {formatNaira(row.true)}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-6">
+          <dt className="flex items-center gap-2 text-muted-foreground">
+            <Swatch color={SERIES.raw.color} /> Raw (inflated)
+          </dt>
+          <dd className="font-medium tabular-nums text-popover-foreground">
+            {formatNaira(row.raw)}
+          </dd>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-6 border-t border-border pt-1.5">
+          <dt className="text-muted-foreground">Phantom removed</dt>
+          <dd className="font-semibold tabular-nums text-foreground">
+            <span aria-hidden>↓ </span>
+            {formatNaira(row.phantom)}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function BeforeAfterChart({ data }: { data: DashboardViewModel }) {
+  const { deduped } = useDedup();
+  const trueEmph = deduped;
+
+  const rows: BarRow[] = [
+    {
+      category: "Income",
+      raw: data.naive.income,
+      true: data.deduped.income,
+      phantom: data.phantom.incomeRemoved,
+    },
+    {
+      category: "Spending",
+      raw: data.naive.spending,
+      true: data.deduped.spending,
+      phantom: data.phantom.spendingRemoved,
+    },
+  ];
+
+  return (
+    <figure className="m-0">
+      <figcaption className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+        <span
+          className={cn(
+            "inline-flex items-center gap-2 font-medium",
+            trueEmph ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          <span
+            aria-hidden
+            className="inline-block h-2.5 w-2.5 rounded-sm"
+            style={{ backgroundColor: SERIES.true.color }}
+          />
+          True (deduped)
+          {trueEmph ? (
+            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground">
+              Shown
+            </span>
+          ) : null}
+        </span>
+        <span
+          className={cn(
+            "inline-flex items-center gap-2 font-medium",
+            trueEmph ? "text-muted-foreground" : "text-foreground",
+          )}
+        >
+          <span
+            aria-hidden
+            className="inline-block h-2.5 w-2.5 rounded-sm"
+            style={{ backgroundColor: SERIES.raw.color }}
+          />
+          Raw (inflated)
+          {!trueEmph ? (
+            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground">
+              Shown
+            </span>
+          ) : null}
+        </span>
+        <span className="ml-auto text-muted-foreground">
+          Monthly series unavailable for this persona (cross-currency ledger) —
+          showing engine before/after totals.
+        </span>
+      </figcaption>
+
+      <div
+        className="h-72 w-full"
+        role="img"
+        aria-label={`Raw versus true income and spending. Income is inflated about ${Math.round(
+          data.phantom.incomeInflationPct,
+        )} percent and spending about ${Math.round(
+          data.phantom.spendingInflationPct,
+        )} percent by phantom self-transfers. Full figures in the table below.`}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={rows}
+            margin={{ top: 8, right: 16, bottom: 0, left: 8 }}
+            barGap={6}
+          >
+            <CartesianGrid
+              vertical={false}
+              stroke="hsl(var(--border))"
+              strokeWidth={1}
+            />
+            <XAxis
+              dataKey="category"
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+              dy={6}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              width={52}
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+              tickFormatter={(v: number) => formatNaira(v, compact)}
+              domain={[0, "auto"]}
+            />
+            <Tooltip
+              content={<BarsTooltip />}
+              cursor={{ fill: "hsl(var(--muted-foreground) / 0.08)" }}
+            />
+            <Bar
+              dataKey="raw"
+              name="Raw (inflated)"
+              fill={SERIES.raw.color}
+              fillOpacity={trueEmph ? 0.5 : 1}
+              radius={[4, 4, 0, 0]}
+              isAnimationActive
+            />
+            <Bar
+              dataKey="true"
+              name="True (deduped)"
+              fill={SERIES.true.color}
+              fillOpacity={trueEmph ? 1 : 0.55}
+              radius={[4, 4, 0, 0]}
+              isAnimationActive
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <details className="mt-4 text-sm">
+        <summary className="cursor-pointer select-none text-muted-foreground hover:text-foreground">
+          View as table
+        </summary>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full border-collapse text-left tabular-nums">
+            <thead>
+              <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                <th scope="col" className="py-2 pr-4 font-medium">
+                  Measure
+                </th>
+                <th scope="col" className="py-2 pr-4 font-medium">
+                  True (deduped)
+                </th>
+                <th scope="col" className="py-2 pr-4 font-medium">
+                  Raw (inflated)
+                </th>
+                <th scope="col" className="py-2 font-medium">
+                  Phantom removed
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.category} className="border-b border-border/60">
+                  <th
+                    scope="row"
+                    className="py-2 pr-4 font-normal text-muted-foreground"
+                  >
+                    {r.category}
+                  </th>
+                  <td className="py-2 pr-4 text-foreground">
+                    {formatNaira(r.true)}
+                  </td>
+                  <td className="py-2 pr-4 text-muted-foreground">
+                    {formatNaira(r.raw)}
+                  </td>
+                  <td className="py-2 text-foreground">
+                    {formatNaira(r.phantom)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </figure>
+  );
+}
+
+/**
+ * Cashflow-over-time. Uses the real derived monthly series when it reconciles
+ * with the engine totals, else real before/after bars. The dedup toggle drives
+ * emphasis in both modes; the raw↔true gap is always the story.
+ */
+export function CashflowChart() {
+  const { userId } = usePersona();
+  const { data, isLoading, isError, error, refetch } = useDashboard(userId);
+
+  if (isError) {
+    return <QueryError error={error} onRetry={() => refetch()} />;
+  }
+  if (isLoading || !data) return <ChartSkeleton />;
+
+  return data.chartMode === "series" ? (
+    <SeriesChart data={data} />
+  ) : (
+    <BeforeAfterChart data={data} />
   );
 }
