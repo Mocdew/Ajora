@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Ajora design tokens — sourced from the pitch deck brand.
+ * Deep forest green (primary), warm amber/gold (accent), teal (secondary),
+ * warm cream surfaces. Expressed as HSL triplets so shadcn/ui utilities
+ * (hsl(var(--token))) resolve them directly.
+ */
+@layer base {
+  :root {
+    /* Surfaces & ink */
+    --background: 48 33% 95%; /* #F7F5EF warm cream */
+    --foreground: 160 54% 11%; /* #0D2B22 deep green ink */
+
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 160 54% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 54% 11%;
+
+    /* Brand: deep green primary */
+    --primary: 164 61% 14%; /* #0E3A2E */
+    --primary-foreground: 48 33% 96%; /* cream on green */
+
+    /* Brand: teal secondary */
+    --secondary: 160 30% 92%; /* pale green surface */
+    --secondary-foreground: 164 61% 16%;
+
+    /* Muted surfaces & subdued ink */
+    --muted: 44 20% 91%; /* #ECE9DF */
+    --muted-foreground: 165 14% 38%; /* #53685F green-gray */
+
+    /* Brand: warm amber/gold accent */
+    --accent: 36 78% 56%; /* #E5A23B */
+    --accent-foreground: 160 54% 11%; /* deep ink reads on gold */
+
+    /* Supporting brand hues (used directly, e.g. eyebrows, data marks) */
+    --teal: 167 56% 42%; /* #2FA58C */
+    --teal-foreground: 48 33% 96%;
+    --gold: 36 78% 56%; /* alias of accent for data-viz clarity */
+
+    /* Chart data hues — validated with the dataviz skill's palette checker
+     * (CVD ΔE, normal-vision floor, lightness band, contrast). Do not hand-edit
+     * without re-running scripts/validate_palette.js.
+     * --chart-true    = deduped / honest "true cashflow" (teal, emphasis)
+     * --chart-inflated = raw / naive / phantom inflation (amber, context) */
+    --chart-true: 167 56% 42%; /* #2FA58C */
+    --chart-inflated: 36 78% 56%; /* #E5A23B — sub-3:1 on white, so the chart
+                                     ships a legend, end labels + table view */
+
+    /* Status (reserved — delta direction, alerts). Ship with icon + sign. */
+    --positive: 160 48% 34%; /* green, cashflow up */
+    --positive-foreground: 48 33% 96%;
+    --negative: 6 62% 50%; /* #C2483C brick red, cashflow down */
+    --negative-foreground: 48 33% 96%;
+    --warning: 36 78% 56%;
+    --warning-foreground: 160 54% 11%;
+
+    --destructive: 6 62% 50%;
+    --destructive-foreground: 48 33% 96%;
+
+    /* Lines & focus */
+    --border: 44 18% 84%; /* #E1DDD1 */
+    --input: 44 18% 84%;
+    --ring: 164 61% 20%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* Deep-green hero mode from the deck */
+    --background: 162 56% 10%; /* #0B2A21 */
+    --foreground: 46 30% 94%; /* #F2EFE6 */
+
+    --card: 163 42% 13%; /* #123A2E */
+    --card-foreground: 46 30% 94%;
+
+    --popover: 163 42% 13%;
+    --popover-foreground: 46 30% 94%;
+
+    --primary: 160 42% 46%; /* brighter green for dark surfaces */
+    --primary-foreground: 162 56% 8%;
+
+    --secondary: 163 32% 18%;
+    --secondary-foreground: 46 30% 94%;
+
+    --muted: 163 28% 17%;
+    --muted-foreground: 160 15% 66%;
+
+    --accent: 36 78% 58%; /* gold stays vivid */
+    --accent-foreground: 162 56% 9%;
+
+    --teal: 167 52% 48%;
+    --teal-foreground: 162 56% 9%;
+    --gold: 36 78% 58%;
+
+    /* Chart data hues (dark) — re-validated against the dark card surface.
+     * Teal holds its step; amber steps down to an in-band ochre. */
+    --chart-true: 167 56% 42%; /* #2FA58C */
+    --chart-inflated: 35 73% 44%; /* #C27E1E — darker so it stays in the dark band */
+
+    --positive: 160 44% 50%;
+    --positive-foreground: 162 56% 9%;
+    --negative: 6 58% 56%;
+    --negative-foreground: 46 30% 94%;
+    --warning: 36 78% 58%;
+    --warning-foreground: 162 56% 9%;
+
+    --destructive: 6 58% 52%;
+    --destructive-foreground: 46 30% 94%;
+
+    --border: 163 28% 20%;
+    --input: 163 28% 22%;
+    --ring: 160 42% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}

@@ -1,0 +1,26 @@
+[project]
+name = "ajora-engine"
+version = "0.1.0"
+description = "Ajora — consent-first multi-bank financial insights for Nigeria. Stateless engine spine: canonical models, data providers, and schema adapters."
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic>=2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+# Run from the repo root; only the spine's tests (the pre-existing backend/ tree
+# has its own suite and deps). pythonpath = "." makes `engine` / `data` importable.
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["engine", "data"]

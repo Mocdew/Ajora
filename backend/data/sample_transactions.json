@@ -1,0 +1,140 @@
+{
+  "user": {
+    "user_id": "u_demo_stephen",
+    "full_name": "Stephen Vincent",
+    "aliases": ["Stephen O Vincent", "Vincent Stephen"],
+    "account_ids": ["gtb-001", "access-002", "kuda-003"]
+  },
+  "transactions": [
+    {
+      "id": "c1",
+      "account_id": "gtb-001",
+      "institution": "gtbank",
+      "amount": 450000,
+      "direction": "credit",
+      "timestamp": "2026-10-01T08:00:00",
+      "narration": "SALARY OCT PAYSTACK TECHNOLOGIES LTD",
+      "transfer_pair_id": null
+    },
+    {
+      "id": "d1",
+      "account_id": "gtb-001",
+      "institution": "gtbank",
+      "amount": 150000,
+      "direction": "debit",
+      "timestamp": "2026-10-01T09:15:00",
+      "narration": "TRF/STEPHEN VINCENT/to self GTB-KUDA/REF:100033445566",
+      "transfer_pair_id": "T1"
+    },
+    {
+      "id": "c2",
+      "account_id": "kuda-003",
+      "institution": "kuda",
+      "amount": 149975,
+      "direction": "credit",
+      "timestamp": "2026-10-01T09:17:00",
+      "narration": "Transfer from STEPHEN O VINCENT Ref 100033445566",
+      "transfer_pair_id": "T1"
+    },
+    {
+      "id": "d2",
+      "account_id": "gtb-001",
+      "institution": "gtbank",
+      "amount": 32000,
+      "direction": "debit",
+      "timestamp": "2026-10-02T13:20:00",
+      "narration": "POS PURCHASE SHOPRITE LEKKI LAGOS",
+      "transfer_pair_id": null
+    },
+    {
+      "id": "d3",
+      "account_id": "kuda-003",
+      "institution": "kuda",
+      "amount": 5000,
+      "direction": "debit",
+      "timestamp": "2026-10-02T19:00:00",
+      "narration": "AIRTIME PURCHASE MTN 08012345678",
+      "transfer_pair_id": null
+    },
+    {
+      "id": "d4",
+      "account_id": "access-002",
+      "institution": "access",
+      "amount": 80000,
+      "direction": "debit",
+      "timestamp": "2026-10-03T14:30:00",
+      "narration": "NIP:ACCESS:TO KUDA MFB:STEPHEN VINCENT:0987766554433",
+      "transfer_pair_id": "T2"
+    },
+    {
+      "id": "c4",
+      "account_id": "kuda-003",
+      "institution": "kuda",
+      "amount": 80000,
+      "direction": "credit",
+      "timestamp": "2026-10-03T14:33:00",
+      "narration": "Transfer from STEPHEN VINCENT",
+      "transfer_pair_id": "T2"
+    },
+    {
+      "id": "c3",
+      "account_id": "access-002",
+      "institution": "access",
+      "amount": 118500,
+      "direction": "credit",
+      "timestamp": "2026-10-04T11:00:00",
+      "narration": "TRF FROM JANE ADEYEMI DESIGN INVOICE",
+      "transfer_pair_id": null
+    },
+    {
+      "id": "d5",
+      "account_id": "gtb-001",
+      "institution": "gtbank",
+      "amount": 120000,
+      "direction": "debit",
+      "timestamp": "2026-10-04T14:00:00",
+      "narration": "TRF TO BABATUNDE LANDLORD RENT LAGOS",
+      "transfer_pair_id": null
+    },
+    {
+      "id": "d6",
+      "account_id": "kuda-003",
+      "institution": "kuda",
+      "amount": 25000,
+      "direction": "debit",
+      "timestamp": "2026-10-05T18:00:00",
+      "narration": "Transfer to STEPHEN VINCENT GTBank",
+      "transfer_pair_id": "T3"
+    },
+    {
+      "id": "c5",
+      "account_id": "gtb-001",
+      "institution": "gtbank",
+      "amount": 24990,
+      "direction": "credit",
+      "timestamp": "2026-10-05T18:05:00",
+      "narration": "TRF FROM STEPHEN VINCENT/KUDA",
+      "transfer_pair_id": "T3"
+    },
+    {
+      "id": "d7",
+      "account_id": "kuda-003",
+      "institution": "kuda",
+      "amount": 2000,
+      "direction": "debit",
+      "timestamp": "2026-10-06T08:00:00",
+      "narration": "DATA BUNDLE MTN 08012345678",
+      "transfer_pair_id": null
+    },
+    {
+      "id": "c6",
+      "account_id": "gtb-001",
+      "institution": "gtbank",
+      "amount": 7500,
+      "direction": "credit",
+      "timestamp": "2026-10-06T10:00:00",
+      "narration": "REFUND JUMIA ORDER 48213",
+      "transfer_pair_id": null
+    }
+  ]
+}
