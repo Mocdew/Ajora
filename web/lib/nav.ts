@@ -45,13 +45,11 @@ export const navItems: NavItem[] = [
     href: "/audit",
     icon: ScrollText,
     description: "Append-only access log — auditable, never sold",
-    comingSoon: true,
   },
   {
     title: "Settings",
     href: "/settings",
     icon: Settings,
     description: "Consent, connections & preferences",
-    comingSoon: true,
   },
 ];

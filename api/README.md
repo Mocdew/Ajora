@@ -101,8 +101,9 @@ A request for an unknown user returns **404** with a JSON body:
 ```
 
 Validation errors (malformed path) return FastAPI's standard **422**. There are no auth
-errors — the demo API is unauthenticated (consent/audit is a later phase; see
-[Roadmap](#roadmap)).
+errors — the demo API is unauthenticated — but consent **is** enforced per account (see
+[Trust layer](#trust-layer-consent--audit)): a revoked account is dropped from the
+pipeline, and revoking/granting an account that isn't the user's returns **404**.
 
 ---
 
@@ -376,6 +377,84 @@ back to the stub — it never serves a figure the engine didn't produce.
 
 ---
 
+## Trust layer (consent & audit)
+
+Consent is **per connected account**, and it is enforced, not cosmetic: revoking an
+account removes its transactions **before** the engine runs, so `/cashflow`, `/insights`,
+`/graph` and `/explanations` all recompute on the consented ledger. Every data access
+writes one immutable line to an append-only audit log.
+
+Both the consent store and the audit log sit behind small interfaces
+([`api/consent.py`](consent.py), [`api/audit.py`](audit.py)) so a real open-banking consent
+store / audit sink can replace the file-backed defaults with no route changes — the same
+pattern as the [`DataProvider`](#the-dataprovider-seam) seam.
+
+### The consent-filter seam
+
+All five data endpoints load through one choke point, `consented_batch()` in
+[`api/consent.py`](consent.py):
+
+```
+provider.get_batch(user_id)          # raw batch (raises UserNotFound -> 404)
+   │  ensure_seeded  → first sight of a user: every account recorded "granted"
+   │  drop transactions whose account is revoked; shrink user.account_ids
+   │  audit_log.record(...)          # exactly one append-only entry per call
+   ▼
+engine (dedup → insights → graph)    # never sees a revoked account
+```
+
+Because the filter runs once, at the single load point, no endpoint duplicates engine
+calls and the trust layer lives in exactly one place. (The `GET /users` roster is not a
+per-user data access and is not audited.)
+
+### Endpoints
+
+| method + path | does |
+|---|---|
+| `POST /users/{user_id}/accounts/{account_id}/revoke` | Revoke consent; returns the updated `ConsentRecord`. 404 if the account isn't one of the user's. |
+| `POST /users/{user_id}/accounts/{account_id}/grant` | Re-grant a revoked account (so the demo can toggle back); returns the updated `ConsentRecord`. |
+| `GET /users/{user_id}/consents` | `{ user_id, consents: ConsentRecord[] }` — one record per connected account. |
+| `GET /users/{user_id}/audit` | `{ user_id, entries: AuditEntry[] }` — the user's access log, oldest-first. |
+
+**`ConsentRecord`:** `{ user_id, account_id, institution, status ("granted"|"revoked"),
+granted_at (datetime), revoked_at (datetime|null) }`.
+
+**`AuditEntry`:** `{ timestamp (UTC ISO), user_id, endpoint ("cashflow"|…),
+accounts_accessed (string[] — the consented accounts actually read),
+revoked_excluded (string[] — the user's accounts withheld) }`.
+
+### Durable state = append-only files (no DB)
+
+Per [`CLAUDE.md`](../CLAUDE.md), durable state is append-only files, never a database:
+
+- **`consent.jsonl`** (repo root) — one grant/revoke **event** per line
+  (`{ts, user_id, account_id, institution, action}`). Current consent is the fold of
+  these events in order; seeding appends a `grant` event per account the first time a
+  user is seen. The file is never rewritten.
+- **`audit.jsonl`** (repo root) — one `AuditEntry` per line, append-only, so the
+  "auditable, never sold" claim is real and tamper-evident.
+
+Both paths are injectable (`FileConsentStore(path)` / `FileAuditLog(path)`) and are
+swapped for tmp files in tests; both are git-ignored.
+
+### Revoke in action (`u_persona_c`)
+
+Funmilayo has three accounts (`gtb-c01`, `opay-c02`, `palmpay-c03`), all granted by
+default. Revoking `palmpay-c03` — the credit leg of one self-transfer pair — changes the
+numbers immediately:
+
+| | before | after `revoke palmpay-c03` |
+|---|---|---|
+| `/transactions` count | 83 | **62** |
+| `matched_transfer_count` | 2 | **1** |
+| `net_spending_ngn` | 781,800 | **619,600** |
+
+Revoking `opay-c02` instead drops the **dependent** and **informal-lending** relationships
+(`/insights` goes 3 → 1, leaving only the ajo), `matched_transfer_count` → 0, and
+`net_income` 1,021,200 → **863,980**. `grant` restores either fully.
+
+---
+
 ## Data models
 
 ### Transaction
@@ -444,8 +523,6 @@ load → dedup → insights → graph → explain all wire together.
 
 Not yet built (tracked in the project plan):
 
-- **Consent / revocation + `audit.jsonl`** — per-account consent, a revoke endpoint that
-  drops an account from the pipeline, and an append-only access log.
 - **Communal narration** — `/explanations` currently narrates only `dedup`; ajo/dependent/
   lending/remittance explanations slot into the same `explanations` map once wired.
 - **Live provider** — a `MonoProvider`/`OkraProvider` implementing `DataProvider`.

@@ -25,6 +25,7 @@ htmlcov/
 
 # Durable append-only state (runtime artifacts, never committed)
 audit.jsonl
+consent.jsonl
 corrections.jsonl
 *.consent-token
 

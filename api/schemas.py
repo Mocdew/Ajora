@@ -19,6 +19,9 @@ from engine.schemas.communal import CommunalInsights, RelationshipType
 from engine.schemas.dedup import MatchedTransfer, Totals
 from engine.schemas.transaction import Transaction
 
+from .audit import AuditEntry
+from .consent import ConsentRecord
+
 __all__ = [
     "TransactionsResponse",
     "BeforeAfter",
@@ -30,6 +33,8 @@ __all__ = [
     "UserSummary",
     "ExplanationItem",
     "ExplanationsResponse",
+    "ConsentsResponse",
+    "AuditResponse",
 ]
 
 
@@ -163,3 +168,22 @@ class ExplanationsResponse(BaseModel):
     userName: str
     generatedBy: str = Field(..., description="Model id that produced the narration, or 'stub-offline'.")
     explanations: Dict[str, ExplanationItem]
+
+
+# --- trust layer: consent + audit --------------------------------------------------
+# ConsentRecord (api.consent) and AuditEntry (api.audit) are the record shapes; these
+# two envelopes wrap them for the GET /consents and GET /audit list endpoints.
+
+
+class ConsentsResponse(BaseModel):
+    """A user's per-account consent records."""
+
+    user_id: str
+    consents: List[ConsentRecord]
+
+
+class AuditResponse(BaseModel):
+    """A user's append-only data-access log entries, oldest-first."""
+
+    user_id: str
+    entries: List[AuditEntry]

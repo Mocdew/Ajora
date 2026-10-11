@@ -16,6 +16,8 @@ from engine.schemas.communal import CommunalInsight, CommunalInsights
 from engine.schemas.dedup import DedupResult
 from engine.schemas.transaction import TransactionBatch, UserProfile
 
+from .audit import AuditLog
+from .consent import ConsentStore, consented_batch
 from .providers import DataProvider
 from .schemas import (
     BeforeAfter,
@@ -38,8 +40,13 @@ def _run_dedup(batch: TransactionBatch) -> DedupResult:
     return _ENGINE.dedup(batch.transactions, batch.user)
 
 
-def get_transactions(provider: DataProvider, user_id: str) -> TransactionsResponse:
-    batch = provider.get_batch(user_id)
+def get_transactions(
+    provider: DataProvider,
+    consent_store: ConsentStore,
+    audit_log: AuditLog,
+    user_id: str,
+) -> TransactionsResponse:
+    batch = consented_batch(provider, consent_store, audit_log, user_id, "transactions")
     return TransactionsResponse(
         user_id=batch.user.user_id,
         full_name=batch.user.full_name,
@@ -48,8 +55,13 @@ def get_transactions(provider: DataProvider, user_id: str) -> TransactionsRespon
     )
 
 
-def get_cashflow(provider: DataProvider, user_id: str) -> CashflowResponse:
-    batch = provider.get_batch(user_id)
+def get_cashflow(
+    provider: DataProvider,
+    consent_store: ConsentStore,
+    audit_log: AuditLog,
+    user_id: str,
+) -> CashflowResponse:
+    batch = consented_batch(provider, consent_store, audit_log, user_id, "cashflow")
     result = _run_dedup(batch)
     t = result.totals
     before_after = BeforeAfter(
@@ -73,8 +85,13 @@ def get_cashflow(provider: DataProvider, user_id: str) -> CashflowResponse:
     )
 
 
-def get_insights(provider: DataProvider, user_id: str) -> InsightsResponse:
-    batch = provider.get_batch(user_id)
+def get_insights(
+    provider: DataProvider,
+    consent_store: ConsentStore,
+    audit_log: AuditLog,
+    user_id: str,
+) -> InsightsResponse:
+    batch = consented_batch(provider, consent_store, audit_log, user_id, "insights")
     result = _run_dedup(batch)
     insights = build_insights(result, batch.user)
     return InsightsResponse(
@@ -84,8 +101,13 @@ def get_insights(provider: DataProvider, user_id: str) -> InsightsResponse:
     )
 
 
-def get_graph(provider: DataProvider, user_id: str) -> GraphResponse:
-    batch = provider.get_batch(user_id)
+def get_graph(
+    provider: DataProvider,
+    consent_store: ConsentStore,
+    audit_log: AuditLog,
+    user_id: str,
+) -> GraphResponse:
+    batch = consented_batch(provider, consent_store, audit_log, user_id, "graph")
     result = _run_dedup(batch)
     insights = build_insights(result, batch.user)
     nodes, edges = _graph_elements(batch.user, insights)

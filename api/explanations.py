@@ -31,6 +31,8 @@ from engine.explainer import (
 )
 from engine.explainer.explainer import DEFAULT_MODEL
 
+from .audit import AuditLog
+from .consent import ConsentStore, consented_batch
 from .providers import DataProvider
 from .schemas import ExplanationItem, ExplanationsResponse, UserSummary
 
@@ -59,13 +61,22 @@ def _make_client() -> ExplainerClient:
     return StubExplainerClient()
 
 
-def explanations_for(provider: DataProvider, user_id: str) -> ExplanationsResponse:
+def explanations_for(
+    provider: DataProvider,
+    consent_store: ConsentStore,
+    audit_log: AuditLog,
+    user_id: str,
+) -> ExplanationsResponse:
     """Grounded narration for every insight we can generate from real engine output.
 
     Today that is the dedup insight. The ``explanations`` map is keyed by insight so
     communal-finance narration slots in unchanged once that explainer lands.
+
+    Loads through the consent seam like every other data endpoint, so revoked
+    accounts are excluded before the narrated numbers are computed, and the access is
+    audited.
     """
-    batch = provider.get_batch(user_id)
+    batch = consented_batch(provider, consent_store, audit_log, user_id, "explanations")
     result = _ENGINE.dedup(batch.transactions, batch.user)
 
     client = _make_client()

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
-import { ComingSoon } from "@/components/coming-soon";
+import { ConnectedAccounts } from "@/components/trust/connected-accounts";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -10,9 +10,9 @@ export default function SettingsPage() {
       <PageHeader
         eyebrow="Consent-first"
         title="Settings"
-        description="Manage connected banks, consent scope and revocation, and preferences."
+        description="Consent, connections & preferences — manage which banks and wallets feed your insights, and revoke access at any time."
       />
-      <ComingSoon note="Connection management, consent scopes and revocation controls land in the experience-and-security phase." />
+      <ConnectedAccounts />
     </div>
   );
 }
