@@ -1,0 +1,35 @@
+# Ajora demo stack — API (FastAPI + engine) + web (Next.js dashboard).
+# On a machine with Docker:  docker compose up --build
+# Then open http://<host>:3000  (demo persona: Emeka Balogun / u_persona_b).
+#
+# Trust-layer state (consent.jsonl / audit.jsonl) lives inside the api container and is
+# ephemeral — each `compose up` starts from a clean, all-granted consent state.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: ajora-api
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_USE_LIVE_API: "1"
+        # Next freezes rewrites at build time, so the proxy target must be a build arg.
+        AJORA_API_BASE: "http://api:8000"
+    image: ajora-web
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy

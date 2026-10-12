@@ -1,0 +1,8 @@
+# Web build context = ./web. Deps are installed in-image via `npm ci`.
+node_modules
+.next
+out
+.git
+npm-debug.log*
+.env*.local
+.DS_Store

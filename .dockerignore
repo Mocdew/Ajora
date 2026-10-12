@@ -1,0 +1,31 @@
+# API build context = repo root. Keep it small: exclude everything the image doesn't need.
+.git
+.gitignore
+.venv
+venv
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Frontend tree (the web image builds from ./web with its own context)
+web/node_modules
+web/.next
+web/out
+
+# Runtime / durable state (never bake into the image)
+consent.jsonl
+audit.jsonl
+corrections.jsonl
+*.consent-token
+
+# Tooling / docs not needed at runtime
+.claude
+docs
+*.md
+Ajora*.pptx
+Ajora*.pdf
+.DS_Store
