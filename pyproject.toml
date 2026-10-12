@@ -13,10 +13,11 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-# Run from the repo root; only the spine's tests (the pre-existing backend/ tree
-# has its own suite and deps). pythonpath = "." makes `engine` / `data` importable.
-pythonpath = ["."]
-testpaths = ["tests"]
+# Run every maintained Python suite from the repo root. The path entries expose
+# the canonical packages plus the backend's historical `app.*` import path.
+pythonpath = [".", "backend"]
+testpaths = ["tests", "engine/tests", "api/tests", "backend/tests"]
+addopts = ["--import-mode=importlib"]
 
 [build-system]
 requires = ["setuptools>=61"]

@@ -18,10 +18,12 @@ from engine.schemas.transaction import TransactionBatch, UserProfile
 
 from .audit import AuditLog
 from .consent import ConsentStore, consented_batch
+from .corrections import CorrectionRecord, CorrectionsLog
 from .providers import DataProvider
 from .schemas import (
     BeforeAfter,
     CashflowResponse,
+    CorrectionRequest,
     GraphEdge,
     GraphNode,
     GraphResponse,
@@ -34,6 +36,10 @@ USER_NODE_ID = "__user__"
 
 # One engine instance is safe to share: it is stateless and holds only config.
 _ENGINE = DedupEngine()
+
+
+class CorrectionMatchNotFound(LookupError):
+    """The requested match is not present in the user's current consented ledger."""
 
 
 def _run_dedup(batch: TransactionBatch) -> DedupResult:
@@ -82,7 +88,46 @@ def get_cashflow(
         matches=result.matches,
         deduped_transaction_count=len(result.deduped_transactions),
         internal_transfer_ids=result.internal_transfer_ids,
+        unmatched_candidate_count=len(result.unmatched_transfer_candidates),
     )
+
+
+def submit_correction(
+    provider: DataProvider,
+    consent_store: ConsentStore,
+    audit_log: AuditLog,
+    corrections_log: CorrectionsLog,
+    user_id: str,
+    correction: CorrectionRequest,
+) -> CorrectionRecord:
+    """Validate and append one user verdict without mutating the live engine result."""
+    batch = consented_batch(
+        provider,
+        consent_store,
+        audit_log,
+        user_id,
+        None,
+    )
+    result = _run_dedup(batch)
+    match = next((item for item in result.matches if item.match_id == correction.match_id), None)
+    if match is None:
+        raise CorrectionMatchNotFound(correction.match_id)
+    record = corrections_log.record(
+        user_id=user_id,
+        match_id=match.match_id,
+        verdict=correction.verdict,
+        debit_transaction_id=match.debit.id,
+        credit_transaction_id=match.credit.id,
+        previous_score=match.score,
+        previous_tier=match.tier,
+    )
+    audit_log.record(
+        user_id=user_id,
+        endpoint=f"correction_{correction.verdict}",
+        accounts_accessed=sorted({t.account_id for t in batch.transactions}),
+        revoked_excluded=sorted(consent_store.revoked_accounts(user_id)),
+    )
+    return record
 
 
 def get_insights(

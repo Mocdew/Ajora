@@ -197,8 +197,9 @@ self-transfers inflated your numbers by ~30-40%" moment.
 | `matches[]` | MatchedTransfer | the phantom pairs that were netted out |
 | `deduped_transaction_count` | int | transactions remaining after removing both legs of each match |
 | `internal_transfer_ids[]` | string | ids flagged as internal-transfer legs |
+| `unmatched_candidate_count` | int | transfer-like transaction legs left untouched because no confident partner was found |
 
-**MatchedTransfer:** `{ debit: Transaction, credit: Transaction, score (0–1),
+**MatchedTransfer:** `{ match_id, debit: Transaction, credit: Transaction, score (0–1),
 tier ("high"|"medium"|"low"), fee (NGN lost between legs), cross_currency (bool),
 reasons: string[] }`.
 
@@ -377,17 +378,20 @@ back to the stub — it never serves a figure the engine didn't produce.
 
 ---
 
-## Trust layer (consent & audit)
+## Trust layer (consent, audit & corrections)
 
 Consent is **per connected account**, and it is enforced, not cosmetic: revoking an
 account removes its transactions **before** the engine runs, so `/cashflow`, `/insights`,
 `/graph` and `/explanations` all recompute on the consented ledger. Every data access
-writes one immutable line to an append-only audit log.
+writes one immutable line to an append-only audit log. Confirm/reject feedback on a
+transfer match is validated against the current consented ledger and appended to a
+separate corrections log for offline scorer improvement.
 
-Both the consent store and the audit log sit behind small interfaces
-([`api/consent.py`](consent.py), [`api/audit.py`](audit.py)) so a real open-banking consent
-store / audit sink can replace the file-backed defaults with no route changes — the same
-pattern as the [`DataProvider`](#the-dataprovider-seam) seam.
+The consent store, audit log, and corrections log sit behind small interfaces
+([`api/consent.py`](consent.py), [`api/audit.py`](audit.py),
+[`api/corrections.py`](corrections.py)) so production sinks can replace the file-backed
+defaults with no route changes — the same pattern as the
+[`DataProvider`](#the-dataprovider-seam) seam.
 
 ### The consent-filter seam
 
@@ -415,6 +419,7 @@ per-user data access and is not audited.)
 | `POST /users/{user_id}/accounts/{account_id}/grant` | Re-grant a revoked account (so the demo can toggle back); returns the updated `ConsentRecord`. |
 | `GET /users/{user_id}/consents` | `{ user_id, consents: ConsentRecord[] }` — one record per connected account. |
 | `GET /users/{user_id}/audit` | `{ user_id, entries: AuditEntry[] }` — the user's access log, oldest-first. |
+| `POST /users/{user_id}/corrections` | Append `{ match_id, verdict: "confirm"|"reject" }` for a current match; returns the immutable `CorrectionRecord`. |
 
 **`ConsentRecord`:** `{ user_id, account_id, institution, status ("granted"|"revoked"),
 granted_at (datetime), revoked_at (datetime|null) }`.
@@ -422,6 +427,11 @@ granted_at (datetime), revoked_at (datetime|null) }`.
 **`AuditEntry`:** `{ timestamp (UTC ISO), user_id, endpoint ("cashflow"|…),
 accounts_accessed (string[] — the consented accounts actually read),
 revoked_excluded (string[] — the user's accounts withheld) }`.
+
+**`CorrectionRecord`:** `{ timestamp, user_id, match_id, verdict,
+debit_transaction_id, credit_transaction_id, previous_score, previous_tier }`.
+The endpoint records `correction_confirm` or `correction_reject` in the audit log;
+it does not rewrite current cashflow totals.
 
 ### Durable state = append-only files (no DB)
 
@@ -433,9 +443,10 @@ Per [`CLAUDE.md`](../CLAUDE.md), durable state is append-only files, never a dat
   user is seen. The file is never rewritten.
 - **`audit.jsonl`** (repo root) — one `AuditEntry` per line, append-only, so the
   "auditable, never sold" claim is real and tamper-evident.
+- **`corrections.jsonl`** (repo root) — one confirmed/rejected match verdict per
+  line. Records are training signals consumed by an offline scorer-improvement pass.
 
-Both paths are injectable (`FileConsentStore(path)` / `FileAuditLog(path)`) and are
-swapped for tmp files in tests; both are git-ignored.
+All paths are injectable and swapped for temporary files in tests; all are git-ignored.
 
 ### Revoke in action (`u_persona_c`)
 
@@ -511,7 +522,7 @@ npx openapi-typescript http://localhost:8000/openapi.json -o web/lib/api/engine.
 ## Testing
 
 ```bash
-.venv/bin/python -m pytest api -q        # 11 tests: all endpoints, 404s, OpenAPI, every persona
+.venv/bin/python -m pytest api -q        # endpoints, trust paths, OpenAPI, every persona
 ```
 
 Tests use FastAPI's `TestClient` against the real engine (no mocks), so green means

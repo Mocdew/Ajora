@@ -116,6 +116,8 @@ class DedupEngine:
                 if not is_feasible(d, c, f, self.cfg):
                     continue
                 s = self.scorer.score(f, d, self.cfg)
+                if s < self.cfg.accept_threshold:
+                    continue
                 cost[i, j] = 1.0 - s
                 feat_cache[(i, j)] = (f, s)
 
@@ -126,11 +128,10 @@ class DedupEngine:
             if (i, j) not in feat_cache:
                 continue  # assignment landed on an infeasible cell (count mismatch padding)
             f, s = feat_cache[(i, j)]
-            if s < self.cfg.accept_threshold:
-                continue
             d, c = debits[i], credits[j]
             matches.append(
                 MatchedTransfer(
+                    match_id=f"{d.id}:{c.id}",
                     debit=d,
                     credit=c,
                     score=round(s, 4),

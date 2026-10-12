@@ -11,7 +11,7 @@ via its configured FX rates before summing).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -35,6 +35,7 @@ __all__ = [
     "ExplanationsResponse",
     "ConsentsResponse",
     "AuditResponse",
+    "CorrectionRequest",
 ]
 
 
@@ -80,6 +81,12 @@ class CashflowResponse(BaseModel):
     )
     internal_transfer_ids: List[str] = Field(
         default_factory=list, description="Ids flagged as internal-transfer legs."
+    )
+    unmatched_candidate_count: int = Field(
+        ...,
+        description=(
+            "Transfer-like transaction legs that found no sufficiently confident partner."
+        ),
     )
 
 
@@ -187,3 +194,10 @@ class AuditResponse(BaseModel):
 
     user_id: str
     entries: List[AuditEntry]
+
+
+class CorrectionRequest(BaseModel):
+    """A user's verdict over one currently returned transfer match."""
+
+    match_id: str = Field(..., min_length=1)
+    verdict: Literal["confirm", "reject"]

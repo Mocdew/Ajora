@@ -17,6 +17,9 @@ export type CashflowResponse = Schemas["CashflowResponse"];
 export type BeforeAfter = Schemas["BeforeAfter"];
 export type Totals = Schemas["Totals"];
 export type MatchedTransfer = Schemas["MatchedTransfer"];
+export type CorrectionRequest = Schemas["CorrectionRequest"];
+export type CorrectionRecord = Schemas["CorrectionRecord"];
+export type CorrectionVerdict = CorrectionRequest["verdict"];
 
 // --- transactions -------------------------------------------------------------
 export type TransactionsResponse = Schemas["TransactionsResponse"];

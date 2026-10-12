@@ -18,7 +18,7 @@ for the duration of a request.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -76,6 +76,18 @@ class Transaction(BaseModel):
     @classmethod
     def _slugify_institution(cls, v: str) -> str:
         return v.strip().lower().replace(" ", "")
+
+    @field_validator("currency")
+    @classmethod
+    def _uppercase_currency(cls, v: str) -> str:
+        return v.strip().upper()
+
+    @field_validator("timestamp")
+    @classmethod
+    def _normalize_timestamp(cls, v: datetime) -> datetime:
+        if v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v.astimezone(timezone.utc)
 
 
 class UserProfile(BaseModel):

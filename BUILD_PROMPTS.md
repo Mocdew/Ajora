@@ -272,3 +272,4 @@ honest numbers → reveal the communal insights → trust/consent screen), using
 compelling persona. Rehearse against the deployed Docker build; have a fallback recording.
 Done when: a 3–5 minute demo runs cleanly start to finish on the labelled personas.
 ```
+

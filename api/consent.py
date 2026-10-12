@@ -205,7 +205,7 @@ def consented_batch(
     consent_store: ConsentStore,
     audit_log: AuditLog,
     user_id: str,
-    endpoint: str,
+    endpoint: Optional[str],
 ) -> TransactionBatch:
     """Load a user's batch, filter out revoked accounts, and audit the access.
 
@@ -215,7 +215,8 @@ def consented_batch(
     1. fetch the raw batch (raises :class:`~api.providers.UserNotFound` for a bad id),
     2. lazily seed consent (all accounts granted on first sight),
     3. drop transactions whose account is revoked and shrink ``user.account_ids``,
-    4. write exactly one append-only audit entry recording what was read vs withheld.
+    4. write one append-only audit entry recording what was read vs withheld, unless
+       ``endpoint`` is ``None`` for a validate-then-persist flow that audits on success.
 
     The engine then runs on a batch that already reflects consent, so a revoked
     account simply never reaches dedup/insights/graph.
@@ -230,12 +231,13 @@ def consented_batch(
     accounts_accessed = sorted({t.account_id for t in kept_transactions})
     revoked_excluded = sorted(revoked & all_accounts)
 
-    audit_log.record(
-        user_id=user_id,
-        endpoint=endpoint,
-        accounts_accessed=accounts_accessed,
-        revoked_excluded=revoked_excluded,
-    )
+    if endpoint is not None:
+        audit_log.record(
+            user_id=user_id,
+            endpoint=endpoint,
+            accounts_accessed=accounts_accessed,
+            revoked_excluded=revoked_excluded,
+        )
 
     filtered_user = UserProfile(
         user_id=batch.user.user_id,

@@ -14,14 +14,21 @@ from pathlib import Path
 
 from .audit import AuditLog, FileAuditLog
 from .consent import ConsentStore, FileConsentStore
+from .corrections import CorrectionsLog, FileCorrectionsLog
 from .providers import DataProvider, FilePersonaProvider
 
-__all__ = ["get_provider", "get_consent_store", "get_audit_log"]
+__all__ = [
+    "get_provider",
+    "get_consent_store",
+    "get_audit_log",
+    "get_corrections_log",
+]
 
 # Durable append-only state lives at the repo root (git-ignored), per CLAUDE.md.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _CONSENT_PATH = _REPO_ROOT / "consent.jsonl"
 _AUDIT_PATH = _REPO_ROOT / "audit.jsonl"
+_CORRECTIONS_PATH = _REPO_ROOT / "corrections.jsonl"
 
 
 @lru_cache(maxsize=1)
@@ -37,3 +44,8 @@ def get_consent_store() -> ConsentStore:
 @lru_cache(maxsize=1)
 def get_audit_log() -> AuditLog:
     return FileAuditLog(_AUDIT_PATH)
+
+
+@lru_cache(maxsize=1)
+def get_corrections_log() -> CorrectionsLog:
+    return FileCorrectionsLog(_CORRECTIONS_PATH)

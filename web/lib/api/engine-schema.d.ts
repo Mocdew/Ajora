@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description The demo roster — every persona this instance can serve.
+         */
+        get: operations["list_users_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{user_id}/transactions": {
         parameters: {
             query?: never;
@@ -38,6 +58,26 @@ export interface paths {
         get: operations["get_cashflow_users__user_id__cashflow_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{user_id}/corrections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Correction
+         * @description Append a confirm/reject verdict for a current transfer match.
+         */
+        post: operations["submit_correction_users__user_id__corrections_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -84,6 +124,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{user_id}/explanations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Explanations
+         * @description Grounded GenAI narration of the user's real engine output.
+         */
+        get: operations["get_explanations_users__user_id__explanations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{user_id}/accounts/{account_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Account
+         * @description Revoke consent for one account; its data stops flowing into the pipeline.
+         */
+        post: operations["revoke_account_users__user_id__accounts__account_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{user_id}/accounts/{account_id}/grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant Account
+         * @description Re-grant consent for a previously revoked account (toggles it back on).
+         */
+        post: operations["grant_account_users__user_id__accounts__account_id__grant_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{user_id}/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Consents
+         * @description The user's per-account consent records (granted/revoked).
+         */
+        get: operations["get_consents_users__user_id__consents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{user_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Audit
+         * @description The append-only access log for this user — proof of what was read, and when.
+         */
+        get: operations["get_audit_users__user_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -108,6 +248,49 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AuditEntry
+         * @description One immutable record of a single data access.
+         *
+         *     ``accounts_accessed`` are the *consented* account ids whose transactions were
+         *     actually read for this call; ``revoked_excluded`` are the user's accounts that
+         *     were withheld because consent is revoked. Together they make every access
+         *     self-describing: what was served, and what was deliberately not.
+         */
+        AuditEntry: {
+            /**
+             * Timestamp
+             * @description UTC ISO-8601 instant the access happened.
+             */
+            timestamp: string;
+            /** User Id */
+            user_id: string;
+            /**
+             * Endpoint
+             * @description Logical endpoint, e.g. 'cashflow'.
+             */
+            endpoint: string;
+            /**
+             * Accounts Accessed
+             * @description Consented account ids actually read.
+             */
+            accounts_accessed?: string[];
+            /**
+             * Revoked Excluded
+             * @description The user's accounts withheld (consent revoked).
+             */
+            revoked_excluded?: string[];
+        };
+        /**
+         * AuditResponse
+         * @description A user's append-only data-access log entries, oldest-first.
+         */
+        AuditResponse: {
+            /** User Id */
+            user_id: string;
+            /** Entries */
+            entries: components["schemas"]["AuditEntry"][];
+        };
         /**
          * BeforeAfter
          * @description The headline dedup story: naive totals vs honest (deduped) totals.
@@ -184,6 +367,11 @@ export interface components {
              * @description Ids flagged as internal-transfer legs.
              */
             internal_transfer_ids?: string[];
+            /**
+             * Unmatched Candidate Count
+             * @description Transfer-like transaction legs that found no sufficiently confident partner.
+             */
+            unmatched_candidate_count: number;
         };
         /**
          * CommunalInsight
@@ -290,6 +478,130 @@ export interface components {
              * @description DedupResult.totals.net_income — the denominator for pct_of_net_income.
              */
             net_income_ngn: number;
+        };
+        /**
+         * ConsentRecord
+         * @description Consent state for one connected account.
+         */
+        ConsentRecord: {
+            /** User Id */
+            user_id: string;
+            /** Account Id */
+            account_id: string;
+            /** Institution */
+            institution: string;
+            /**
+             * Status
+             * @description 'granted' or 'revoked'.
+             */
+            status: string;
+            /**
+             * Granted At
+             * Format: date-time
+             * @description When consent was (most recently) granted.
+             */
+            granted_at: string;
+            /**
+             * Revoked At
+             * @description When consent was revoked; None while granted.
+             */
+            revoked_at?: string | null;
+        };
+        /**
+         * ConsentsResponse
+         * @description A user's per-account consent records.
+         */
+        ConsentsResponse: {
+            /** User Id */
+            user_id: string;
+            /** Consents */
+            consents: components["schemas"]["ConsentRecord"][];
+        };
+        /**
+         * CorrectionRecord
+         * @description One immutable verdict over a dedup match.
+         */
+        CorrectionRecord: {
+            /**
+             * Timestamp
+             * @description UTC ISO-8601 instant the verdict was recorded.
+             */
+            timestamp: string;
+            /** User Id */
+            user_id: string;
+            /** Match Id */
+            match_id: string;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "confirm" | "reject";
+            /** Debit Transaction Id */
+            debit_transaction_id: string;
+            /** Credit Transaction Id */
+            credit_transaction_id: string;
+            /** Previous Score */
+            previous_score: number;
+            /**
+             * Previous Tier
+             * @enum {string}
+             */
+            previous_tier: "high" | "medium" | "low";
+        };
+        /**
+         * CorrectionRequest
+         * @description A user's verdict over one currently returned transfer match.
+         */
+        CorrectionRequest: {
+            /** Match Id */
+            match_id: string;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "confirm" | "reject";
+        };
+        /**
+         * ExplanationItem
+         * @description One grounded explanation for a single insight (``dedup`` today).
+         */
+        ExplanationItem: {
+            /** Insightkey */
+            insightKey: string;
+            /** Narration */
+            narration: string;
+            /**
+             * Grounded
+             * @description True when every cited number traces to engine output.
+             */
+            grounded: boolean;
+            /**
+             * Facts
+             * @description The engine figures the narration is grounded on.
+             */
+            facts?: unknown;
+        };
+        /**
+         * ExplanationsResponse
+         * @description Grounded LLM narration of a user's real engine output.
+         *
+         *     Field names/shape mirror the frontend's ``ExplanationsResponse`` exactly so the
+         *     live endpoint is interchangeable with the local stub.
+         */
+        ExplanationsResponse: {
+            /** Userid */
+            userId: string;
+            /** Username */
+            userName: string;
+            /**
+             * Generatedby
+             * @description Model id that produced the narration, or 'stub-offline'.
+             */
+            generatedBy: string;
+            /** Explanations */
+            explanations: {
+                [key: string]: components["schemas"]["ExplanationItem"];
+            };
         };
         /** GraphEdge */
         GraphEdge: {
@@ -408,6 +720,11 @@ export interface components {
          *     naive aggregation would have double-counted as both spending and income.
          */
         MatchedTransfer: {
+            /**
+             * Match Id
+             * @description Stable id derived from the matched debit and credit transaction ids.
+             */
+            match_id: string;
             debit: components["schemas"]["Transaction"];
             credit: components["schemas"]["Transaction"];
             /**
@@ -569,6 +886,20 @@ export interface components {
             /** Transactions */
             transactions: components["schemas"]["Transaction"][];
         };
+        /**
+         * UserSummary
+         * @description One demo user in the roster served at ``GET /users``.
+         */
+        UserSummary: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Accounts */
+            accounts: number;
+            /** Transactions */
+            transactions: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -591,6 +922,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_users_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSummary"][];
+                };
+            };
+        };
+    };
     get_transactions_users__user_id__transactions_get: {
         parameters: {
             query?: never;
@@ -653,6 +1004,41 @@ export interface operations {
             };
         };
     };
+    submit_correction_users__user_id__corrections_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrectionRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_insights_users__user_id__insights_get: {
         parameters: {
             query?: never;
@@ -702,6 +1088,163 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GraphResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_explanations_users__user_id__explanations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplanationsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_account_users__user_id__accounts__account_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_account_users__user_id__accounts__account_id__grant_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentRecord"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_consents_users__user_id__consents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_audit_users__user_id__audit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditResponse"];
                 };
             };
             /** @description Validation Error */

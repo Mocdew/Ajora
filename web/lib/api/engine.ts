@@ -63,11 +63,11 @@ export async function engineGet<T>(
   }
 }
 
-/** POST to `path` (relative to the engine root) and parse the JSON body, mapping
- *  failures to an `EngineError` exactly like `engineGet`. Used by the consent
- *  revoke/grant mutations; the engine takes no request body for those. */
+/** POST to `path` (relative to the engine root) and parse the JSON response,
+ *  mapping failures to an `EngineError` exactly like `engineGet`. */
 export async function enginePost<T>(
   path: string,
+  body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
   let res: Response;
@@ -75,7 +75,11 @@ export async function enginePost<T>(
     res = await fetch(`${ENGINE_BASE}${path}`, {
       method: "POST",
       signal,
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (err) {
     throw new EngineError(
@@ -109,6 +113,7 @@ export const engineKeys = {
   cashflow: (userId: string) => ["engine", "cashflow", userId] as const,
   transactions: (userId: string) => ["engine", "transactions", userId] as const,
   dashboard: (userId: string) => ["engine", "dashboard", userId] as const,
+  dedupReview: (userId: string) => ["engine", "dedup-review", userId] as const,
   insights: (userId: string) => ["engine", "insights", userId] as const,
   graph: (userId: string) => ["engine", "graph", userId] as const,
   consents: (userId: string) => ["engine", "consents", userId] as const,
@@ -127,6 +132,7 @@ export function personaQueryKeys(userId: string) {
     engineKeys.cashflow(userId),
     engineKeys.transactions(userId),
     engineKeys.dashboard(userId),
+    engineKeys.dedupReview(userId),
     engineKeys.insights(userId),
     engineKeys.graph(userId),
     engineKeys.consents(userId),

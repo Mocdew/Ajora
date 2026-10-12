@@ -58,12 +58,25 @@ def _txn(
 def _match(
     amount: float, fee: float, score: float, tier: str, from_bank: str, to_bank: str, when: str
 ) -> MatchedTransfer:
-    reasons = ["Moves between two different banks", "Counterparty matches the account holder's own name"]
+    reasons = [
+        "Moves between two different banks",
+        "Counterparty matches the account holder's own name",
+    ]
     if fee > 0:
         reasons.append("Amount matches net of ~{:,.0f} fee".format(fee))
+    debit = _txn(
+        f"d-{from_bank}-{amount:.0f}",
+        "acct-1",
+        from_bank,
+        amount + fee,
+        "debit",
+        when,
+    )
+    credit = _txn(f"c-{to_bank}-{amount:.0f}", "acct-2", to_bank, amount, "credit", when)
     return MatchedTransfer(
-        debit=_txn(f"d-{from_bank}-{amount:.0f}", "acct-1", from_bank, amount + fee, "debit", when),
-        credit=_txn(f"c-{to_bank}-{amount:.0f}", "acct-2", to_bank, amount, "credit", when),
+        match_id=f"{debit.id}:{credit.id}",
+        debit=debit,
+        credit=credit,
         score=score,
         tier=tier,  # type: ignore[arg-type]
         fee=fee,

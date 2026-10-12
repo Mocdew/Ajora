@@ -41,6 +41,10 @@ const config: Config = {
           DEFAULT: "hsl(var(--teal))",
           foreground: "hsl(var(--teal-foreground))",
         },
+        mint: {
+          DEFAULT: "hsl(var(--mint))",
+          foreground: "hsl(var(--mint-foreground))",
+        },
         gold: "hsl(var(--gold))",
         positive: {
           DEFAULT: "hsl(var(--positive))",

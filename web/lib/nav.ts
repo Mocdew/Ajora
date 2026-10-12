@@ -1,9 +1,10 @@
 import {
+  Activity,
   LayoutDashboard,
   ArrowLeftRight,
   Users,
   ScrollText,
-  Settings,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,10 +18,15 @@ export type NavItem = {
 };
 
 /**
- * Primary navigation. Dashboard is live; the rest are routed stubs that map
- * to the deck's product surfaces (dedup, communal graph, audit, settings).
+ * Primary navigation — the deck's product surfaces. All live.
  */
 export const navItems: NavItem[] = [
+  {
+    title: "Overview",
+    href: "/overview",
+    icon: Activity,
+    description: "Where Ajora stands this cycle",
+  },
   {
     title: "Dashboard",
     href: "/dashboard",
@@ -32,7 +38,6 @@ export const navItems: NavItem[] = [
     href: "/transfers",
     icon: ArrowLeftRight,
     description: "Phantom self-transfers, matched and removed",
-    comingSoon: true,
   },
   {
     title: "Communal",
@@ -41,7 +46,7 @@ export const navItems: NavItem[] = [
     description: "Ajo, dependents, lending & remittances",
   },
   {
-    title: "Audit",
+    title: "Audit Log",
     href: "/audit",
     icon: ScrollText,
     description: "Append-only access log — auditable, never sold",
@@ -49,7 +54,7 @@ export const navItems: NavItem[] = [
   {
     title: "Settings",
     href: "/settings",
-    icon: Settings,
+    icon: SlidersHorizontal,
     description: "Consent, connections & preferences",
   },
 ];

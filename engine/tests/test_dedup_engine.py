@@ -8,9 +8,12 @@ here are the contract the harness optimizes against.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from engine.dedup.engine import DedupEngine
 from engine.dedup.evaluation import evaluate
 from engine.dedup.similarity import BatchContext, DedupConfig, extract_features
+from engine.schemas.transaction import Transaction, UserProfile
 
 
 def _by_narration(batch, needle):
@@ -72,6 +75,74 @@ def test_hard_negatives_are_not_matched(persona_batches):
     b_matched = {m.debit.id for m in rb.matches} | {m.credit.id for m in rb.matches}
     assert _by_narration(a, "DANGOTE REFINERY").id not in a_matched
     assert _by_narration(b, "JULIUS BERGER").id not in b_matched
+
+
+def test_subthreshold_edges_cannot_displace_an_accepted_match():
+    """Weak edges must not change the assignment before they are rejected."""
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    def transaction(txn_id, account_id, institution, direction, hours):
+        return Transaction(
+            id=txn_id,
+            account_id=account_id,
+            institution=institution,
+            amount=10_000,
+            currency="NGN",
+            direction=direction,
+            timestamp=base + timedelta(hours=hours),
+        )
+
+    class MatrixScorer:
+        def score(self, features, debit, config):
+            return {
+                ("d1", 1.0): 0.90,
+                ("d1", 2.0): 0.54,
+                ("d2", 1.0): 0.54,
+                ("d2", 2.0): 0.00,
+            }[(debit.id, features.time_gap_hours)]
+
+    transactions = [
+        transaction("d1", "a1", "bank-1", "debit", 0),
+        transaction("d2", "a2", "bank-2", "debit", 0),
+        transaction("c1", "a3", "bank-3", "credit", 1),
+        transaction("c2", "a4", "bank-4", "credit", 2),
+    ]
+    user = UserProfile(user_id="u", full_name="Test User")
+
+    result = DedupEngine(scorer=MatrixScorer()).dedup(transactions, user)
+
+    assert [(m.debit.id, m.credit.id, m.score) for m in result.matches] == [
+        ("d1", "c1", 0.9)
+    ]
+
+
+def test_transaction_normalizes_currency_and_timestamp_to_utc():
+    naive = Transaction(
+        id="naive",
+        account_id="a1",
+        institution="bank-1",
+        amount=1_000,
+        currency=" ngn ",
+        direction="debit",
+        timestamp=datetime(2026, 1, 1, 12, 0),
+    )
+    offset = Transaction(
+        id="offset",
+        account_id="a2",
+        institution="bank-2",
+        amount=1_000,
+        currency="ngn",
+        direction="credit",
+        timestamp=datetime.fromisoformat("2026-01-01T13:00:00+01:00"),
+    )
+
+    assert naive.currency == offset.currency == "NGN"
+    assert naive.timestamp.tzinfo == timezone.utc
+    assert offset.timestamp.tzinfo == timezone.utc
+    assert naive.timestamp == offset.timestamp
+    DedupEngine().dedup(
+        [naive, offset], UserProfile(user_id="u", full_name="Test User")
+    )
 
 
 # --- user-pattern priors ------------------------------------------------------------

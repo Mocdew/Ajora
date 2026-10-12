@@ -8,7 +8,7 @@ export default function SettingsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Consent-first"
+        eyebrow="Consent-first · Access ledger v2.4"
         title="Settings"
         description="Consent, connections & preferences — manage which banks and wallets feed your insights, and revoke access at any time."
       />
