@@ -44,9 +44,9 @@ switch to Funmilayo for ~30s.
 2. **Start the web app** (second terminal). The browser calls a same-origin `/api/engine`
    proxy that forwards to `:8000` (`AJORA_API_BASE`), so there's no CORS to fight.
    ```bash
-   cd web && npm run dev          # http://localhost:3000
+   cd web && npm run dev          # http://localhost:3100
    ```
-3. **Open** http://localhost:3000/dashboard and **select "Persona B · Emeka Balogun"** in
+3. **Open** http://localhost:3100/dashboard and **select "Persona B · Emeka Balogun"** in
    the top-bar switcher. The app's *default* persona is Adaeze (A), who has empty communal
    states — **switch to Emeka before you start talking.** (The choice persists in
    localStorage, so once set it sticks across reloads.)

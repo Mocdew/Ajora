@@ -5,7 +5,7 @@
       "name": "ajora-web",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "web", "run", "dev"],
-      "port": 3000
+      "port": 3100
     },
     {
       "name": "ajora-api",
