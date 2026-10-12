@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import List
 
+from engine.communal.insights import build_insights
 from engine.dedup import DedupEngine
 from engine.explainer import (
     AnthropicExplainerClient,
@@ -29,6 +30,7 @@ from engine.explainer import (
     StubExplainerClient,
     UngroundedExplanation,
 )
+from engine.explainer.communal import CommunalExplainer
 from engine.explainer.explainer import DEFAULT_MODEL
 
 from .audit import AuditLog
@@ -67,40 +69,64 @@ def explanations_for(
     audit_log: AuditLog,
     user_id: str,
 ) -> ExplanationsResponse:
-    """Grounded narration for every insight we can generate from real engine output.
+    """Grounded narration of a user's real engine output.
 
-    Today that is the dedup insight. The ``explanations`` map is keyed by insight so
-    communal-finance narration slots in unchanged once that explainer lands.
+    Produces one ``dedup`` explanation plus one entry per communal relationship
+    (ajo/esusu, dependent, informal lending, remittance), each keyed
+    ``"{relationship_type}:{counterparty}"``. Every entry's numbers are verified against
+    the engine's own figures; an ungrounded live result falls back to the (grounded)
+    offline stub rather than serving an invented number.
 
-    Loads through the consent seam like every other data endpoint, so revoked
-    accounts are excluded before the narrated numbers are computed, and the access is
-    audited.
+    Loads through the consent seam like every other data endpoint, so revoked accounts
+    are excluded before the narrated numbers are computed, and the access is audited.
     """
     batch = consented_batch(provider, consent_store, audit_log, user_id, "explanations")
     result = _ENGINE.dedup(batch.transactions, batch.user)
 
     client = _make_client()
     source = DEFAULT_MODEL if isinstance(client, AnthropicExplainerClient) else "stub-offline"
+    stub_fallback_used = False
 
+    # --- dedup explanation ---------------------------------------------------------
     try:
         res = Explainer(client, model=DEFAULT_MODEL).explain(result, batch.user, strict=True)
-        used_source = source
     except UngroundedExplanation:
-        # Never serve a number the engine didn't produce: fall back to the stub,
-        # which is grounded by construction.
         res = Explainer(StubExplainerClient()).explain(result, batch.user, strict=True)
-        used_source = "stub-offline (fallback: live model was ungrounded)"
+        stub_fallback_used = True
 
+    explanations = {
+        "dedup": ExplanationItem(
+            insightKey="dedup",
+            narration=res.text,
+            grounded=res.grounding.ok,
+            facts=res.facts,
+        )
+    }
+
+    # --- one grounded explanation per communal relationship ------------------------
+    insights = build_insights(result, batch.user)
+    communal = CommunalExplainer(client)
+    communal_stub = CommunalExplainer(StubExplainerClient())
+    for ins in insights.insights:
+        try:
+            cres = communal.explain(ins, batch.user, strict=True)
+        except UngroundedExplanation:
+            cres = communal_stub.explain(ins, batch.user, strict=True)
+            stub_fallback_used = True
+        key = f"{ins.relationship_type}:{ins.counterparty}"
+        explanations[key] = ExplanationItem(
+            insightKey=key,
+            narration=cres.text,
+            grounded=cres.grounding.ok,
+            facts=cres.facts,
+        )
+
+    used_source = (
+        f"{source} (fallback: stub for ungrounded output)" if stub_fallback_used else source
+    )
     return ExplanationsResponse(
         userId=batch.user.user_id,
         userName=batch.user.full_name,
         generatedBy=used_source,
-        explanations={
-            "dedup": ExplanationItem(
-                insightKey="dedup",
-                narration=res.text,
-                grounded=res.grounding.ok,
-                facts=res.facts,
-            )
-        },
+        explanations=explanations,
     )

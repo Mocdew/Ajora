@@ -31,21 +31,20 @@ curl -s http://localhost:8000/health        # {"status":"ok","users":[...]}
 
 Interactive API docs: http://localhost:8000/docs
 
-## 2. Frontend — Next.js dashboard (port 3000)
+## 2. Frontend — Next.js dashboard (port 3100)
 
-In a second terminal. Use the live flag so the dashboard reads the real engine instead of
-the local stubs:
+In a second terminal. The dashboard reads the real engine by default — no flag needed:
 
 ```bash
-NEXT_PUBLIC_USE_LIVE_API=1 npm --prefix web run dev
+npm --prefix web run dev
 ```
 
-Or launch **`ajora-web`** from the run UI (set `NEXT_PUBLIC_USE_LIVE_API=1` in the env for
-a fully-live run). The browser calls the backend through the same-origin `/api/engine`
-proxy (Next rewrites to `AJORA_API_BASE`, default `http://localhost:8000`), so there are
-no CORS concerns.
+`npm run dev` is pinned to **port 3100** (see `web/package.json`). Or launch **`ajora-web`**
+from the run UI. The browser calls the backend through the same-origin `/api/engine` proxy
+(Next rewrites to `AJORA_API_BASE`, default `http://localhost:8000`), so there are no CORS
+concerns regardless of the frontend port.
 
-Open **http://localhost:3000**.
+Open **http://localhost:3100**.
 
 ## 3. Demo
 
@@ -57,10 +56,11 @@ Open **http://localhost:3000**.
 ## Notes
 
 - **Ports:** backend defaults to `:8000` (`--port 8001` to change; then set
-  `AJORA_API_BASE` for the frontend). Frontend defaults to `:3000`.
-- **Stub vs live:** without `NEXT_PUBLIC_USE_LIVE_API=1` the dashboard renders local stubs
-  that are byte-identical to real engine output — visually the same, but not exercising the
-  backend. Use the flag for a true end-to-end demo.
+  `AJORA_API_BASE` for the frontend). Frontend runs on **`:3100`** (pinned in
+  `web/package.json`; override with `npm --prefix web run dev -- -p <port>`).
+- **Live by default:** the dashboard, communal, audit and settings screens all read the
+  real engine through the `/api/engine` proxy — no feature flag. (The old
+  `NEXT_PUBLIC_USE_LIVE_API` switch is retired.)
 - **Durable state:** `consent.jsonl` and `audit.jsonl` are written at the repo root at
   runtime (git-ignored). Revoking an account persists across restarts; delete these files
   to reset consent/audit to a clean slate before the demo.

@@ -13,11 +13,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from . import explanations, service
 from .audit import AuditLog
 from .consent import ConsentRecord, ConsentStore, account_institutions
-from .deps import get_audit_log, get_consent_store, get_provider
+from .corrections import CorrectionRecord, CorrectionsLog
+from .deps import (
+    get_audit_log,
+    get_consent_store,
+    get_corrections_log,
+    get_provider,
+)
 from .providers import DataProvider, UserNotFound
 from .schemas import (
     AuditResponse,
     CashflowResponse,
+    CorrectionRequest,
     ConsentsResponse,
     ExplanationsResponse,
     GraphResponse,
@@ -65,6 +72,34 @@ def get_cashflow(
         return service.get_cashflow(provider, consent_store, audit_log, user_id)
     except UserNotFound:
         raise _not_found(user_id)
+
+
+@router.post("/{user_id}/corrections", response_model=CorrectionRecord)
+def submit_correction(
+    user_id: str,
+    correction: CorrectionRequest,
+    provider: DataProvider = Depends(get_provider),
+    consent_store: ConsentStore = Depends(get_consent_store),
+    audit_log: AuditLog = Depends(get_audit_log),
+    corrections_log: CorrectionsLog = Depends(get_corrections_log),
+) -> CorrectionRecord:
+    """Append a confirm/reject verdict for a current transfer match."""
+    try:
+        return service.submit_correction(
+            provider,
+            consent_store,
+            audit_log,
+            corrections_log,
+            user_id,
+            correction,
+        )
+    except UserNotFound:
+        raise _not_found(user_id)
+    except service.CorrectionMatchNotFound:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Match {correction.match_id!r} is not present for user {user_id!r}.",
+        )
 
 
 @router.get("/{user_id}/insights", response_model=InsightsResponse)

@@ -128,6 +128,7 @@ export function useConsentMutation(userId: string) {
         `/users/${encodeURIComponent(userId)}/accounts/${encodeURIComponent(
           accountId,
         )}/${action}`,
+        undefined,
       ),
 
     onMutate: async ({ accountId, action }) => {

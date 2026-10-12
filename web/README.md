@@ -6,16 +6,11 @@ First, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-(The team dev server runs on **:3100** — `npm run dev -- -p 3100`.)
+`npm run dev` is pinned to **port 3100** (see `package.json`). Open
+[http://localhost:3100](http://localhost:3100) with your browser to see the result.
+(Override the port with `npm run dev -- -p <port>` if you need to.)
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

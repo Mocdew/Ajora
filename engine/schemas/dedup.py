@@ -25,6 +25,10 @@ class MatchedTransfer(BaseModel):
     """A debit leg matched to its mirror credit leg — a phantom self-transfer that
     naive aggregation would have double-counted as both spending and income."""
 
+    match_id: str = Field(
+        ...,
+        description="Stable id derived from the matched debit and credit transaction ids.",
+    )
     debit: Transaction
     credit: Transaction
     score: float = Field(..., ge=0, le=1, description="Match confidence in [0, 1].")

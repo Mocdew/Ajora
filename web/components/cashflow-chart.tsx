@@ -26,8 +26,8 @@ const compact: Intl.NumberFormatOptions = {
 
 /** Series identity, matched to the validated chart tokens. */
 const SERIES = {
-  true: { key: "trueIncome", label: "True income", color: "hsl(var(--chart-true))" },
-  raw: { key: "rawIncome", label: "Raw income", color: "hsl(var(--chart-inflated))" },
+  true: { key: "trueIncome", label: "True income", color: "hsl(var(--chart-line))" },
+  raw: { key: "rawIncome", label: "Raw income", color: "hsl(var(--chart-raw))" },
 } as const;
 
 interface Row {
@@ -182,7 +182,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
           <span
             aria-hidden
             className="inline-block h-3 w-4 rounded-sm"
-            style={{ backgroundColor: "hsl(var(--chart-inflated) / 0.16)" }}
+            style={{ backgroundColor: "hsl(var(--chart-gap))" }}
           />
           Phantom self-transfers
         </span>
@@ -204,13 +204,13 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
               <linearGradient id="trueFill" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="0%"
-                  stopColor="hsl(var(--chart-true))"
-                  stopOpacity={0.12}
+                  stopColor="hsl(var(--chart-gap))"
+                  stopOpacity={0.55}
                 />
                 <stop
                   offset="100%"
-                  stopColor="hsl(var(--chart-true))"
-                  stopOpacity={0}
+                  stopColor="hsl(var(--chart-gap))"
+                  stopOpacity={0.15}
                 />
               </linearGradient>
             </defs>
@@ -255,8 +255,8 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
               dataKey="phantom"
               stackId="band"
               stroke="none"
-              fill="hsl(var(--chart-inflated))"
-              fillOpacity={0.16}
+              fill="hsl(var(--chart-gap))"
+              fillOpacity={0.8}
               isAnimationActive={false}
             />
 

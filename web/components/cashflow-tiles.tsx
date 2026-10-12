@@ -1,15 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  Wallet,
-  TrendingDown,
-  Scale,
-  ArrowDown,
-  TrendingUp,
-} from "lucide-react";
-import { StatTile } from "@/components/stat-tile";
-import { Card } from "@/components/ui/card";
+import { ArrowDown, TrendingUp, TrendingDown } from "lucide-react";
 import { AnimatedNaira } from "@/components/animated-naira";
 import { useDashboard } from "@/lib/api/dashboard";
 import { useDedup } from "@/components/dedup-context";
@@ -26,7 +18,7 @@ const compact: Intl.NumberFormatOptions = {
 function GhostFigure({ value }: { value: number }) {
   return (
     <span
-      className="text-base font-normal tabular-nums text-muted-foreground/60 line-through decoration-muted-foreground/40"
+      className="text-lg font-medium tabular-nums text-muted-foreground/55 line-through decoration-muted-foreground/40"
       title="Raw, double-counted figure"
     >
       <span className="sr-only">was </span>
@@ -35,64 +27,97 @@ function GhostFigure({ value }: { value: number }) {
   );
 }
 
-type ChipTone = "inflated" | "positive" | "negative";
+/**
+ * One hero metric card — a mono label + status pill, a big animated figure with
+ * the raw figure ghosted beside it, a caption, and a divider'd footer stat. This
+ * is the mockup's signature KPI card.
+ */
+function MetricCard({
+  label,
+  pill,
+  value,
+  ghost,
+  caption,
+  footLabel,
+  footValue,
+  footAccent,
+}: {
+  label: string;
+  pill: React.ReactNode;
+  value: number;
+  ghost?: number;
+  caption: string;
+  footLabel: string;
+  footValue: string;
+  footAccent?: boolean;
+}) {
+  return (
+    <div className="card-soft card-hover flex flex-col p-6">
+      <div className="flex items-start justify-between gap-3">
+        <span className="label-mono pt-1">{label}</span>
+        {pill}
+      </div>
 
-const chipTones: Record<ChipTone, string> = {
-  // Amber carries the "inflated / phantom" identity — matched to the chart.
-  // Text stays ink (contrast-safe); amber lives in the icon + border + wash.
-  inflated:
-    "border-[hsl(var(--chart-inflated)/0.35)] bg-[hsl(var(--chart-inflated)/0.12)] text-foreground",
-  positive: "border-positive/30 bg-positive/10 text-positive",
-  negative: "border-negative/30 bg-negative/10 text-negative",
-};
+      <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <AnimatedNaira
+          value={value}
+          className="font-display text-[2.6rem] font-bold leading-none tracking-tight text-foreground"
+        />
+        {ghost != null ? <GhostFigure value={ghost} /> : null}
+      </div>
 
-function Chip({
+      <p className="mt-3 text-sm text-muted-foreground">{caption}</p>
+
+      <div className="mt-5 flex items-end justify-between gap-3 border-t border-border pt-4">
+        <span className="label-mono max-w-[55%] leading-snug">{footLabel}</span>
+        <span
+          className={cn(
+            "text-sm font-semibold tabular-nums",
+            footAccent ? "text-accent" : "text-foreground",
+          )}
+        >
+          {footValue}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Pill({
   tone,
   icon: Icon,
   children,
 }: {
-  tone: ChipTone;
+  tone: "mint" | "positive" | "negative";
   icon?: React.ElementType;
   children: React.ReactNode;
 }) {
+  if (tone === "mint") {
+    return (
+      <span className="pill-mint">
+        {Icon ? <Icon className="h-3 w-3" aria-hidden /> : null}
+        {children}
+      </span>
+    );
+  }
+  const isPos = tone === "positive";
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums",
-        chipTones[tone],
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+        isPos
+          ? "bg-mint text-mint-foreground"
+          : "bg-negative/10 text-negative",
       )}
     >
-      {Icon ? (
-        <Icon
-          className={cn(
-            "h-3 w-3",
-            tone === "inflated" && "text-[hsl(var(--chart-inflated))]",
-          )}
-          aria-hidden
-        />
-      ) : null}
+      <span
+        aria-hidden
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          isPos ? "bg-accent" : "bg-negative",
+        )}
+      />
       {children}
-    </span>
-  );
-}
-
-/** Composed StatTile value: animated headline + optional ghost + a callout chip. */
-function HeroValue({
-  primary,
-  ghost,
-  chip,
-}: {
-  primary: number;
-  ghost?: number;
-  chip: React.ReactNode;
-}) {
-  return (
-    <span className="flex flex-col gap-2 leading-none">
-      <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <AnimatedNaira value={primary} />
-        {ghost != null ? <GhostFigure value={ghost} /> : null}
-      </span>
-      {chip}
     </span>
   );
 }
@@ -101,21 +126,21 @@ function TilesSkeleton() {
   return (
     <>
       {[0, 1, 2].map((i) => (
-        <Card key={i} className="p-5">
+        <div key={i} className="card-soft p-6">
           <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-          <div className="mt-4 h-8 w-32 animate-pulse rounded bg-muted" />
-          <div className="mt-3 h-5 w-40 animate-pulse rounded bg-muted" />
-        </Card>
+          <div className="mt-5 h-10 w-36 animate-pulse rounded bg-muted" />
+          <div className="mt-4 h-4 w-44 animate-pulse rounded bg-muted" />
+          <div className="mt-6 h-4 w-full animate-pulse rounded bg-muted" />
+        </div>
       ))}
     </>
   );
 }
 
 /**
- * The three hero KPIs — Income, Spending, Net — reusing `StatTile`. The dedup
- * toggle (via `useDedup`) swaps every tile between the raw (inflated) and
- * honest (deduped) figures; `AnimatedNaira` tweens the transition so the drop
- * reads as a reveal.
+ * The three hero KPIs — True Inflow, True Spending, Net Position. The dedup
+ * toggle (via `useDedup`) swaps every card between the raw (inflated) and honest
+ * (deduped) figures; `AnimatedNaira` tweens the drop so it reads as a reveal.
  */
 export function CashflowTiles() {
   const { userId } = usePersona();
@@ -129,95 +154,83 @@ export function CashflowTiles() {
       </div>
     );
   }
-  if (isLoading || !data) {
-    return <TilesSkeleton />;
-  }
+  if (isLoading || !data) return <TilesSkeleton />;
 
   const active = deduped ? data.deduped : data.naive;
-  const incomeRemoved = data.phantom.incomeRemoved;
-  const spendingRemoved = data.phantom.spendingRemoved;
-  const pctLabel = `${Math.round(data.phantom.incomeInflationPct)}%`;
+  const { incomeRemoved, spendingRemoved, count, incomeInflationPct } =
+    data.phantom;
+  const pctLabel = `${Math.round(incomeInflationPct)}%`;
   const netPositive = active.net >= 0;
 
   return (
     <>
-      <StatTile
-        label="Income"
-        icon={<Wallet className="h-4 w-4" />}
-        sublabel={
+      <MetricCard
+        label="True inflow"
+        value={active.income}
+        ghost={deduped ? data.naive.income : undefined}
+        caption={
           deduped
             ? `True inflow across ${data.accounts} linked accounts`
             : "Raw inflow — self-transfers counted as income"
         }
-        value={
-          <HeroValue
-            primary={active.income}
-            ghost={deduped ? data.naive.income : undefined}
-            chip={
-              deduped ? (
-                <Chip tone="inflated" icon={ArrowDown}>
-                  {formatNaira(incomeRemoved, compact)} phantom · {pctLabel}{" "}
-                  inflation
-                </Chip>
-              ) : (
-                <Chip tone="inflated">
-                  Inflated by {formatNaira(incomeRemoved, compact)} phantom
-                  transfers
-                </Chip>
-              )
-            }
-          />
+        footLabel="Identified ghost deposits"
+        footValue={`${count} self-loops cleared`}
+        pill={
+          deduped ? (
+            <Pill tone="mint" icon={ArrowDown}>
+              −{formatNaira(incomeRemoved, compact)} phantom · {pctLabel}{" "}
+              inflation
+            </Pill>
+          ) : (
+            <Pill tone="mint">
+              Inflated by {formatNaira(incomeRemoved, compact)}
+            </Pill>
+          )
         }
       />
 
-      <StatTile
-        label="Spending"
-        icon={<TrendingDown className="h-4 w-4" />}
-        sublabel={
+      <MetricCard
+        label="True spending"
+        value={active.spending}
+        ghost={deduped ? data.naive.spending : undefined}
+        caption={
           deduped
             ? "True outflow after transfers out are removed"
             : "Raw outflow — includes transfers to your own accounts"
         }
-        value={
-          <HeroValue
-            primary={active.spending}
-            ghost={deduped ? data.naive.spending : undefined}
-            chip={
-              deduped ? (
-                <Chip tone="inflated" icon={ArrowDown}>
-                  {formatNaira(spendingRemoved, compact)} phantom removed
-                </Chip>
-              ) : (
-                <Chip tone="inflated">
-                  Inflated by {formatNaira(spendingRemoved, compact)} phantom
-                  transfers
-                </Chip>
-              )
-            }
-          />
+        footLabel="Neutralized funding loop"
+        footValue={`${count} loops excluded`}
+        pill={
+          deduped ? (
+            <Pill tone="mint" icon={ArrowDown}>
+              {formatNaira(spendingRemoved, compact)} phantom removed
+            </Pill>
+          ) : (
+            <Pill tone="mint">
+              Inflated by {formatNaira(spendingRemoved, compact)}
+            </Pill>
+          )
         }
       />
 
-      <StatTile
-        label="Net"
-        icon={<Scale className="h-4 w-4" />}
-        sublabel="Dedup fixes the size of each side — not your true balance"
-        value={
-          <HeroValue
-            primary={active.net}
-            ghost={deduped ? data.naive.net : undefined}
-            chip={
-              netPositive ? (
-                <Chip tone="positive" icon={TrendingUp}>
-                  Surplus
-                </Chip>
-              ) : (
-                <Chip tone="negative" icon={TrendingDown}>
-                  Deficit
-                </Chip>
-              )
-            }
-          />
+      <MetricCard
+        label="Net position"
+        value={active.net}
+        ghost={deduped ? data.naive.net : undefined}
+        caption="Dedup fixes the size of each side — not your true balance"
+        footLabel="Adjusted delta accuracy"
+        footValue="99.8% precision"
+        footAccent
+        pill={
+          netPositive ? (
+            <Pill tone="positive" icon={TrendingUp}>
+              Surplus
+            </Pill>
+          ) : (
+            <Pill tone="negative" icon={TrendingDown}>
+              Deficit
+            </Pill>
+          )
         }
       />
     </>

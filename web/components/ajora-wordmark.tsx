@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Ajora wordmark — the gold, heavy-grotesque logotype from the deck.
- * The dot of the "j" is rendered as a gold disc accent, matching the cover.
+ * Ajora logo — a near-black rounded tile with a white "A", next to the
+ * "Ajora" wordmark. Matches the product header in the brand mockups.
  */
 export function AjoraWordmark({
   className,
@@ -12,15 +12,23 @@ export function AjoraWordmark({
   showTagline?: boolean;
 }) {
   return (
-    <span className={cn("inline-flex flex-col leading-none", className)}>
-      <span className="font-display text-2xl font-bold tracking-tight text-accent">
-        Ajora
+    <span className={cn("inline-flex items-center gap-2.5", className)}>
+      <span
+        aria-hidden
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-display text-lg font-bold text-primary-foreground"
+      >
+        A
       </span>
-      {showTagline ? (
-        <span className="mt-1 text-xs font-medium text-muted-foreground">
-          Your true cashflow
+      <span className="inline-flex flex-col leading-none">
+        <span className="font-display text-xl font-bold tracking-tight text-foreground">
+          Ajora
         </span>
-      ) : null}
+        {showTagline ? (
+          <span className="mt-1 text-xs font-medium text-muted-foreground">
+            Your true cashflow
+          </span>
+        ) : null}
+      </span>
     </span>
   );
 }

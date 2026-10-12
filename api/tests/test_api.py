@@ -55,6 +55,8 @@ def test_cashflow_shows_dedup_removing_phantom_transfers() -> None:
     # Removing both legs of each matched pair shrinks the ledger by exactly 2x matches.
     raw_count = client.get(f"/users/{PERSONA}/transactions").json()["count"]
     assert body["deduped_transaction_count"] == raw_count - 2 * ba["matched_transfer_count"]
+    assert isinstance(body["unmatched_candidate_count"], int)
+    assert body["unmatched_candidate_count"] >= 0
     # Totals are internally consistent with the before/after view.
     assert body["totals"]["net_income"] == ba["income_after_ngn"]
     assert body["totals"]["gross_income"] == ba["income_before_ngn"]
@@ -127,6 +129,23 @@ def test_explanations_endpoint_is_grounded() -> None:
     assert dedup["grounded"] is True
     # No API key in tests -> offline stub produced the (grounded) narration.
     assert "stub" in body["generatedBy"]
+
+
+def test_explanations_include_grounded_communal_narration() -> None:
+    # u_persona_c has ajo/dependent/lending relationships, so /explanations should carry
+    # one grounded entry per relationship alongside the dedup one.
+    r = client.get(f"/users/{PERSONA}/explanations")
+    assert r.status_code == 200
+    ex = r.json()["explanations"]
+    assert "dedup" in ex
+    communal_keys = [k for k in ex if k != "dedup"]
+    assert communal_keys, "persona_c should have communal relationships narrated"
+    # Every explanation (dedup + communal) is grounded and non-empty...
+    assert all(ex[k]["grounded"] is True for k in ex)
+    assert all(ex[k]["narration"].strip() for k in ex)
+    # ...and communal keys are "<relationship_type>:<counterparty>".
+    for k in communal_keys:
+        assert k.split(":", 1)[0] in VALID_RELATIONSHIP_TYPES
 
 
 def test_explanations_unknown_user_is_404() -> None:
