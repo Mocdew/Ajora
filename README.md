@@ -55,9 +55,9 @@ web/               Next.js frontend
 docs/              Design + decision records
 ```
 
-> Note: `engine/` currently has two `Transaction` models (a float dedup track and an unused
-> Decimal spine). See [docs/transaction-model-decision.md](docs/transaction-model-decision.md)
-> — an open decision, not yet resolved.
+> Note: the engine standardizes on the float-backed `Transaction` in
+> `engine/schemas/transaction.py`, re-exported as `engine.Transaction`. See
+> [docs/transaction-model-decision.md](docs/transaction-model-decision.md) for the resolution.
 
 ## Running it
 

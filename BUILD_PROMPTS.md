@@ -118,13 +118,13 @@ log shows an entry per access. Keep it swappable for real open-banking consent l
 ```
 
 ### A · Phase 6 — Dockerize & deploy
-```
+````
 Use the engineering-git-workflow-master agent for branch/release hygiene, then:
 Containerize the app: a Dockerfile for the FastAPI+engine service and one for the Next.js
 front end, plus a docker-compose that runs both. Seed the mock dataset into the image.
 Done when: `docker compose up` serves the dashboard against the labelled personas on a
 clean machine, ready for the demo.
-```
+````
 
 ---
 
