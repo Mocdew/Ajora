@@ -1,6 +1,8 @@
 # Plan — Transfers & Dedup section
 
-**Status:** planned, not built. **Builder:** Frontend Developer agent (per CLAUDE.md routing).
+**Status:** built — Phase 1 and Phase 2 both shipped (`web/components/transfers/*`,
+`api/corrections.py`, `POST /users/{user_id}/corrections`). Kept as the design record.
+**Builder:** Frontend Developer agent (per CLAUDE.md routing).
 
 **Goal:** replace the `<ComingSoon>` placeholder at `web/app/(app)/transfers/page.tsx` with a
 working dedup review surface.

@@ -343,18 +343,19 @@ To feed Cytoscape's `elements`, map each node/edge to `{ data: { ... } }`.
 ### `GET /users/{user_id}/explanations`
 
 Grounded GenAI narration of the user's real engine output. **camelCase** (mirrors the
-frontend type). Today only the `dedup` insight is narrated; the map is keyed so communal
-narration slots in later.
+frontend type). The map always carries `dedup`, plus one entry per communal relationship
+from `/insights`, keyed `"{relationship_type}:{counterparty}"` (e.g.
+`"ajo_esusu:IYABO ADISA"`, `"informal_lending:CHIDI OKEKE"`).
 
 | field | type | meaning |
 |---|---|---|
 | `userId`, `userName` | string | |
 | `generatedBy` | string | model id, or `"stub-offline"` when no API key |
-| `explanations` | map | keyed by insight; `dedup` always present |
-| `explanations.dedup.insightKey` | string | `"dedup"` |
-| `explanations.dedup.narration` | string | the user-facing sentence(s) |
-| `explanations.dedup.grounded` | bool | true when every cited number traces to engine output |
-| `explanations.dedup.facts` | object | the engine figures the narration is grounded on |
+| `explanations` | map | keyed by insight; `dedup` always present, plus one key per communal relationship |
+| `explanations.<key>.insightKey` | string | the map key (`"dedup"` or `"{relationship_type}:{counterparty}"`) |
+| `explanations.<key>.narration` | string | the user-facing sentence(s) |
+| `explanations.<key>.grounded` | bool | true when every cited number traces to engine output |
+| `explanations.<key>.facts` | object | the engine figures the narration is grounded on |
 
 ```json
 {
@@ -364,6 +365,12 @@ narration slots in later.
     "dedup": {
       "insightKey": "dedup",
       "narration": "Funmilayo, we found 2 transfer(s) you made between your own banks, moving ₦79,990 in total. That money is not new income or new spending, so counting it inflated your income by 7.8%. Your real income is ₦1,021,200, not the ₦1,101,180 a naive view shows. The largest move, ₦45,000 from gtbank to opay, is a high-confidence match (98%).",
+      "grounded": true,
+      "facts": { "...": "engine figures" }
+    },
+    "informal_lending:CHIDI OKEKE": {
+      "insightKey": "informal_lending:CHIDI OKEKE",
+      "narration": "Funmilayo, you lent money to CHIDI OKEKE: ₦50,000 out and ₦20,000 repaid so far, leaving ₦30,000 still owed to you. ...",
       "grounded": true,
       "facts": { "...": "engine figures" }
     }
@@ -512,10 +519,12 @@ The normalized shape every bank feed maps to (source of truth:
 
 ## Generating a typed client
 
-The OpenAPI spec at `/openapi.json` can generate a typed client:
+The frontend's types are generated from `/openapi.json` into
+`web/lib/api/engine-schema.d.ts` (friendly aliases in `web/lib/api/engine-types.ts`).
+With the API running:
 
 ```bash
-npx openapi-typescript http://localhost:8000/openapi.json -o web/lib/api/engine.types.ts
+npm --prefix web run gen:api
 ```
 
 ---
@@ -535,7 +544,5 @@ load → dedup → insights → graph → explain all wire together.
 
 Not yet built (tracked in the project plan):
 
-- **Communal narration** — `/explanations` currently narrates only `dedup`; ajo/dependent/
-  lending/remittance explanations slot into the same `explanations` map once wired.
 - **Live provider** — a `MonoProvider`/`OkraProvider` implementing `DataProvider`.
 ```

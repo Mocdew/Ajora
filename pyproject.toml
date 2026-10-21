@@ -4,10 +4,19 @@ version = "0.1.0"
 description = "Ajora — consent-first multi-bank financial insights for Nigeria. Stateless engine for transfer dedup, communal-finance classification, and grounded explanations."
 requires-python = ">=3.9"
 dependencies = [
-    "pydantic>=2",
+    "pydantic>=2.5",
+    "numpy>=1.24",
+    "scipy>=1.11",
+    "rapidfuzz>=3.5",
+    "networkx>=3.1",
+    "scikit-learn>=1.3",
 ]
 
 [project.optional-dependencies]
+# Live Claude path for the explainer; the offline stub runs without it.
+llm = [
+    "anthropic>=0.40",
+]
 dev = [
     "pytest>=8",
 ]

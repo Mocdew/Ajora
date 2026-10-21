@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Dependencies first for layer caching. scipy/numpy/scikit-learn/pandas install from
+# Dependencies first for layer caching. scipy/numpy/scikit-learn install from
 # manylinux wheels, so no compiler toolchain is needed on slim.
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt

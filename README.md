@@ -32,8 +32,8 @@ data-minimization promise ("nothing collected just in case").
 - **Frontend:** React + Next.js (App Router) + TypeScript, Tailwind + shadcn/ui, Recharts,
   TanStack Query. Lives in `web/`.
 - **Backend / ML:** Python + FastAPI (Pydantic v2). Dedup uses the Hungarian algorithm
-  (`scipy.optimize.linear_sum_assignment`), RapidFuzz for name/narration similarity, pandas
-  for wrangling, scikit-learn for confidence-tier scoring, NetworkX for the communal graph.
+  (`scipy.optimize.linear_sum_assignment`), RapidFuzz for name/narration similarity,
+  scikit-learn for confidence-tier scoring, NetworkX for the communal graph.
 - **GenAI explainer:** Claude (latest model), grounded so every number traces back to
   computed facts.
 - **Data aggregation:** open-banking APIs (Mono first) behind a schema-matched mock layer,

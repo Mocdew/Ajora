@@ -24,7 +24,6 @@ services:
       context: ./web
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_USE_LIVE_API: "1"
         # Next freezes rewrites at build time, so the proxy target must be a build arg.
         AJORA_API_BASE: "http://api:8000"
     image: ajora-web

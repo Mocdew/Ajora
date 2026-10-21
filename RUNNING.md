@@ -1,12 +1,14 @@
-# Running Ajora (native, no Docker)
+# Running Ajora
 
 The demo runs as two local processes — the FastAPI engine and the Next.js dashboard.
-No containers and no secrets are required: with no `ANTHROPIC_API_KEY` set, the GenAI
-explainer uses a grounded offline stub.
+No secrets are required: with no `ANTHROPIC_API_KEY` set, the GenAI explainer uses a
+grounded offline stub.
 
-> Docker (BUILD_PROMPTS Phase 6) was intentionally skipped — we run the stack natively
-> for the demo. The code is container-ready if that changes later (stateless, file-backed,
-> ports configurable), but there are no Dockerfiles committed.
+> **Docker alternative:** `docker compose up --build` from the repo root builds both
+> services (`Dockerfile.api`, `web/Dockerfile`, `docker-compose.yml`) and serves the
+> dashboard at **http://localhost:3000** (API on :8000). Consent/audit state lives inside
+> the api container and resets on each `compose up`. The rest of this page covers the
+> native run.
 
 ## Prerequisites
 
