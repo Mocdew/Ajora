@@ -9,10 +9,16 @@ import {
   ArrowUpRight,
   ArrowLeftRight,
   Users,
+  CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
 import { cn, formatNaira } from "@/lib/utils";
 import { useCommunalInsights } from "@/lib/api/communal";
+import {
+  communalNarration,
+  useExplanations,
+  type Explanation,
+} from "@/lib/api/explanations";
 import { usePersona } from "@/components/persona-context";
 import { QueryError } from "@/components/query-error";
 import {
@@ -104,7 +110,13 @@ function FlowPill({ flow }: { flow: Flow }) {
   );
 }
 
-function InsightCard({ ins }: { ins: CommunalInsight }) {
+function InsightCard({
+  ins,
+  narration,
+}: {
+  ins: CommunalInsight;
+  narration?: Explanation;
+}) {
   const Icon = TYPE_ICON[ins.relationship_type];
   const flow = insightFlow(ins);
   const headline = insightHeadline(ins);
@@ -130,9 +142,21 @@ function InsightCard({ ins }: { ins: CommunalInsight }) {
         ) : null}
       </div>
 
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        {composeInsightSentence(ins)}
-      </p>
+      {narration ? (
+        <div className="mt-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-mint px-2.5 py-1 text-[11px] font-semibold text-mint-foreground">
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+            Grounded
+          </span>
+          <p className="mt-2 text-sm leading-relaxed text-foreground">
+            {narration.narration}
+          </p>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {composeInsightSentence(ins)}
+        </p>
+      )}
 
       <dl className="mt-5 space-y-2.5 border-t border-border pt-4">
         {stats.map((s) => (
@@ -177,6 +201,7 @@ export function CommunalInsightCards() {
   const { userId } = usePersona();
   const { data, isLoading, isError, error, refetch } =
     useCommunalInsights(userId);
+  const { data: explanations } = useExplanations(userId);
 
   if (isError) {
     return <QueryError error={error} onRetry={() => refetch()} />;
@@ -202,6 +227,7 @@ export function CommunalInsightCards() {
         <InsightCard
           key={`${ins.relationship_type}:${ins.counterparty}`}
           ins={ins}
+          narration={communalNarration(explanations, ins)}
         />
       ))}
     </div>

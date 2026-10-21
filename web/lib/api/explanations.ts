@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { engineGet } from "@/lib/api/engine";
 import {
   DEMO_USER_ID,
+  type Explanation,
   type ExplanationsResponse,
 } from "@/lib/api/stub/explanations";
 
@@ -30,5 +31,19 @@ export function useExplanations(userId: string = DEMO_USER_ID) {
   });
 }
 
-export type { ExplanationsResponse };
+/**
+ * The grounded narration for one communal relationship, keyed
+ * `"{relationship_type}:{counterparty}"` in the explanations map. Returns undefined
+ * when the key is absent or the narration failed grounding, so callers fall back to
+ * their client-composed sentence.
+ */
+export function communalNarration(
+  data: ExplanationsResponse | undefined,
+  ins: { relationship_type: string; counterparty: string },
+): Explanation | undefined {
+  const exp = data?.explanations[`${ins.relationship_type}:${ins.counterparty}`];
+  return exp?.grounded ? exp : undefined;
+}
+
+export type { ExplanationsResponse, Explanation };
 export { DEMO_USER_ID };

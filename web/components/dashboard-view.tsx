@@ -14,7 +14,7 @@ import { DedupToggle } from "@/components/dedup-toggle";
 import { CashflowTiles } from "@/components/cashflow-tiles";
 import { CashflowChart } from "@/components/cashflow-chart";
 import { useDashboard } from "@/lib/api/dashboard";
-import { useExplanations } from "@/lib/api/explanations";
+import { communalNarration, useExplanations } from "@/lib/api/explanations";
 import { useCommunalInsights } from "@/lib/api/communal";
 import { usePersona } from "@/components/persona-context";
 import {
@@ -117,6 +117,7 @@ function GroundedNarration() {
 function CommunalPreview() {
   const { userId } = usePersona();
   const { data, isLoading, isError } = useCommunalInsights(userId);
+  const { data: explanations } = useExplanations(userId);
 
   return (
     <div className="card-soft flex flex-col p-6">
@@ -151,6 +152,7 @@ function CommunalPreview() {
         ) : (
           (data.insights.insights ?? []).slice(0, 3).map((ins) => {
             const h = insightHeadline(ins);
+            const narration = communalNarration(explanations, ins);
             return (
               <div
                 key={`${ins.relationship_type}:${ins.counterparty}`}
@@ -167,9 +169,19 @@ function CommunalPreview() {
                 <p className="mt-1.5 text-sm font-semibold text-foreground">
                   {prettyName(ins.counterparty)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {composeInsightTeaser(ins)}
-                </p>
+                {narration ? (
+                  <p className="mt-1 text-xs leading-relaxed text-foreground">
+                    <CheckCircle2
+                      className="mr-1 inline h-3.5 w-3.5 -translate-y-px text-mint-foreground"
+                      aria-label="Grounded"
+                    />
+                    {narration.narration}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {composeInsightTeaser(ins)}
+                  </p>
+                )}
               </div>
             );
           })
