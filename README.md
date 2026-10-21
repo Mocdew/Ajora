@@ -46,10 +46,12 @@ engine/            Pure, stateless core IP (no web/DB/network)
   dedup/           Stage 1 — cross-institution transfer dedup
   communal/        Stage 2 — ajo/esusu, dependents, lending, remittances
   schemas/         Pydantic v2 models
+  explainer/       Grounded Claude explainer (offline stub by default)
   harness.py       Dedup eval harness
   communal_harness.py
-backend/           FastAPI app + GenAI explainer + scripts + persona fixtures
-  app/explainer/   Grounded Claude explainer (offline stub by default)
+api/               FastAPI app (api.main:app) — HTTP layer over the engine
+backend/           Scripts, persona fixtures, re-export shims for legacy imports
+  app/explainer/   Thin re-export shim → engine/explainer/
   data/mock/       Labelled persona dataset
 web/               Next.js frontend
 docs/              Design + decision records
@@ -67,6 +69,14 @@ docs/              Design + decision records
 python -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
 ```
+
+API server (from repo root):
+
+```bash
+.venv/bin/python -m uvicorn api.main:app --reload   # serves :8000
+```
+
+See [RUNNING.md](RUNNING.md) for the full stack (API + frontend, or Docker).
 
 Eval harnesses (from repo root):
 
