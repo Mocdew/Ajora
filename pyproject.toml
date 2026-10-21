@@ -1,7 +1,7 @@
 [project]
 name = "ajora-engine"
 version = "0.1.0"
-description = "Ajora — consent-first multi-bank financial insights for Nigeria. Stateless engine spine: canonical models, data providers, and schema adapters."
+description = "Ajora — consent-first multi-bank financial insights for Nigeria. Stateless engine for transfer dedup, communal-finance classification, and grounded explanations."
 requires-python = ">=3.9"
 dependencies = [
     "pydantic>=2",
@@ -14,9 +14,9 @@ dev = [
 
 [tool.pytest.ini_options]
 # Run every maintained Python suite from the repo root. The path entries expose
-# the canonical packages plus the backend's historical `app.*` import path.
+# the engine/API packages plus the backend's historical `app.*` import path.
 pythonpath = [".", "backend"]
-testpaths = ["tests", "engine/tests", "api/tests", "backend/tests"]
+testpaths = ["engine/tests", "api/tests", "backend/tests"]
 addopts = ["--import-mode=importlib"]
 
 [build-system]
@@ -24,4 +24,4 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["engine", "data"]
+packages = ["engine"]

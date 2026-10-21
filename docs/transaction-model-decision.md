@@ -1,56 +1,50 @@
-# Open decision: unify the two `Transaction` models
+# Resolved: unify the engine on the float `Transaction` model
 
-**Status:** open — needs a call from the team (owner of the Decimal spine to weigh in).
+**Status:** resolved — option (2).
 **Raised:** 2026-10-10.
+**Resolved:** 2026-10-20.
 
-`engine/` currently holds **two incompatible `Transaction` models** that do not bridge.
-This is an architecture decision, not a cleanup: whichever model we standardize on, the
-other track gets deleted.
+## Decision
 
-## The two tracks
+The sole engine transaction model is the float-backed
+`engine.schemas.transaction.Transaction`. It is re-exported unambiguously as
+`engine.Transaction`; there is no second package-root model.
 
-### Track A — live core-IP track (`float`)
-`engine/schemas/transaction.py`. The entire product runs on it:
+The orphaned Decimal spine was removed:
 
-- all of `engine/dedup` and `engine/communal`
-- both harnesses (`engine.harness`, `engine.communal_harness`)
-- the backend explainer (`backend/app/explainer/*`)
-- every dedup/communal test
+- `engine/models.py`
+- `engine/grouping.py`
+- the top-level `data/` package and fixtures
+- the top-level `tests/` spine tests
+- the `data` package and `tests` testpath entries in `pyproject.toml`
 
-`backend/app/dedup` and `backend/app/schemas` are thin re-export shims onto this track.
+## Why float
 
-### Track B — orphaned spine (`Decimal`)
-`engine/models.py` + `engine/grouping.py` + top-level `data/` (loader / provider /
-adapters + `data/mock/persona_{1,2}.json`) + top-level `tests/` (`test_loader`,
-`test_provider`).
+`Decimal` is generally preferable for money, but it was not a concrete reason to prefer
+this spine over the live track:
 
-Imported by **nothing** in the dedup/communal/explainer pipeline — only by its own two
-tests. A parallel track that is currently unused by the product.
+- every dedup, communal, explainer, API, backend, and harness consumer already uses the
+  float model;
+- the Decimal model is orphaned from the product and has a different field vocabulary,
+  so choosing it would require a product-wide migration rather than a type swap;
+- no observed defect demonstrated a Decimal-specific correctness benefit; and
+- keeping both models made `from engine import Transaction` silently resolve to the
+  unused implementation.
 
-## The real question
+Binary floating-point rounding remains a known trade-off, especially for money totals
+and threshold comparisons. Exact monetary arithmetic should be handled later as one
+atomic migration of the live schema and all consumers, not by restoring a parallel
+track.
 
-Not "delete the stale one" — it's **which model the product standardizes on**, then
-delete the loser.
+## Resolution checks
 
-## Trade-off
+Verified on 2026-10-20 after the deletion:
 
-`Decimal` is the correct type for money. `float` introduces rounding error in sums and
-threshold comparisons, which directly affects the dedup amount-feasibility gates and the
-before/after totals. So **Track B is arguably the model to keep**, even though it is the
-one currently unused.
+- `from engine import Transaction` resolves to
+  `engine.schemas.transaction.Transaction`, whose `amount` annotation is `float`.
+- The full root suite passes: **80 tests** across engine, API, and backend.
+- The dedup harness reports aggregate precision/recall/F1 of **1.0**.
+- The communal harness reports per-class precision/recall/F1 and insight detection
+  precision/recall of **1.0**.
 
-But migrating onto it is a real refactor, not a cleanup: the dedup scorer/similarity, the
-communal classifier/graph, and the explainer `build_facts` all read fields off the float
-model.
-
-## Two coherent end states
-
-1. **Unify on Decimal (recommended direction).** Migrate the engine onto
-   `engine/models.py`; drop `engine/schemas/transaction.py`. Correct money type; larger
-   change.
-2. **Unify on float.** Drop `engine/models.py`, `engine/grouping.py`, `data/`, `tests/`,
-   and the `data` entry in `pyproject.toml [tool.setuptools] packages`. Smaller change;
-   keeps the wrong money type.
-
-Do not unilaterally delete either track — confirm with the teammate who wrote the spine
-first.
+The ten top-level spine tests were intentionally removed with their implementation.

@@ -17,9 +17,9 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 ## Talking to the Ajora engine (FastAPI)
 
 The frontend never calls the FastAPI engine directly from the browser — the engine's
-CORS allow-list is pinned to the `:3000` origin and sends credentials, so a cross-origin
-fetch would be blocked. Instead, **Next proxies the engine** via a server-side rewrite
-(see `next.config.ts`):
+CORS allow-list covers the `:3000` and `:3100` dev origins and sends credentials, so a
+cross-origin fetch from any other origin would be blocked. Instead, **Next proxies the
+engine** via a server-side rewrite (see `next.config.ts`):
 
 ```
 /api/engine/:path*   →   ${AJORA_API_BASE}/:path*
