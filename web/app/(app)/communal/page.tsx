@@ -30,8 +30,8 @@ export default function CommunalPage() {
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
                 You at the center, every counterparty around you. Arrows follow
                 the money — teal flows in or is owed to you, amber flows out, gray
-                is a balanced two-way circle. Drag a node to explore; hover to
-                trace its flows.
+                is a balanced two-way circle. Click a node to inspect it, filter
+                by relationship type, or drag nodes to rearrange.
               </p>
             </div>
           </div>

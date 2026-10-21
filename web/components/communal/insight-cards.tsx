@@ -38,7 +38,7 @@ const compact: Intl.NumberFormatOptions = {
   maximumFractionDigits: 1,
 };
 
-const TYPE_ICON: Record<RelationshipType, LucideIcon> = {
+export const TYPE_ICON: Record<RelationshipType, LucideIcon> = {
   ajo_esusu: Repeat,
   dependent: HeartHandshake,
   informal_lending: HandCoins,
@@ -93,7 +93,7 @@ function statsFor(ins: CommunalInsight): Stat[] {
   }
 }
 
-function FlowPill({ flow }: { flow: Flow }) {
+export function FlowPill({ flow }: { flow: Flow }) {
   const { icon: Icon, label, tone } = flowMeta[flow];
   return (
     <span

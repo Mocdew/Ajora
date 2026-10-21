@@ -4,12 +4,29 @@ import * as React from "react";
 import type cytoscape from "cytoscape";
 import { Users } from "lucide-react";
 import { cn, formatNaira } from "@/lib/utils";
-import { useRelationshipGraph } from "@/lib/api/communal";
+import {
+  useCommunalInsights,
+  useRelationshipGraph,
+  useTransactions,
+} from "@/lib/api/communal";
+import { communalNarration, useExplanations } from "@/lib/api/explanations";
 import { usePersona } from "@/components/persona-context";
 import { QueryError } from "@/components/query-error";
 import { Card } from "@/components/ui/card";
-import { prettyName, type Flow } from "@/lib/communal-insights";
-import type { GraphResponse, GraphNode } from "@/lib/api/engine-types";
+import {
+  RelationshipInspector,
+  type InspectorOption,
+} from "@/components/communal/relationship-inspector";
+import {
+  RELATIONSHIP_LABEL,
+  prettyName,
+  type Flow,
+} from "@/lib/communal-insights";
+import type {
+  GraphResponse,
+  GraphNode,
+  RelationshipType,
+} from "@/lib/api/engine-types";
 
 /**
  * Relationship graph — Cytoscape.js, mounted by hand (useRef + useEffect) so there's
@@ -263,7 +280,95 @@ function buildStylesheet(p: Palette, volMin: number, volMax: number): cytoscape.
       selector: "edge.hl",
       style: { opacity: 1, width: `mapData(volume, ${lo}, ${hi}, 3, 6)` },
     },
+    // Selection (click-to-inspect) — a heavier ink ring than hover.
+    { selector: "node.sel", style: { "border-width": 4, "border-color": p.ink } },
+    {
+      selector: "edge.sel",
+      style: { opacity: 1, width: `mapData(volume, ${lo}, ${hi}, 3.5, 6.5)` },
+    },
+    // Filtered-out relationship types stay in place (layout is stable) but recede
+    // and stop taking pointer events.
+    { selector: ".faded", style: { opacity: 0.12, events: "no" } },
   ];
+}
+
+/** Apply the filter + selection classes without rebuilding the graph. */
+function applyViewState(
+  cy: cytoscape.Core,
+  selectedId: string | null,
+  hidden: ReadonlySet<RelationshipType>,
+) {
+  cy.batch(() => {
+    cy.elements().removeClass("sel faded");
+    cy.nodes().forEach((n) => {
+      const role = n.data("role") as string;
+      if (role !== "user" && hidden.has(role as RelationshipType)) {
+        n.addClass("faded");
+        n.connectedEdges().addClass("faded");
+      }
+    });
+    if (selectedId) {
+      const n = cy.getElementById(selectedId);
+      if (n.nonempty()) {
+        n.addClass("sel");
+        n.connectedEdges().addClass("sel");
+      }
+    }
+  });
+}
+
+const TYPE_ORDER: RelationshipType[] = [
+  "ajo_esusu",
+  "dependent",
+  "informal_lending",
+  "remittance",
+];
+
+/** One toggle chip per relationship type present in the graph, plus "All". */
+function FilterChips({
+  counts,
+  hidden,
+  onToggle,
+  onShowAll,
+}: {
+  counts: Map<RelationshipType, number>;
+  hidden: ReadonlySet<RelationshipType>;
+  onToggle: (t: RelationshipType) => void;
+  onShowAll: () => void;
+}) {
+  const types = TYPE_ORDER.filter((t) => counts.has(t));
+  if (types.length < 2) return null;
+  const chip =
+    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const on = "border-primary bg-primary text-primary-foreground";
+  const off = "border-border bg-card text-muted-foreground hover:bg-muted";
+  return (
+    <div role="group" aria-label="Filter by relationship type" className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        aria-pressed={hidden.size === 0}
+        onClick={onShowAll}
+        className={cn(chip, hidden.size === 0 ? on : off)}
+      >
+        All
+      </button>
+      {types.map((t) => {
+        const active = !hidden.has(t);
+        return (
+          <button
+            key={t}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onToggle(t)}
+            className={cn(chip, active ? on : off)}
+          >
+            {RELATIONSHIP_LABEL[t]}
+            <span className="tabular-nums opacity-75">{counts.get(t)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 const LAYOUT: cytoscape.ConcentricLayoutOptions = {
@@ -397,10 +502,76 @@ export function RelationshipGraph() {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const cyRef = React.useRef<cytoscape.Core | null>(null);
   const [theme, setTheme] = React.useState<Theme>("light");
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [hidden, setHidden] = React.useState<ReadonlySet<RelationshipType>>(
+    () => new Set(),
+  );
+  // Latest view state for the build effect, which must not depend on it (a
+  // selection change should restyle the graph, not rebuild it).
+  const viewRef = React.useRef({ selectedId, hidden });
+  viewRef.current = { selectedId, hidden };
+
+  const { data: insightsData } = useCommunalInsights(userId);
+  const { data: explanations } = useExplanations(userId);
+  const { data: ledger, isLoading: ledgerLoading } = useTransactions(userId);
 
   const hasCounterparties = Boolean(
     data && data.nodes.some((n) => n.kind !== "user"),
   );
+
+  // A new persona starts with a clean view.
+  React.useEffect(() => {
+    setSelectedId(null);
+    setHidden(new Set());
+  }, [userId]);
+
+  const counterparties = React.useMemo(
+    () => (data ? data.nodes.filter((n) => n.kind !== "user") : []),
+    [data],
+  );
+
+  const typeCounts = React.useMemo(() => {
+    const m = new Map<RelationshipType, number>();
+    for (const n of counterparties) {
+      if (n.relationship_type) {
+        m.set(n.relationship_type, (m.get(n.relationship_type) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [counterparties]);
+
+  const selectedNode = counterparties.find((n) => n.id === selectedId);
+  const selectedInsight = selectedNode
+    ? insightsData?.insights.insights?.find(
+        (i) =>
+          i.counterparty === selectedNode.id &&
+          i.relationship_type === selectedNode.relationship_type,
+      )
+    : undefined;
+
+  const options: InspectorOption[] = counterparties
+    .filter((n) => n.relationship_type && !hidden.has(n.relationship_type))
+    .map((n) => ({
+      id: n.id,
+      label: prettyName(n.label),
+      relationshipType: n.relationship_type as RelationshipType,
+    }));
+
+  const toggleType = (t: RelationshipType) => {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+    if (selectedNode?.relationship_type === t && !hidden.has(t)) {
+      setSelectedId(null);
+    }
+  };
+
+  React.useEffect(() => {
+    if (cyRef.current) applyViewState(cyRef.current, selectedId, hidden);
+  }, [selectedId, hidden]);
 
   React.useEffect(() => {
     setTheme(readTheme());
@@ -439,13 +610,27 @@ export function RelationshipGraph() {
         const n = evt.target;
         n.addClass("hl");
         n.connectedEdges().addClass("hl");
+        if (n.data("role") !== "user" && containerRef.current) {
+          containerRef.current.style.cursor = "pointer";
+        }
       });
       cy.on("mouseout", "node", (evt: cytoscape.EventObject) => {
         const n = evt.target;
         n.removeClass("hl");
         n.connectedEdges().removeClass("hl");
+        if (containerRef.current) containerRef.current.style.cursor = "";
+      });
+      // Click a counterparty to inspect it; the hub or empty canvas clears.
+      cy.on("tap", (evt: cytoscape.EventObject) => {
+        const t = evt.target;
+        if (t === cy || (t.isNode?.() && t.data("role") === "user")) {
+          setSelectedId(null);
+        } else if (t.isNode?.()) {
+          setSelectedId(t.id());
+        }
       });
 
+      applyViewState(cy, viewRef.current.selectedId, viewRef.current.hidden);
       cy.fit(undefined, 36);
     })();
 
@@ -477,15 +662,37 @@ export function RelationshipGraph() {
         Figures are listed in the insight cards above.
       </figcaption>
 
-      <div
-        ref={containerRef}
-        role="img"
-        aria-label="Interactive relationship graph; a text summary and the figures are in the insight cards above and the legend below."
-        className={cn(
-          "h-[460px] w-full rounded-md border border-border bg-muted/20",
-          "touch-none",
-        )}
+      <FilterChips
+        counts={typeCounts}
+        hidden={hidden}
+        onToggle={toggleType}
+        onShowAll={() => setHidden(new Set())}
       />
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div
+          ref={containerRef}
+          role="img"
+          aria-label="Interactive relationship graph; the details panel lists every relationship as a button, and the figures are also in the insight cards above."
+          className={cn(
+            "h-[460px] w-full rounded-md border border-border bg-muted/20",
+            "touch-none",
+          )}
+        />
+        <RelationshipInspector
+          insight={selectedInsight}
+          narration={
+            selectedInsight
+              ? communalNarration(explanations, selectedInsight)
+              : undefined
+          }
+          transactions={ledger?.transactions}
+          transactionsLoading={ledgerLoading}
+          options={options}
+          onSelect={setSelectedId}
+          onClose={() => setSelectedId(null)}
+        />
+      </div>
 
       <Legend />
     </figure>
