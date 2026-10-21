@@ -122,10 +122,11 @@ browser → GET /api/engine/users/{id}/cashflow   (same-origin, no CORS)
 - `AJORA_API_BASE` (server-only env) points Next at the engine; in prod set it to the
   deployed engine URL — no frontend code changes.
 - Client helper `engineGet()` in `web/lib/api/engine.ts` prefixes `/api/engine`.
-- **CORS:** the app also sets an allow-list (`http://localhost:3000`, `127.0.0.1:3000`) for
-  *direct* browser access. Since the dev server runs on **:3100** and uses the proxy, CORS
-  doesn't apply to it. If you ever call the API directly from a browser on another origin,
-  add it to `_DEV_ORIGINS` in [`api/main.py`](main.py) (ask backend — one line).
+- **CORS:** the app also sets an allow-list covering both dev origins —
+  `http://localhost:3000` / `127.0.0.1:3000` and `http://localhost:3100` / `127.0.0.1:3100` —
+  for *direct* browser access. The dev server runs on **:3100** but reaches the API through
+  the proxy, so CORS doesn't apply to it anyway. To call the API directly from a browser on
+  some other origin, add it to `_DEV_ORIGINS` in [`api/main.py`](main.py) (one line).
 
 ---
 

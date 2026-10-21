@@ -3,13 +3,12 @@
  *
  * Mirrors the shape the FastAPI service returns from
  * `GET /users/{id}/explanations`, so the UI can render the grounded LLM narration
- * before/without the backend running. When the service is up, point the query at it
- * (see `lib/api/explanations.ts`) — the exported types and the hook keep call sites
- * unchanged (same pattern as `stub/dashboard.ts` and `stub/communal.ts`).
+ * before/without the backend running. The live hook (`lib/api/explanations.ts`) imports
+ * its types from here, so call sites stay unchanged whichever source serves the data.
  *
  * ── What this is ─────────────────────────────────────────────────────────────
  * The narration is produced by the GenAI explainer from REAL dedup-engine output
- * (`backend/app/explainer`), then verified so every number in it is one the engine
+ * (`engine/explainer`), then verified so every number in it is one the engine
  * actually computed — no figure is invented. The strings below are the exact,
  * deterministic output of that pipeline for each demo persona, captured verbatim, so
  * the stub and the live endpoint read identically.
