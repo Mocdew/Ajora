@@ -4,10 +4,10 @@ import * as React from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  CheckCircle2,
-  MousePointerClick,
+  CheckCircle,
+  CursorClick,
   X,
-} from "lucide-react";
+} from "@phosphor-icons/react/dist/ssr";
 import { cn, formatNaira } from "@/lib/utils";
 import { FlowPill, TYPE_ICON } from "@/components/communal/insight-cards";
 import type { Explanation } from "@/lib/api/explanations";
@@ -134,15 +134,15 @@ export function RelationshipInspector({
   }, [insight]);
 
   const shell = cn(
-    "flex flex-col rounded-md border border-border bg-card xl:h-[460px]",
+    "panel-inset flex flex-col xl:h-[460px]",
     className,
   );
 
   if (!insight) {
     return (
-      <aside aria-label="Relationship details" className={cn(shell, "p-5")}>
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-accent">
-          <MousePointerClick className="h-5 w-5" aria-hidden />
+      <aside aria-label="Relationship details" className={cn(shell, "p-6")}>
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-card text-accent">
+          <CursorClick className="h-5 w-5" aria-hidden />
         </span>
         <p className="mt-3 text-sm font-semibold text-foreground">
           Inspect a relationship
@@ -152,7 +152,7 @@ export function RelationshipInspector({
           narration and transactions.
         </p>
         {options.length > 0 ? (
-          <ul className="mt-4 space-y-1.5 overflow-y-auto">
+          <ul className="mt-4 space-y-2 overflow-y-auto">
             {options.map((o) => {
               const Icon = TYPE_ICON[o.relationshipType];
               return (
@@ -160,7 +160,7 @@ export function RelationshipInspector({
                   <button
                     type="button"
                     onClick={() => onSelect(o.id)}
-                    className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex w-full items-center gap-3 rounded-lg bg-card px-3 py-2 text-left transition duration-300 hover:bg-input active:scale-[0.99]"
                   >
                     <Icon className="h-4 w-4 shrink-0 text-accent" aria-hidden />
                     <span className="min-w-0 flex-1">
@@ -194,17 +194,17 @@ export function RelationshipInspector({
 
   return (
     <aside aria-label="Relationship details" className={shell}>
-      <div className="flex items-start justify-between gap-3 border-b border-border p-5">
+      <div className="flex items-start justify-between gap-3 border-b border-border p-6">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-accent">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-card text-accent">
             <Icon className="h-5 w-5" aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="label-mono">{RELATIONSHIP_LABEL[insight.relationship_type]}</p>
+            <p className="caption">{RELATIONSHIP_LABEL[insight.relationship_type]}</p>
             <h3
               ref={headingRef}
               tabIndex={-1}
-              className="mt-1 truncate font-display text-lg font-bold tracking-tight text-foreground focus:outline-none"
+              className="mt-1 truncate text-lg font-bold tracking-tight text-foreground focus:outline-none"
             >
               {prettyName(insight.counterparty)}
             </h3>
@@ -214,17 +214,17 @@ export function RelationshipInspector({
           type="button"
           onClick={onClose}
           aria-label="Close details"
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="btn-icon"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
       </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto p-5">
+      <div className="flex-1 space-y-6 overflow-y-auto p-6">
         <div>
           <FlowPill flow={insightFlow(insight)} />
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="font-display text-3xl font-bold leading-none tabular-nums tracking-tight text-foreground">
+            <span className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
               {formatNaira(headline.value, compact)}
             </span>
             {headline.suffix ? (
@@ -233,16 +233,16 @@ export function RelationshipInspector({
           </div>
           {narration ? (
             <div className="mt-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-mint px-2.5 py-1 text-[11px] font-semibold text-mint-foreground">
-                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+              <span className="badge">
+                <CheckCircle className="h-3.5 w-3.5" aria-hidden />
                 Grounded
               </span>
-              <p className="mt-2 text-sm leading-relaxed text-foreground">
+              <p className="mt-2 text-sm text-foreground">
                 {narration.narration}
               </p>
             </div>
           ) : (
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-3 text-sm text-muted-foreground">
               {composeInsightSentence(insight)}
             </p>
           )}
@@ -251,7 +251,7 @@ export function RelationshipInspector({
         <dl className="space-y-2 border-t border-border pt-4">
           {detailsFor(insight).map((d) => (
             <div key={d.label} className="flex items-baseline justify-between gap-3">
-              <dt className="label-mono shrink-0">{d.label}</dt>
+              <dt className="caption shrink-0">{d.label}</dt>
               <dd className="text-right text-sm font-semibold tabular-nums text-foreground">
                 {d.value}
               </dd>
@@ -261,7 +261,7 @@ export function RelationshipInspector({
 
         {insight.reasons && insight.reasons.length > 0 ? (
           <div className="border-t border-border pt-4">
-            <p className="label-mono">Why Ajora flagged this</p>
+            <p className="caption">Why Ajora flagged this</p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-muted-foreground">
               {insight.reasons.map((r) => (
                 <li key={r}>{r}</li>
@@ -271,11 +271,11 @@ export function RelationshipInspector({
         ) : null}
 
         <div className="border-t border-border pt-4">
-          <p className="label-mono">Transactions</p>
+          <p className="caption">Transactions</p>
           {transactionsLoading ? (
             <div className="mt-2 space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-10 animate-pulse rounded-md bg-muted/50" />
+                <div key={i} className="h-10 animate-pulse rounded-lg bg-card" />
               ))}
             </div>
           ) : members.length === 0 ? (
@@ -288,11 +288,11 @@ export function RelationshipInspector({
                 const credit = t.direction === "credit";
                 const Arrow = credit ? ArrowDownLeft : ArrowUpRight;
                 return (
-                  <li key={t.id} className="flex items-start gap-2.5 py-2">
+                  <li key={t.id} className="flex items-start gap-3 py-2">
                     <Arrow
                       className={cn(
                         "mt-0.5 h-4 w-4 shrink-0",
-                        credit ? "text-[hsl(var(--teal))]" : "text-[hsl(var(--gold))]",
+                        credit ? "text-flow-in" : "text-flow-out",
                       )}
                       aria-label={credit ? "Money in" : "Money out"}
                     />
@@ -300,7 +300,7 @@ export function RelationshipInspector({
                       <p className="truncate text-xs text-foreground" title={t.narration}>
                         {t.narration}
                       </p>
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {formatDate(t.timestamp)} · {t.institution}
                       </p>
                     </div>

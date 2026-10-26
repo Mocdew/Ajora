@@ -3,125 +3,111 @@
 @tailwind utilities;
 
 /*
- * Ajora design tokens — "consent-first fintech" system.
- * Near-white surfaces, pure-white cards, near-black ink + primary (logo/buttons),
- * emerald green as the status/accent hue (dots, pills, verified, surplus), and
- * monospace micro-labels. HSL triplets so hsl(var(--token)) resolves directly.
+ * Ajora design tokens. Dark first: `.dark` is the default theme (set on <html>
+ * in the root layout); `:root` holds the opt-in light theme. Values follow the
+ * redesign skill's Design Values (.claude/skills/redesign-existing-projects):
+ * neutral gray surfaces, one emerald accent, red only as a status colour.
+ * HSL triplets so hsl(var(--token)) resolves directly.
  */
 @layer base {
   :root {
-    /* Surfaces & ink */
-    --background: 100 11% 97%; /* #F6F7F4 soft near-white */
-    --foreground: 160 14% 9%; /* #14201B near-black green-ink */
+    /* Light (opt-in) */
+    --background: 100 11% 97%; /* #F6F7F4 */
+    --foreground: 160 14% 9%; /* #14201B */
 
-    --card: 0 0% 100%; /* #FFFFFF */
+    --card: 0 0% 100%;
     --card-foreground: 160 14% 9%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 160 14% 9%;
 
-    /* Primary = near-black charcoal (logo, primary buttons) */
-    --primary: 160 14% 10%; /* #16211C */
+    --primary: 160 14% 10%; /* #16211C, primary buttons */
     --primary-foreground: 100 11% 98%;
 
-    /* Secondary = soft green-gray fill */
-    --secondary: 150 18% 95%; /* #EEF4F0 */
+    --secondary: 100 8% 94%; /* #EFF0ED raised fill */
     --secondary-foreground: 160 14% 14%;
+    --muted: 100 8% 94%;
+    --muted-foreground: 155 7% 40%;
 
-    /* Muted surfaces & subdued ink */
-    --muted: 100 8% 94%; /* #EFF0ED */
-    --muted-foreground: 155 7% 42%; /* #636E68 gray */
-
-    /* Accent = emerald green (status, eyebrows, dots, active marks) */
-    --accent: 152 56% 38%; /* #2A9759 */
+    /* The one accent: emerald. Tints are opacity of this value. */
+    --accent: 152 56% 38%;
     --accent-foreground: 0 0% 100%;
+    /* Accent as small text: darker on light so 12px labels pass AA. */
+    --accent-ink: 153 62% 24%;
 
-    /* Mint = soft green pill surface + its ink */
-    --mint: 150 52% 92%; /* #E2F6EA */
-    --mint-foreground: 153 62% 24%; /* #17643C */
-
-    /* Supporting hues */
-    --teal: 167 56% 42%; /* #2FA58C */
-    --teal-foreground: 0 0% 100%;
-    --gold: 36 78% 52%; /* retained for occasional warm marks */
-
-    /* Cashflow chart: dark "true" line, gray dashed "raw", mint "phantom gap". */
-    --chart-line: 160 30% 14%; /* #182B23 near-black true-cashflow line */
-    --chart-raw: 150 5% 62%; /* #9AA19D gray raw/inflated dashed line */
-    --chart-gap: 150 54% 86%; /* #CBEFD7 mint phantom-gap fill */
-    /* Legacy aliases (kept so older chart code resolves). */
-    --chart-true: 167 56% 42%;
-    --chart-inflated: 36 78% 52%;
-
-    /* Status — pair with icon + sign, never color alone. */
-    --positive: 152 56% 34%; /* green up */
+    /* Status, never colour alone. Positive reuses the accent. */
+    --positive: 152 56% 34%;
     --positive-foreground: 0 0% 100%;
-    --negative: 4 66% 51%; /* #D1483D brick red */
+    --negative: 4 66% 51%;
     --negative-foreground: 0 0% 100%;
-    --warning: 36 78% 52%;
-    --warning-foreground: 160 14% 10%;
-
     --destructive: 4 66% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Lines & focus */
-    --border: 100 7% 90%; /* #E6E7E3 hairline */
-    --input: 100 7% 88%;
+    /* Charts: ink "true" line over an accent band, gray dashed "raw". */
+    --chart-line: 160 14% 9%;
+    --chart-raw: 0 0% 40%; /* #666666 */
+    --chart-gap: 152 56% 38%;
+
+    /* Relationship graph money direction: accent in, high-contrast gray out,
+       low-contrast gray for balanced two-way ties. */
+    --flow-in: 152 56% 38%;
+    --flow-out: 0 0% 40%; /* #666666 */
+    --flow-neutral: 0 0% 60.8%; /* #9B9B9B */
+
+    --border: 100 7% 90%;
+    --input: 100 7% 86%;
     --ring: 152 56% 38%;
+
+    /* Hero heading text gradient stops. */
+    --hero-from: #000000;
+    --hero-to: #666666;
 
     --radius: 1rem;
   }
 
   .dark {
-    /* Near-black mode */
-    --background: 160 16% 6%; /* #0C110E */
-    --foreground: 100 10% 95%; /* #F2F3F0 */
+    /* Surfaces: #000000 page, #181818 card, #1F1F1F raised, #272727 hairline,
+       #313131 input and hover. */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
 
-    --card: 160 13% 9%; /* #141A16 */
-    --card-foreground: 100 10% 95%;
+    --card: 0 0% 9.4%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 12.2%;
+    --popover-foreground: 0 0% 100%;
 
-    --popover: 160 13% 9%;
-    --popover-foreground: 100 10% 95%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
 
-    /* Primary inverts to light (the "black" button becomes a light button). */
-    --primary: 100 10% 96%;
-    --primary-foreground: 160 16% 8%;
+    --secondary: 0 0% 12.2%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 12.2%;
+    --muted-foreground: 0 0% 60.8%; /* #9B9B9B */
 
-    --secondary: 160 12% 15%;
-    --secondary-foreground: 100 10% 95%;
+    --accent: 152 52% 48%; /* #3BBA7F */
+    --accent-foreground: 0 0% 0%;
+    --accent-ink: 152 52% 48%;
 
-    --muted: 160 10% 14%;
-    --muted-foreground: 150 6% 60%;
-
-    --accent: 152 52% 48%; /* brighter emerald on dark */
-    --accent-foreground: 160 16% 7%;
-
-    --mint: 153 40% 16%; /* dark mint pill */
-    --mint-foreground: 150 54% 74%;
-
-    --teal: 167 52% 48%;
-    --teal-foreground: 160 16% 8%;
-    --gold: 36 76% 56%;
-
-    --chart-line: 150 30% 82%; /* light line on dark */
-    --chart-raw: 150 5% 46%;
-    --chart-gap: 153 34% 24%;
-    --chart-true: 167 56% 46%;
-    --chart-inflated: 36 73% 50%;
-
-    --positive: 152 50% 52%;
-    --positive-foreground: 160 16% 8%;
+    --positive: 152 52% 48%;
+    --positive-foreground: 0 0% 0%;
     --negative: 4 64% 58%;
     --negative-foreground: 0 0% 100%;
-    --warning: 36 76% 56%;
-    --warning-foreground: 160 16% 8%;
-
-    --destructive: 4 64% 55%;
+    --destructive: 4 64% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 160 10% 17%;
-    --input: 160 10% 19%;
+    --chart-line: 0 0% 100%;
+    --chart-raw: 0 0% 60.8%; /* #9B9B9B */
+    --chart-gap: 152 52% 48%;
+
+    --flow-in: 152 52% 48%;
+    --flow-out: 0 0% 60.8%; /* #9B9B9B */
+    --flow-neutral: 0 0% 40%; /* #666666 */
+
+    --border: 0 0% 15.3%; /* #272727 */
+    --input: 0 0% 19.2%; /* #313131 */
     --ring: 152 52% 48%;
+
+    --hero-from: #ffffff;
+    --hero-to: #9b9b9b;
   }
 }
 
@@ -129,44 +115,143 @@
   * {
     @apply border-border;
   }
+  html {
+    color-scheme: light;
+    scroll-behavior: smooth;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "ss01", "cv01", "tnum";
+    font-feature-settings: "tnum";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Subtle grain so flat surfaces carry some texture (no gradients). */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+
+  /* One visible focus ring for every interactive element. */
+  :where(a, button, summary, select, input, textarea, [tabindex]):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      transition-property: opacity, color, background-color, border-color !important;
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+    }
   }
 }
 
 @layer components {
-  /* Uppercase monospace micro-label (e.g. "TRUE INFLOW", "NAVIGATION"). */
-  .label-mono {
-    @apply font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground;
+  /* Small sentence-case label (e.g. "True inflow"). */
+  .caption {
+    @apply text-xs font-medium text-muted-foreground;
   }
 
-  /* Green-dot eyebrow above a page title (e.g. "● THE ENGINE"). */
+  /* Accent dot eyebrow above a title. */
   .eyebrow {
-    @apply inline-flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-accent;
+    @apply inline-flex items-center gap-2 text-xs font-medium text-[hsl(var(--accent-ink))];
   }
   .eyebrow::before {
     content: "";
     @apply h-1.5 w-1.5 shrink-0 rounded-full bg-accent;
   }
 
-  /* White card with soft shadow; add `card-hover` for an interactive lift. */
+  /* Hero heading: left to right text gradient, text only. */
+  .text-hero {
+    background-image: linear-gradient(90deg, var(--hero-from), var(--hero-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Card: surface colour alone carries elevation. */
   .card-soft {
-    @apply rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgba(16,24,20,0.04),0_8px_24px_-12px_rgba(16,24,20,0.10)];
+    @apply rounded-2xl bg-card;
+  }
+  :root:not(.dark) .card-soft {
+    box-shadow: 0 1px 2px hsl(160 14% 9% / 0.04), 0 8px 24px -12px hsl(160 14% 9% / 0.1);
   }
   .card-hover {
-    @apply transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-[0_2px_4px_rgba(16,24,20,0.05),0_18px_40px_-16px_rgba(16,24,20,0.18)];
+    @apply transition-[transform,background-color] duration-500 hover:-translate-y-0.5 hover:bg-secondary;
   }
 
-  /* Dark terminal / security panel used inside the light UI. */
-  .panel-dark {
-    @apply rounded-2xl border border-black/40 bg-[#0d1210] text-[#e7eae6] shadow-[0_18px_40px_-18px_rgba(0,0,0,0.5)];
+  /* Inset panel one surface step up from a card. */
+  .panel-inset {
+    @apply rounded-xl bg-secondary;
   }
 
-  /* Soft mint status pill. */
-  .pill-mint {
-    @apply inline-flex items-center gap-1.5 rounded-full bg-mint px-2.5 py-1 text-[11px] font-semibold text-mint-foreground;
+  /* Square status badges. */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-md bg-accent/15 px-2 py-0.5 text-xs font-medium text-[hsl(var(--accent-ink))];
+  }
+  .badge-neutral {
+    @apply inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground;
+  }
+  .badge-negative {
+    @apply inline-flex items-center gap-1 rounded-md bg-negative/15 px-2 py-0.5 text-xs font-medium text-negative;
+  }
+
+  /* Buttons: 8px by 12px, semibold, base curve, pressed feedback. */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition duration-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-primary text-primary-foreground hover:bg-primary/85;
+  }
+  .btn-secondary {
+    @apply btn bg-secondary text-foreground hover:bg-input;
+  }
+  .btn-danger {
+    @apply btn bg-negative/15 text-negative hover:bg-negative/25;
+  }
+  .btn-icon {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition duration-300 hover:bg-secondary hover:text-foreground active:scale-[0.98];
+  }
+
+  /* Tertiary text link. */
+  .link-accent {
+    @apply inline-flex items-center gap-1 rounded-sm text-sm font-semibold text-[hsl(var(--accent-ink))] transition-colors duration-300 hover:opacity-80;
+  }
+
+  /* Scroll reveal: rise and fade once (see components/reveal.tsx). Content
+     is only hidden when the head script has marked <html class="js">, so it
+     stays visible without JavaScript, and always prints. */
+  .reveal {
+    transition:
+      opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  html.js .reveal:not([data-visible="true"]) {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.js .reveal:not([data-visible="true"]) {
+      transform: none;
+    }
+  }
+  @media print {
+    html.js .reveal:not([data-visible="true"]) {
+      opacity: 1;
+      transform: none;
+    }
   }
 }

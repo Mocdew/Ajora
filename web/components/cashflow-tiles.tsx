@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  ArrowDown,
+  TrendUp,
+  TrendDown,
+} from "@phosphor-icons/react/dist/ssr";
 import { AnimatedNaira } from "@/components/animated-naira";
 import { useDashboard } from "@/lib/api/dashboard";
 import { useDedup } from "@/components/dedup-context";
@@ -54,22 +58,22 @@ function MetricCard({
   return (
     <div className="card-soft card-hover flex flex-col p-6">
       <div className="flex items-start justify-between gap-3">
-        <span className="label-mono pt-1">{label}</span>
+        <span className="caption pt-1">{label}</span>
         {pill}
       </div>
 
-      <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <div className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <AnimatedNaira
           value={value}
-          className="font-display text-[2.6rem] font-bold leading-none tracking-tight text-foreground"
+          className="text-4xl font-bold tracking-tight text-foreground"
         />
         {ghost != null ? <GhostFigure value={ghost} /> : null}
       </div>
 
       <p className="mt-3 text-sm text-muted-foreground">{caption}</p>
 
-      <div className="mt-5 flex items-end justify-between gap-3 border-t border-border pt-4">
-        <span className="label-mono max-w-[55%] leading-snug">{footLabel}</span>
+      <div className="mt-6 flex items-end justify-between gap-3 border-t border-border pt-4">
+        <span className="caption max-w-[55%]">{footLabel}</span>
         <span
           className={cn(
             "text-sm font-semibold tabular-nums",
@@ -94,7 +98,7 @@ function Pill({
 }) {
   if (tone === "mint") {
     return (
-      <span className="pill-mint">
+      <span className="badge">
         {Icon ? <Icon className="h-3 w-3" aria-hidden /> : null}
         {children}
       </span>
@@ -103,12 +107,7 @@ function Pill({
   const isPos = tone === "positive";
   return (
     <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
-        isPos
-          ? "bg-mint text-mint-foreground"
-          : "bg-negative/10 text-negative",
-      )}
+      className={isPos ? "badge" : "badge-negative"}
     >
       <span
         aria-hidden
@@ -127,10 +126,10 @@ function TilesSkeleton() {
     <>
       {[0, 1, 2].map((i) => (
         <div key={i} className="card-soft p-6">
-          <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-          <div className="mt-5 h-10 w-36 animate-pulse rounded bg-muted" />
-          <div className="mt-4 h-4 w-44 animate-pulse rounded bg-muted" />
-          <div className="mt-6 h-4 w-full animate-pulse rounded bg-muted" />
+          <div className="h-3 w-24 animate-pulse rounded bg-secondary" />
+          <div className="mt-6 h-10 w-36 animate-pulse rounded bg-secondary" />
+          <div className="mt-4 h-4 w-44 animate-pulse rounded bg-secondary" />
+          <div className="mt-6 h-4 w-full animate-pulse rounded bg-secondary" />
         </div>
       ))}
     </>
@@ -171,9 +170,9 @@ export function CashflowTiles() {
         caption={
           deduped
             ? `True inflow across ${data.accounts} linked accounts`
-            : "Raw inflow — self-transfers counted as income"
+            : "Raw inflow, with self-transfers counted as income"
         }
-        footLabel="Identified ghost deposits"
+        footLabel="Ghost deposits found"
         footValue={`${count} self-loops cleared`}
         pill={
           deduped ? (
@@ -196,9 +195,9 @@ export function CashflowTiles() {
         caption={
           deduped
             ? "True outflow after transfers out are removed"
-            : "Raw outflow — includes transfers to your own accounts"
+            : "Raw outflow, including transfers to your own accounts"
         }
-        footLabel="Neutralized funding loop"
+        footLabel="Funding loops excluded"
         footValue={`${count} loops excluded`}
         pill={
           deduped ? (
@@ -217,17 +216,20 @@ export function CashflowTiles() {
         label="Net position"
         value={active.net}
         ghost={deduped ? data.naive.net : undefined}
-        caption="Dedup fixes the size of each side — not your true balance"
-        footLabel="Adjusted delta accuracy"
-        footValue="99.8% precision"
+        caption="Dedup fixes the size of each side, not your true balance"
+        // Measured offline by `python -m engine.harness` over the labelled
+        // persona dataset (18 of 18 gold pairs, 0 false matches). Update if
+        // the dataset or harness result changes.
+        footLabel="Dedup eval precision"
+        footValue="18 of 18 pairs"
         footAccent
         pill={
           netPositive ? (
-            <Pill tone="positive" icon={TrendingUp}>
+            <Pill tone="positive" icon={TrendUp}>
               Surplus
             </Pill>
           ) : (
-            <Pill tone="negative" icon={TrendingDown}>
+            <Pill tone="negative" icon={TrendDown}>
               Deficit
             </Pill>
           )

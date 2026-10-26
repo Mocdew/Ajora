@@ -10,11 +10,11 @@
     "gen:api": "openapi-typescript http://localhost:8000/openapi.json -o lib/api/engine-schema.d.ts"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@tanstack/react-query": "^5.64.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cytoscape": "3.34.3",
-    "lucide-react": "^0.469.0",
     "next": "15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

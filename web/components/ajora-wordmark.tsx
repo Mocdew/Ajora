@@ -12,15 +12,15 @@ export function AjoraWordmark({
   showTagline?: boolean;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)}>
+    <span className={cn("inline-flex items-center gap-3", className)}>
       <span
         aria-hidden
-        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-display text-lg font-bold text-primary-foreground"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground"
       >
         A
       </span>
       <span className="inline-flex flex-col leading-none">
-        <span className="font-display text-xl font-bold tracking-tight text-foreground">
+        <span className="text-xl font-bold tracking-tight text-foreground">
           Ajora
         </span>
         {showTagline ? (

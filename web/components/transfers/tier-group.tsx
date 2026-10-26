@@ -1,4 +1,6 @@
-import { ChevronDown } from "lucide-react";
+import {
+  CaretDown,
+} from "@phosphor-icons/react/dist/ssr";
 import type {
   CorrectionVerdict,
   MatchedTransfer,
@@ -10,7 +12,7 @@ type Tier = MatchedTransfer["tier"];
 const tierMeta: Record<Tier, { title: string; description: string }> = {
   high: {
     title: "High confidence",
-    description: "Strong matches removed automatically — still open to your correction.",
+    description: "Strong matches, removed automatically. You can still correct them.",
   },
   medium: {
     title: "Medium confidence",
@@ -44,18 +46,18 @@ export function TierGroup({
 
   return (
     <details className="group" open={defaultOpen}>
-      <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
-        <ChevronDown
-          className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+      <summary className="card-soft flex cursor-pointer list-none items-center gap-3 px-4 py-3 transition-colors duration-300 hover:bg-secondary [&::-webkit-details-marker]:hidden">
+        <CaretDown
+          className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-500 group-open:rotate-180"
           aria-hidden
         />
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-base font-semibold text-foreground">
+          <h2 className="text-base font-semibold text-foreground">
             {meta.title}
           </h2>
           <p className="text-xs text-muted-foreground">{meta.description}</p>
         </div>
-        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold tabular-nums text-secondary-foreground">
+        <span className="badge-neutral tabular-nums">
           {matches.length}
         </span>
       </summary>

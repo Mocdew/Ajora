@@ -1,17 +1,17 @@
 import {
-  Activity,
-  LayoutDashboard,
-  ArrowLeftRight,
+  Pulse,
+  SquaresFour,
+  ArrowsLeftRight,
   Users,
-  ScrollText,
+  Scroll,
   SlidersHorizontal,
-  type LucideIcon,
-} from "lucide-react";
+} from "@phosphor-icons/react/dist/ssr";
+import type { Icon } from "@phosphor-icons/react";
 
 export type NavItem = {
   title: string;
   href: string;
-  icon: LucideIcon;
+  icon: Icon;
   description: string;
   /** Not yet built — rendered as a disabled "soon" item. */
   comingSoon?: boolean;
@@ -24,19 +24,19 @@ export const navItems: NavItem[] = [
   {
     title: "Overview",
     href: "/overview",
-    icon: Activity,
-    description: "Where Ajora stands this cycle",
+    icon: Pulse,
+    description: "How Ajora works",
   },
   {
     title: "Dashboard",
     href: "/dashboard",
-    icon: LayoutDashboard,
+    icon: SquaresFour,
     description: "Your true cashflow at a glance",
   },
   {
-    title: "Transfers & Dedup",
+    title: "Transfers & dedup",
     href: "/transfers",
-    icon: ArrowLeftRight,
+    icon: ArrowsLeftRight,
     description: "Phantom self-transfers, matched and removed",
   },
   {
@@ -46,15 +46,15 @@ export const navItems: NavItem[] = [
     description: "Ajo, dependents, lending & remittances",
   },
   {
-    title: "Audit Log",
+    title: "Audit log",
     href: "/audit",
-    icon: ScrollText,
-    description: "Append-only access log — auditable, never sold",
+    icon: Scroll,
+    description: "Every read of your data, never sold",
   },
   {
     title: "Settings",
     href: "/settings",
     icon: SlidersHorizontal,
-    description: "Consent, connections & preferences",
+    description: "Connections, consent and appearance",
   },
 ];

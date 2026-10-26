@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { SearchCheck, ShieldCheck } from "lucide-react";
+import {
+  MagnifyingGlass,
+  Fingerprint,
+} from "@phosphor-icons/react/dist/ssr";
 import { usePersona } from "@/components/persona-context";
 import { QueryError } from "@/components/query-error";
+import { Reveal } from "@/components/reveal";
 import { DedupSummaryBar } from "@/components/transfers/dedup-summary-bar";
 import { TierGroup } from "@/components/transfers/tier-group";
 import { useDedupReview, useSubmitCorrection } from "@/lib/api/dedup";
@@ -15,20 +19,17 @@ import type {
 function ExplorerSkeleton() {
   return (
     <div className="space-y-6" aria-hidden>
-      <div className="grid overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2 xl:grid-cols-4">
-        {[0, 1, 2, 3].map((item) => (
-          <div
-            key={item}
-            className="space-y-3 border-border p-5 sm:border-l first:border-l-0"
-          >
-            <div className="h-3 w-28 animate-pulse rounded bg-muted" />
-            <div className="h-7 w-24 animate-pulse rounded bg-muted" />
-            <div className="h-3 w-36 animate-pulse rounded bg-muted" />
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="card-soft space-y-3 p-6">
+            <div className="h-3 w-28 animate-pulse rounded bg-secondary" />
+            <div className="h-8 w-24 animate-pulse rounded bg-secondary" />
+            <div className="h-3 w-36 animate-pulse rounded bg-secondary" />
           </div>
         ))}
       </div>
       {[0, 1].map((item) => (
-        <div key={item} className="h-16 animate-pulse rounded-lg bg-muted/60" />
+        <div key={item} className="card-soft h-16 animate-pulse" />
       ))}
     </div>
   );
@@ -36,12 +37,12 @@ function ExplorerSkeleton() {
 
 function EmptyState() {
   return (
-    <div className="rounded-lg border border-dashed border-border bg-card px-6 py-12 text-center">
-      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-        <ShieldCheck className="h-6 w-6" aria-hidden />
+    <div className="card-soft px-6 py-12 text-center">
+      <span className="panel-inset mx-auto flex h-12 w-12 items-center justify-center text-accent">
+        <Fingerprint className="h-6 w-6" aria-hidden />
       </span>
-      <h2 className="mt-4 font-display text-lg font-semibold text-foreground">
-        No phantom transfers — this ledger is already honest.
+      <h2 className="mt-4 text-lg font-semibold text-foreground">
+        No phantom transfers. This ledger is already honest.
       </h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
         Ajora found no cross-account transaction pairs confident enough to remove
@@ -80,8 +81,8 @@ export function TransfersView() {
       <DedupSummaryBar summary={data.before_after} />
 
       {data.unmatched_candidate_count > 0 ? (
-        <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
-          <SearchCheck
+        <div className="panel-inset flex items-start gap-3 px-4 py-3 text-sm">
+          <MagnifyingGlass
             className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
             aria-hidden
           />
@@ -103,7 +104,7 @@ export function TransfersView() {
       ) : (
         <section aria-label="Matched transfer pairs" className="space-y-4">
           <div>
-            <h2 className="font-display text-xl font-semibold text-foreground">
+            <h2 className="text-xl font-semibold text-foreground">
               Matched transfer pairs
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -132,43 +133,43 @@ export function TransfersView() {
         </section>
       )}
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      <Reveal as="section" className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="card-soft p-6">
-          <span className="eyebrow">Pairing topology</span>
-          <h3 className="mt-2 font-display text-lg font-bold tracking-tight text-foreground">
-            Hungarian algorithm pair guarantee
+          <span className="eyebrow">How pairing works</span>
+          <h3 className="mt-2 text-lg font-bold tracking-tight text-foreground">
+            Each transaction is matched at most once
           </h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            No transaction is double-counted or mapped to multiple counterparties.
-            By solving the assignment problem on a weighted bipartite graph —
-            combining currency values, timestamp deltas and counterparty
-            descriptors — Ajora strictly preserves true cashflow solvency.
+          <p className="mt-2 text-sm text-muted-foreground">
+            Ajora scores every possible debit and credit pair on amount, timing
+            and names, then solves the assignment with the Hungarian algorithm.
+            No transaction can be paired twice or counted against two
+            counterparties.
           </p>
-          <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-secondary/50 px-4 py-3 font-mono text-xs">
-            <span className="text-muted-foreground">Zero unassigned residuals</span>
-            <span className="font-semibold text-accent">optimal cost · bounded</span>
+          <div className="panel-inset mt-4 flex items-center justify-between px-4 py-3 font-mono text-xs">
+            <span className="text-muted-foreground">scipy linear_sum_assignment</span>
+            <span className="font-semibold text-accent">one to one</span>
           </div>
         </div>
 
         <div className="card-soft flex flex-col p-6">
-          <span className="eyebrow">Audit-trail ready</span>
-          <h3 className="mt-2 font-display text-lg font-bold tracking-tight text-foreground">
-            Sealed into your append-only ledger
+          <span className="eyebrow">Audit trail</span>
+          <h3 className="mt-2 text-lg font-bold tracking-tight text-foreground">
+            Your reviews are logged
           </h3>
-          <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
-            Every paired dedup decision is written to your personal append-only
-            log. Export cryptographic proofs anytime — and access can be revoked
-            at any second.
+          <p className="mt-2 flex-1 text-sm text-muted-foreground">
+            Every confirm or reject you make is appended to the corrections log,
+            and every read of your data to the audit log. You can export the
+            audit log at any time.
           </p>
           <Link
             href="/audit"
-            className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground transition-colors hover:border-accent/40"
+            className="btn-secondary mt-4 w-fit"
           >
-            <ShieldCheck className="h-4 w-4 text-accent" aria-hidden />
-            Open deduplication audit log
+            <Fingerprint className="h-4 w-4 text-accent" aria-hidden />
+            Open audit log
           </Link>
         </div>
-      </section>
+      </Reveal>
     </div>
   );
 }
