@@ -1,7 +1,7 @@
 import {
   ArrowDown,
   CheckCircle,
-  Fingerprint,
+  ArrowUp,
 } from "@phosphor-icons/react/dist/ssr";
 import type { BeforeAfter } from "@/lib/api/engine-types";
 import { formatNaira } from "@/lib/utils";
@@ -52,23 +52,21 @@ export function DedupSummaryBar({ summary }: { summary: BeforeAfter }) {
         </p>
       </div>
 
-      {/* Dedup accuracy */}
       <div className="card-soft p-6">
         <div className="flex items-center justify-between">
-          <span className="caption">Eval precision</span>
-          <Fingerprint className="h-4 w-4 text-accent" aria-hidden />
+          <span className="caption">Spending inflation reconciled</span>
+          <ArrowUp className="h-4 w-4 text-accent" aria-hidden />
         </div>
-        {/* From `python -m engine.harness` on the labelled persona dataset. */}
         <p className="mt-4 text-3xl font-bold tabular-nums text-foreground">
-          18 of 18
+          {summary.spending_inflation_pct.toFixed(1)}%
         </p>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Labelled self-transfer pairs found by Hungarian pairing, with no false
-          matches
+        <p className="mt-3 text-sm tabular-nums text-muted-foreground">
+          {formatNaira(summary.spending_before_ngn, compact)} →{" "}
+          <span className="font-semibold text-foreground">
+            {formatNaira(summary.spending_after_ngn, compact)}
+          </span>
         </p>
-        <p className="mt-2 font-mono text-xs text-muted-foreground">
-          engine.harness · precision 1.000 · recall 1.000
-        </p>
+        <p className="mt-2 text-xs text-muted-foreground">Transfer fees remain in spending</p>
       </div>
     </section>
   );

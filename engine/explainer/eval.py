@@ -103,18 +103,21 @@ def golden_cases() -> List[GoldenCase]:
     )
 
     # --- Case 1: a strong dedup result (the headline scenario). ---
+    matches = [
+        _match(500000, 50, 0.98, "high", "gtbank", "kuda", "2025-06-01T10:00:00"),
+        _match(450000, 25, 0.91, "high", "access", "gtbank", "2025-06-12T14:30:00"),
+        _match(300000, 10, 0.72, "medium", "kuda", "access", "2025-06-20T09:15:00"),
+    ]
+    matches[-1].verdict = "confirm"
     strong = DedupResult(
-        matches=[
-            _match(500000, 50, 0.98, "high", "gtbank", "kuda", "2025-06-01T10:00:00"),
-            _match(450000, 25, 0.91, "high", "access", "gtbank", "2025-06-12T14:30:00"),
-            _match(300000, 10, 0.72, "medium", "kuda", "access", "2025-06-20T09:15:00"),
-        ],
+        matches=matches,
+        internal_transfer_ids=[leg.id for match in matches for leg in (match.debit, match.credit)],
         totals=Totals(
             gross_income=3_250_000,
             gross_spending=3_250_085,
-            transfer_volume=1_250_042.5,
+            transfer_volume=1_250_000,
             net_income=2_000_000,
-            net_spending=2_000_000,
+            net_spending=2_000_085,
             income_inflation_pct=62.5,
             spending_inflation_pct=62.5,
         ),
@@ -142,7 +145,7 @@ def golden_cases() -> List[GoldenCase]:
             description="Three self-transfers found; income overstated by 62.5%.",
             result=strong,
             user=stephen,
-            must_mention=[3, 2_000_000, 62.5, 1_250_042.5],
+            must_mention=[3, 2_000_000, 62.5, 1_250_000],
         ),
         GoldenCase(
             name="zero_matches_clean_account",
@@ -254,7 +257,7 @@ def _teeth_checks() -> List[CaseOutcome]:
     )
 
     # (c) A clean, fully-grounded sentence must pass.
-    clean = "You moved ₦1,250,042.50 between your own banks, so your real income is ₦2,000,000."
+    clean = "You moved ₦1,250,000 between your own banks, so your real income is ₦2,000,000."
     rep_c = verify_grounded(clean, allowed, forbidden_terms=FORBIDDEN_TERMS)
     outcomes.append(
         CaseOutcome("verifier_accepts_grounded_text", rep_c.ok, clean, rep_c.summary())

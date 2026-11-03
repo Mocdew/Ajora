@@ -10,8 +10,11 @@ read-only endpoints and adds CORS for the Next.js dev origin.
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from engine.dedup import UnsupportedCurrencyError
 
 from .deps import get_provider
 from .routes import router
@@ -47,6 +50,11 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+
+@app.exception_handler(UnsupportedCurrencyError)
+async def missing_exchange_rate(_request: Request, exc: UnsupportedCurrencyError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
 @app.get("/health", tags=["meta"])

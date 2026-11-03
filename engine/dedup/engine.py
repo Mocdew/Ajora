@@ -26,12 +26,12 @@ Stateless and in-memory, per the no-database architecture. Pure: numpy + scipy +
 from __future__ import annotations
 
 from collections import Counter
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Mapping, Tuple
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from ..schemas.dedup import DedupResult, MatchedTransfer, Totals
+from ..schemas.dedup import DedupResult, MatchedTransfer, Totals, Verdict
 from ..schemas.transaction import Transaction, UserProfile
 from .scorer import RuleBasedScorer, Scorer, tier_for
 from .similarity import (
@@ -48,37 +48,64 @@ from .similarity import (
 _INFEASIBLE_COST = 1.0e6
 
 
+class UnsupportedCurrencyError(ValueError):
+    """NGN totals cannot be calculated until this currency has a conversion rate."""
+
+
 class DedupEngine:
     def __init__(self, config: DedupConfig | None = None, scorer: Scorer | None = None) -> None:
         self.cfg = config or DedupConfig()
         self.scorer = scorer or RuleBasedScorer()
 
-    def dedup(self, transactions: list[Transaction], user: UserProfile) -> DedupResult:
+    def dedup(
+        self,
+        transactions: list[Transaction],
+        user: UserProfile,
+        verdicts: Mapping[str, Verdict] | None = None,
+    ) -> DedupResult:
         debits = [t for t in transactions if t.direction == "debit"]
         credits = [t for t in transactions if t.direction == "credit"]
 
-        matches = self._match(debits, credits, user)
-
-        matched_debit_ids = {m.debit.id for m in matches}
-        matched_credit_ids = {m.credit.id for m in matches}
-        internal_ids = matched_debit_ids | matched_credit_ids
-        totals = self._totals(debits, credits, matches)
+        matches = self._match(debits, credits, user, verdicts or {})
+        applied = [m for m in matches if m.verdict == "confirm" or
+                   (m.verdict is None and m.tier == "high")]
+        internal_ids = {leg.id for m in applied for leg in (m.debit, m.credit)}
+        paired_ids = {leg.id for m in matches for leg in (m.debit, m.credit)}
 
         # Legs that look transfer-like (name themselves / round, recent) but found no
         # confident partner — surfaced so the UI can ask, and for debugging recall.
         candidates = [
             t
             for t in transactions
-            if t.id not in internal_ids and self._looks_transferish(t, user)
+            if t.id not in paired_ids and self._looks_transferish(t, user)
         ]
 
-        # Stage 4 (a): the clean ledger with both legs of every match removed, plus the
-        # set of ids flagged as internal so a consumer can flag rather than drop them.
-        deduped = [t for t in transactions if t.id not in internal_ids]
+        # Keep the fee (or favourable FX difference) as a separate NGN entry at the
+        # residual leg's date. Only the principal disappears from honest cashflow.
+        used_ids = {t.id for t in transactions}
+        residuals = {}
+        for m in applied:
+            if not m.fee:
+                continue
+            leg = m.debit if m.fee > 0 else m.credit
+            residual_id = f"settlement:{leg.id}"
+            while residual_id in used_ids:
+                residual_id += ":"
+            used_ids.add(residual_id)
+            residuals[leg.id] = Transaction(
+                id=residual_id, account_id=leg.account_id, institution=leg.institution,
+                amount=abs(m.fee), currency="NGN", direction=leg.direction,
+                timestamp=leg.timestamp, narration="Bank transfer settlement adjustment",
+                raw_category="transfer_fee" if m.fee > 0 else "transfer_gain",
+            )
+        deduped = [
+            residuals.get(t.id, t) for t in transactions
+            if t.id not in internal_ids or t.id in residuals
+        ]
 
         return DedupResult(
             matches=matches,
-            totals=totals,
+            totals=self._totals(debits, credits, deduped),
             unmatched_transfer_candidates=candidates,
             deduped_transactions=deduped,
             internal_transfer_ids=sorted(internal_ids),
@@ -99,7 +126,8 @@ class DedupEngine:
         return BatchContext(route_counts=dict(routes))
 
     def _match(
-        self, debits: list[Transaction], credits: list[Transaction], user: UserProfile
+        self, debits: list[Transaction], credits: list[Transaction], user: UserProfile,
+        verdicts: Mapping[str, Verdict],
     ) -> list[MatchedTransfer]:
         if not debits or not credits:
             return []
@@ -116,7 +144,7 @@ class DedupEngine:
                 if not is_feasible(d, c, f, self.cfg):
                     continue
                 s = self.scorer.score(f, d, self.cfg)
-                if s < self.cfg.accept_threshold:
+                if s < max(self.cfg.accept_threshold, self.cfg.tier_medium):
                     continue
                 cost[i, j] = 1.0 - s
                 feat_cache[(i, j)] = (f, s)
@@ -129,13 +157,16 @@ class DedupEngine:
                 continue  # assignment landed on an infeasible cell (count mismatch padding)
             f, s = feat_cache[(i, j)]
             d, c = debits[i], credits[j]
+            match_id = f"{d.id}:{c.id}"
             matches.append(
                 MatchedTransfer(
-                    match_id=f"{d.id}:{c.id}",
+                    match_id=match_id,
                     debit=d,
                     credit=c,
                     score=round(s, 4),
                     tier=tier_for(s, self.cfg),
+                    verdict=verdicts.get(match_id),
+                    credit_amount_ngn=round(self._amount_ngn(c), 2),
                     fee=round(f.fee_abs, 2),  # NGN-normalized (debit_ngn - credit_ngn)
                     cross_currency=bool(f.cross_currency),
                     reasons=build_reasons(f, s),
@@ -156,20 +187,20 @@ class DedupEngine:
     def _amount_ngn(self, t: Transaction) -> float:
         """NGN value of a leg, so totals stay in one unit across a USD domiciliary mix."""
         v = self.cfg.to_ngn(t.amount, t.currency)
-        return v if v is not None else t.amount
+        if v is None:
+            raise UnsupportedCurrencyError(f"No NGN exchange rate configured for {t.currency}.")
+        return v
 
     def _totals(
         self,
         debits: list[Transaction],
         credits: list[Transaction],
-        matches: list[MatchedTransfer],
+        ledger: list[Transaction],
     ) -> Totals:
         gross_income = sum(self._amount_ngn(c) for c in credits)
         gross_spending = sum(self._amount_ngn(d) for d in debits)
-        transfer_credit = sum(self._amount_ngn(m.credit) for m in matches)
-        transfer_debit = sum(self._amount_ngn(m.debit) for m in matches)
-        net_income = gross_income - transfer_credit
-        net_spending = gross_spending - transfer_debit
+        net_income = sum(self._amount_ngn(t) for t in ledger if t.direction == "credit")
+        net_spending = sum(self._amount_ngn(t) for t in ledger if t.direction == "debit")
 
         def inflation(gross: float, net: float) -> float:
             return round((gross - net) / net * 100.0, 1) if net > 0 else 0.0
@@ -177,7 +208,7 @@ class DedupEngine:
         return Totals(
             gross_income=round(gross_income, 2),
             gross_spending=round(gross_spending, 2),
-            transfer_volume=round((transfer_credit + transfer_debit) / 2, 2),
+            transfer_volume=round(gross_spending - net_spending, 2),
             net_income=round(net_income, 2),
             net_spending=round(net_spending, 2),
             income_inflation_pct=inflation(gross_income, net_income),

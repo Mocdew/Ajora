@@ -217,11 +217,8 @@ export function CashflowTiles() {
         value={active.net}
         ghost={deduped ? data.naive.net : undefined}
         caption="Dedup fixes the size of each side, not your true balance"
-        // Measured offline by `python -m engine.harness` over the labelled
-        // persona dataset (18 of 18 gold pairs, 0 false matches). Update if
-        // the dataset or harness result changes.
-        footLabel="Dedup eval precision"
-        footValue="18 of 18 pairs"
+        footLabel="Accounts contributing"
+        footValue={String(data.accounts)}
         footAccent
         pill={
           netPositive ? (

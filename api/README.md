@@ -364,7 +364,7 @@ from `/insights`, keyed `"{relationship_type}:{counterparty}"` (e.g.
   "explanations": {
     "dedup": {
       "insightKey": "dedup",
-      "narration": "Funmilayo, we found 2 transfer(s) you made between your own banks, moving ₦79,990 in total. That money is not new income or new spending, so counting it inflated your income by 7.8%. Your real income is ₦1,021,200, not the ₦1,101,180 a naive view shows. The largest move, ₦45,000 from gtbank to opay, is a high-confidence match (98%).",
+      "narration": "Funmilayo, we found 2 transfer(s) you made between your own banks, moving ₦79,980 in total. That money is not new income or new spending, so counting it inflated your income by 7.8%. Your real income is ₦1,021,200, not the ₦1,101,180 a naive view shows. The largest move, ₦45,000 from gtbank to opay, is a high-confidence match (98%).",
       "grounded": true,
       "facts": { "...": "engine figures" }
     },
@@ -393,7 +393,7 @@ account removes its transactions **before** the engine runs, so `/cashflow`, `/i
 `/graph` and `/explanations` all recompute on the consented ledger. Every data access
 writes one immutable line to an append-only audit log. Confirm/reject feedback on a
 transfer match is validated against the current consented ledger and appended to a
-separate corrections log for offline scorer improvement.
+separate corrections log. The latest verdict is applied on subsequent cashflow, insight, graph and narration reads, and remains available for offline scorer improvement.
 
 The consent store, audit log, and corrections log sit behind small interfaces
 ([`api/consent.py`](consent.py), [`api/audit.py`](audit.py),
@@ -439,7 +439,7 @@ revoked_excluded (string[] — the user's accounts withheld) }`.
 **`CorrectionRecord`:** `{ timestamp, user_id, match_id, verdict,
 debit_transaction_id, credit_transaction_id, previous_score, previous_tier }`.
 The endpoint records `correction_confirm` or `correction_reject` in the audit log;
-it does not rewrite current cashflow totals.
+subsequent reads apply the latest verdict: confirm includes the pair in deduplication; reject keeps both legs in cashflow.
 
 ### Durable state = append-only files (no DB)
 
@@ -450,9 +450,9 @@ Per [`CLAUDE.md`](../CLAUDE.md), durable state is append-only files, never a dat
   these events in order; seeding appends a `grant` event per account the first time a
   user is seen. The file is never rewritten.
 - **`audit.jsonl`** (repo root) — one `AuditEntry` per line, append-only, so the
-  "auditable, never sold" claim is real and tamper-evident.
+  "auditable, never sold" claim has an inspectable access trail. Plain JSONL files do not provide cryptographic tamper evidence.
 - **`corrections.jsonl`** (repo root) — one confirmed/rejected match verdict per
-  line. Records are training signals consumed by an offline scorer-improvement pass.
+  line. Latest verdicts control live deduction per match; the history is also available for offline scorer improvement.
 
 All paths are injectable and swapped for temporary files in tests; all are git-ignored.
 

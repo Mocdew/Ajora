@@ -45,7 +45,7 @@ def test_revoke_removes_account_from_transactions_and_cashflow() -> None:
     assert client.get(f"/users/{USER}/transactions").json()["count"] == 83
     before_cf = client.get(f"/users/{USER}/cashflow").json()
     assert before_cf["before_after"]["matched_transfer_count"] == 2
-    assert before_cf["totals"]["net_spending"] == 781800.0
+    assert before_cf["totals"]["net_spending"] == 781820.0
 
     # Revoke palmpay-c03 (the credit leg of one self-transfer pair).
     r = client.post(f"/users/{USER}/accounts/palmpay-c03/revoke")
@@ -102,7 +102,7 @@ def test_regrant_restores_the_account() -> None:
     assert client.get(f"/users/{USER}/transactions").json()["count"] == 83
     cf = client.get(f"/users/{USER}/cashflow").json()
     assert cf["before_after"]["matched_transfer_count"] == 2
-    assert cf["totals"]["net_spending"] == 781800.0
+    assert cf["totals"]["net_spending"] == 781820.0
 
 
 # --- append-only audit log ---------------------------------------------------------

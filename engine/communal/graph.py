@@ -25,9 +25,6 @@ from .lexicon import is_merchant_or_bill
 # default (NGN per 1 unit of foreign currency). Non-exhaustive by design (demo).
 FX_RATES_NGN: Dict[str, float] = {"USD": 1550.0, "GBP": 1950.0, "EUR": 1680.0}
 
-_NONALPHA = re.compile(r"[^A-Z ]")
-_WS = re.compile(r"\s+")
-
 USER_NODE = "__user__"
 
 
@@ -37,6 +34,10 @@ def to_ngn(amount: float, currency: str) -> float:
     return amount * FX_RATES_NGN.get(currency.upper(), 1.0)
 
 
+def _name_key(name: str) -> str:
+    return " ".join(re.findall(r"[^\W\d_]+", name.upper()))
+
+
 def counterparty_key(txn: Transaction) -> Optional[str]:
     """A stable identity for the person/entity on the other side of a transfer.
 
@@ -44,7 +45,7 @@ def counterparty_key(txn: Transaction) -> Optional[str]:
     the narration. Returns None when nothing name-like can be resolved.
     """
     if txn.counterparty_name:
-        key = _WS.sub(" ", _NONALPHA.sub(" ", txn.counterparty_name.upper())).strip()
+        key = _name_key(txn.counterparty_name)
         if key:
             return key
     fallback = clean_name(txn.narration)
@@ -90,6 +91,11 @@ def build_relationship_graph(
     g = nx.MultiDiGraph()
     g.add_node(USER_NODE, kind="user", name=user.full_name)
     stats: Dict[str, CounterpartyStats] = {}
+    # Consent can hide the opposite leg of a self-transfer. Its remaining leg
+    # is still on the ledger, but an exact full name/known alias isn't a new
+    # communal counterparty. A shared surname alone is insufficient evidence.
+    own_names = {_name_key(name) for name in (user.full_name, *user.aliases)}
+    own_names = {name for name in own_names if len(name.split()) >= 2}
 
     for t in transactions:
         if t.id in skip:
@@ -97,7 +103,7 @@ def build_relationship_graph(
         if is_merchant_or_bill(t.narration, t.counterparty_name):
             continue
         key = counterparty_key(t)
-        if not key:
+        if not key or key in own_names:
             continue
         amt_ngn = to_ngn(t.amount, t.currency)
         st = stats.get(key) or CounterpartyStats(name=key)

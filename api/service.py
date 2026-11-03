@@ -42,8 +42,14 @@ class CorrectionMatchNotFound(LookupError):
     """The requested match is not present in the user's current consented ledger."""
 
 
-def _run_dedup(batch: TransactionBatch) -> DedupResult:
-    return _ENGINE.dedup(batch.transactions, batch.user)
+def _run_dedup(batch: TransactionBatch, corrections_log: CorrectionsLog) -> DedupResult:
+    # Replay all decisions in append order, including ones older than the history
+    # display limit. Only pairs found in today's consented batch can be applied.
+    verdicts = {
+        entry.match_id: entry.verdict
+        for entry in corrections_log.entries_for(batch.user.user_id, limit=0)
+    }
+    return _ENGINE.dedup(batch.transactions, batch.user, verdicts)
 
 
 def get_transactions(
@@ -66,9 +72,10 @@ def get_cashflow(
     consent_store: ConsentStore,
     audit_log: AuditLog,
     user_id: str,
+    corrections_log: CorrectionsLog,
 ) -> CashflowResponse:
     batch = consented_batch(provider, consent_store, audit_log, user_id, "cashflow")
-    result = _run_dedup(batch)
+    result = _run_dedup(batch, corrections_log)
     t = result.totals
     before_after = BeforeAfter(
         income_before_ngn=t.gross_income,
@@ -78,7 +85,7 @@ def get_cashflow(
         income_inflation_pct=t.income_inflation_pct,
         spending_inflation_pct=t.spending_inflation_pct,
         transfer_volume_ngn=t.transfer_volume,
-        matched_transfer_count=len(result.matches),
+        matched_transfer_count=len(result.internal_transfer_ids) // 2,
     )
     return CashflowResponse(
         user_id=batch.user.user_id,
@@ -100,7 +107,7 @@ def submit_correction(
     user_id: str,
     correction: CorrectionRequest,
 ) -> CorrectionRecord:
-    """Validate and append one user verdict without mutating the live engine result."""
+    """Append a verdict only if the pair exists in the current consented ledger."""
     batch = consented_batch(
         provider,
         consent_store,
@@ -108,7 +115,7 @@ def submit_correction(
         user_id,
         None,
     )
-    result = _run_dedup(batch)
+    result = _run_dedup(batch, corrections_log)
     match = next((item for item in result.matches if item.match_id == correction.match_id), None)
     if match is None:
         raise CorrectionMatchNotFound(correction.match_id)
@@ -135,9 +142,10 @@ def get_insights(
     consent_store: ConsentStore,
     audit_log: AuditLog,
     user_id: str,
+    corrections_log: CorrectionsLog,
 ) -> InsightsResponse:
     batch = consented_batch(provider, consent_store, audit_log, user_id, "insights")
-    result = _run_dedup(batch)
+    result = _run_dedup(batch, corrections_log)
     insights = build_insights(result, batch.user)
     return InsightsResponse(
         user_id=batch.user.user_id,
@@ -151,9 +159,10 @@ def get_graph(
     consent_store: ConsentStore,
     audit_log: AuditLog,
     user_id: str,
+    corrections_log: CorrectionsLog,
 ) -> GraphResponse:
     batch = consented_batch(provider, consent_store, audit_log, user_id, "graph")
-    result = _run_dedup(batch)
+    result = _run_dedup(batch, corrections_log)
     insights = build_insights(result, batch.user)
     nodes, edges = _graph_elements(batch.user, insights)
     return GraphResponse(

@@ -1,22 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
-
-// One family: Geist for all UI and headings.
-const sans = Geist({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-// Geist Mono for figures, ids and hashes only.
-const mono = Geist_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -58,7 +45,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body
-        className={`${sans.variable} ${mono.variable} font-sans antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}
       >
         <QueryProvider>{children}</QueryProvider>
       </body>

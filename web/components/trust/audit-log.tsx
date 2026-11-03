@@ -69,7 +69,8 @@ function AccountChip({ id, excluded = false }: { id: string; excluded?: boolean 
 function AuditRow({ entry }: { entry: AuditEntry }) {
   const meta = metaFor(entry.endpoint);
   const Icon = meta.icon;
-  const hasExcluded = entry.revoked_excluded.length > 0;
+  const accessed = entry.accounts_accessed ?? [];
+  const excluded = entry.revoked_excluded ?? [];
   const isWrite = entry.endpoint.startsWith("correction_");
 
   return (
@@ -91,22 +92,22 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground">
-              {entry.accounts_accessed.length} account
-              {entry.accounts_accessed.length === 1 ? "" : "s"} accessed:
+              {accessed.length} account
+              {accessed.length === 1 ? "" : "s"} accessed:
             </span>
-            {entry.accounts_accessed.length > 0 ? (
-              entry.accounts_accessed.map((id) => <AccountChip key={id} id={id} />)
+            {accessed.length > 0 ? (
+              accessed.map((id) => <AccountChip key={id} id={id} />)
             ) : (
               <span className="text-xs text-muted-foreground">none</span>
             )}
           </div>
-          {hasExcluded ? (
+          {excluded.length > 0 ? (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1 text-xs font-medium text-negative">
                 <Vault className="h-3 w-3" aria-hidden />
                 Excluded by revoked consent:
               </span>
-              {entry.revoked_excluded.map((id) => (
+              {excluded.map((id) => (
                 <AccountChip key={id} id={id} excluded />
               ))}
             </div>

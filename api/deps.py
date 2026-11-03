@@ -9,6 +9,7 @@ a real consent/audit sink later is a one-line change here.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -26,9 +27,10 @@ __all__ = [
 
 # Durable append-only state lives at the repo root (git-ignored), per CLAUDE.md.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_CONSENT_PATH = _REPO_ROOT / "consent.jsonl"
-_AUDIT_PATH = _REPO_ROOT / "audit.jsonl"
-_CORRECTIONS_PATH = _REPO_ROOT / "corrections.jsonl"
+_STATE_ROOT = Path(os.environ.get("AJORA_STATE_DIR", str(_REPO_ROOT)))
+_CONSENT_PATH = _STATE_ROOT / "consent.jsonl"
+_AUDIT_PATH = _STATE_ROOT / "audit.jsonl"
+_CORRECTIONS_PATH = _STATE_ROOT / "corrections.jsonl"
 
 
 @lru_cache(maxsize=1)

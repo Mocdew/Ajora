@@ -285,7 +285,7 @@ def build_reasons(f: PairFeatures, score: float) -> list[str]:
         reasons.append("Shared transfer reference on both legs")
     if f.cross_currency:
         reasons.append("Cross-currency self-transfer matched at the configured FX rate")
-    if abs(f.amount_rel_diff) <= 0.005:
+    if round(f.fee_abs, 2) == 0:
         reasons.append("Exact amount match")
     elif f.fee_abs > 0 and not f.cross_currency:
         reasons.append(f"Amount matches net of ~{f.fee_abs:,.0f} fee")

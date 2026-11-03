@@ -92,7 +92,7 @@ Tests:
 cd backend && ../.venv/bin/python -m pytest -q # backend suite (explainer, personas)
 ```
 
-The GenAI explainer runs offline against a deterministic stub by default. For the live
+The GenAI explainer runs offline against a deterministic stub by default. Set `AJORA_EXPLAINER=offline` to force this credential-free demo mode. For the live
 Claude path, install `anthropic` (already in requirements) and set `ANTHROPIC_API_KEY`.
 
 ### Frontend

@@ -2,7 +2,6 @@ import {
   CaretDown,
 } from "@phosphor-icons/react/dist/ssr";
 import type {
-  CorrectionVerdict,
   MatchedTransfer,
 } from "@/lib/api/engine-types";
 import { TransferPairCard } from "@/components/transfers/transfer-pair-card";
@@ -16,7 +15,7 @@ const tierMeta: Record<Tier, { title: string; description: string }> = {
   },
   medium: {
     title: "Medium confidence",
-    description: "Likely self-transfers ready for your review.",
+    description: "Left in your totals until you confirm them.",
   },
   low: {
     title: "Low confidence",
@@ -28,18 +27,14 @@ export function TierGroup({
   tier,
   matches,
   defaultOpen = false,
-  verdicts = {},
-  pendingByMatchId = {},
-  errorsByMatchId = {},
   onCorrection,
+  pendingId,
 }: {
   tier: Tier;
   matches: MatchedTransfer[];
   defaultOpen?: boolean;
-  verdicts?: Record<string, CorrectionVerdict>;
-  pendingByMatchId?: Record<string, boolean>;
-  errorsByMatchId?: Record<string, string>;
-  onCorrection?: (matchId: string, verdict: CorrectionVerdict) => void;
+  pendingId?: string;
+  onCorrection: (matchId: string, verdict: "confirm" | "reject") => void;
 }) {
   if (matches.length === 0) return null;
   const meta = tierMeta[tier];
@@ -66,14 +61,9 @@ export function TierGroup({
           <TransferPairCard
             key={match.match_id}
             match={match}
-            verdict={verdicts[match.match_id]}
-            pending={pendingByMatchId[match.match_id]}
-            error={errorsByMatchId[match.match_id]}
-            onCorrection={
-              onCorrection
-                ? (verdict) => onCorrection(match.match_id, verdict)
-                : undefined
-            }
+            pending={pendingId === match.match_id}
+            disabled={Boolean(pendingId)}
+            onCorrection={verdict => onCorrection(match.match_id, verdict)}
           />
         ))}
       </div>

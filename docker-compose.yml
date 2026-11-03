@@ -3,7 +3,7 @@
 # Then open http://<host>:3000  (demo persona: Emeka Balogun / u_persona_b).
 #
 # Trust-layer state (consent.jsonl / audit.jsonl) lives inside the api container and is
-# ephemeral — each `compose up` starts from a clean, all-granted consent state.
+# retained on restart; removing/recreating the container resets the demo state.
 services:
   api:
     build:

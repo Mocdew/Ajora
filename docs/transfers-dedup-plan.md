@@ -1,5 +1,7 @@
 # Plan — Transfers & Dedup section
 
+**Current behavior:** high-confidence pairs are deducted automatically; medium pairs remain suggestions until confirmed; low pairs are left untouched. Latest confirm/reject verdicts apply on subsequent reads as well as remaining in the append-only training history. Transfer fees remain spending.
+
 **Status:** built — Phase 1 and Phase 2 both shipped (`web/components/transfers/*`,
 `api/corrections.py`, `POST /users/{user_id}/corrections`). Kept as the design record.
 **Builder:** Frontend Developer agent (per CLAUDE.md routing).

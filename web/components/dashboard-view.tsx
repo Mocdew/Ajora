@@ -46,6 +46,7 @@ function GroundedNarration() {
   if (isError) return null;
 
   const dedup = data?.explanations.dedup;
+  if (!isLoading && !dedup?.grounded) return null;
   const grounded = dedup?.grounded;
 
   return (
@@ -71,6 +72,11 @@ function GroundedNarration() {
           {dedup.narration}
         </p>
       )}
+      {data ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {data.generatedBy === "stub-offline" ? "Offline explanation" : data.generatedBy}
+        </p>
+      ) : null}
 
       {dash ? (
         <div className="panel-inset mt-6 flex items-center justify-between gap-4 px-4 py-3">

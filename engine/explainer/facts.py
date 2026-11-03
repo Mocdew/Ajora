@@ -41,13 +41,19 @@ def build_facts(result: DedupResult, user: UserProfile) -> Dict[str, Any]:
 
     transfers: List[Dict[str, Any]] = []
     institutions: Set[str] = set()
+    applied = set(result.internal_transfer_ids)
     for m in result.matches:
+        if m.debit.id not in applied:
+            continue
         institutions.add(m.debit.institution)
         institutions.add(m.credit.institution)
+        # Use the engine's configured conversion, never a second FX estimate. For
+        # a match without a conversion, retain the unit of the original credit.
+        converted = m.credit_amount_ngn
         transfers.append(
             {
-                # `amount` is the money that actually landed on the other side.
-                "amount": round(m.credit.amount, 2),
+                "amount": round(converted if converted is not None else m.credit.amount, 2),
+                "currency": "NGN" if converted is not None else m.credit.currency,
                 "fee": round(m.fee, 2),
                 "confidence_pct": round(m.score * 100),
                 "tier": m.tier,
@@ -57,10 +63,13 @@ def build_facts(result: DedupResult, user: UserProfile) -> Dict[str, Any]:
             }
         )
 
+    if transfers and len({move["currency"] for move in transfers}) == 1:
+        max(transfers, key=lambda move: move["amount"])["largest"] = True
+
     return {
         "currency": "NGN",
         "user_first_name": _first_name(user.full_name),
-        "match_count": len(result.matches),
+        "match_count": len(transfers),
         "distinct_institutions": len(institutions),
         "unmatched_candidate_count": len(result.unmatched_transfer_candidates),
         "totals": {
@@ -69,8 +78,8 @@ def build_facts(result: DedupResult, user: UserProfile) -> Dict[str, Any]:
             "transfer_volume": round(t.transfer_volume, 2),
             "net_income": round(t.net_income, 2),
             "net_spending": round(t.net_spending, 2),
-            "income_inflation_pct": round(t.income_inflation_pct, 1),
-            "spending_inflation_pct": round(t.spending_inflation_pct, 1),
+            "income_inflation_pct": round(t.income_inflation_pct, 1) if t.net_income > 0 else None,
+            "spending_inflation_pct": round(t.spending_inflation_pct, 1) if t.net_spending > 0 else None,
         },
         "transfers": transfers,
     }

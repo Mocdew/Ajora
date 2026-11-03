@@ -15,7 +15,6 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type {
-  CorrectionVerdict,
   EngineTransaction,
   MatchedTransfer,
 } from "@/lib/api/engine-types";
@@ -102,18 +101,14 @@ function TransactionLeg({
 }
 
 export function TransferPairCard({
-  match,
-  verdict,
-  pending = false,
-  error,
-  onCorrection,
+  match, pending, disabled, onCorrection,
 }: {
   match: MatchedTransfer;
-  verdict?: CorrectionVerdict;
-  pending?: boolean;
-  error?: string;
-  onCorrection?: (verdict: CorrectionVerdict) => void;
+  pending: boolean;
+  disabled: boolean;
+  onCorrection: (verdict: "confirm" | "reject") => void;
 }) {
+  const verdict = match.verdict;
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const reasons = match.reasons ?? [];
   return (
@@ -181,92 +176,45 @@ export function TransferPairCard({
         )}
       </div>
 
-      {onCorrection ? (
-        <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-          {verdict ? (
-            <div
-              role="status"
-              className={cn(
-                "flex items-start gap-2 text-sm",
-                verdict === "confirm" ? "text-positive" : "text-negative",
-              )}
-            >
-              {pending ? (
-                <CircleNotch className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden />
-              ) : verdict === "confirm" ? (
-                <Check className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-              ) : (
-                <X className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-              )}
-              <span>
-                <span className="font-semibold">
-                  {pending
-                    ? "Saving your review…"
-                    : verdict === "confirm"
-                      ? "Match confirmed"
-                      : "Match rejected"}
-                </span>
-                {!pending ? (
-                  <span className="block text-xs text-muted-foreground">
-                    Recorded for audit and offline scorer improvement.
-                  </span>
-                ) : null}
-              </span>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {match.tier === "high"
-                  ? "Is this automatic match correct?"
-                  : "Does this look right?"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Your review becomes an auditable training signal.
-              </p>
-            </div>
-          )}
-
-          {!verdict ? (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => onCorrection("confirm")}
-                disabled={pending}
-                className="btn-primary"
-              >
-                <Check className="h-4 w-4" aria-hidden />
-                Confirm match
-              </button>
-              <button
-                type="button"
-                onClick={() => setRejectOpen(true)}
-                disabled={pending}
-                className="btn-danger"
-              >
-                <X className="h-4 w-4" aria-hidden />
-                Reject
-              </button>
-            </div>
-          ) : null}
+      <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div role="status" className="text-sm">
+          <p className="flex items-center gap-2 font-semibold">
+            {pending ? <CircleNotch className="h-4 w-4 animate-spin" aria-hidden /> : null}
+            {pending ? "Saving your review…" : verdict === "confirm" ? "Match confirmed"
+              : verdict === "reject" ? "Match rejected"
+              : match.tier === "high" ? "Is this automatic match correct?"
+              : "Is this a transfer between your own accounts?"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {verdict === "confirm" || (!verdict && match.tier === "high")
+              ? "The transfer principal is excluded. Any fee stays in your cashflow."
+              : "Both transactions count toward your cashflow until you confirm the match."}
+          </p>
         </div>
-      ) : null}
-
-      {error ? (
-        <p className="mt-3 text-sm text-negative" role="alert">
-          {error} Please try again.
-        </p>
-      ) : null}
+        <div className="flex gap-2">
+          <button type="button" onClick={() => onCorrection("confirm")}
+            disabled={disabled || verdict === "confirm"} className="btn-primary">
+            <Check className="h-4 w-4" aria-hidden />
+            Confirm match
+          </button>
+          <button type="button" onClick={() => setRejectOpen(true)}
+            disabled={disabled || verdict === "reject"} className="btn-danger">
+            <X className="h-4 w-4" aria-hidden />
+            Reject
+          </button>
+        </div>
+      </div>
 
       <ConfirmDialog
         open={rejectOpen}
         title="Reject this transfer match?"
-        description="Ajora will append your correction to its audit trail and use it to improve the scorer offline. This feedback does not rewrite your current cashflow totals immediately."
+        description="Both transactions will count toward your income and spending. Ajora will recalculate your insights and record your decision in the audit log."
         confirmLabel="Reject match"
         tone="danger"
         pending={pending}
         onConfirm={() => {
           setRejectOpen(false);
-          onCorrection?.("reject");
+          onCorrection("reject");
         }}
         onCancel={() => setRejectOpen(false)}
       />

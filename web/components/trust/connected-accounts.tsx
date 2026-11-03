@@ -58,7 +58,7 @@ const dateFmt = new Intl.DateTimeFormat("en-GB", {
   hour12: false,
 });
 
-function formatTs(iso: string | null): string | null {
+function formatTs(iso?: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? null : dateFmt.format(d);
@@ -215,7 +215,7 @@ function RevokeExplainer() {
 export function ConnectedAccounts() {
   const { userId } = usePersona();
   const { data, isLoading, isError, error, refetch } = useConsents(userId);
-  const mutation = useConsentMutation(userId);
+  const mutation = useConsentMutation();
 
   const [banner, setBanner] = React.useState<Banner>(null);
   const [confirm, setConfirm] = React.useState<ConsentRecord | null>(null);
@@ -230,7 +230,7 @@ export function ConnectedAccounts() {
   function run(record: ConsentRecord, action: "revoke" | "grant") {
     const label = institutionLabel(record.institution);
     mutation.mutate(
-      { accountId: record.account_id, action },
+      { userId, accountId: record.account_id, action },
       {
         onSuccess: () => {
           setBanner(
@@ -303,7 +303,7 @@ export function ConnectedAccounts() {
               feeds.
             </span>
             <Link href="/audit" className="link-accent group">
-              Consent changes are logged
+              See which accounts were accessed
               <ArrowRight
                 className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5"
                 aria-hidden

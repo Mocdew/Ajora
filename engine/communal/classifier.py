@@ -78,9 +78,9 @@ class CommunalClassifier:
             if t.id in skip or is_merchant_or_bill(t.narration, t.counterparty_name):
                 continue
             key = counterparty_key(t)
-            if not key:
+            if key not in stats:
                 continue
-            st = stats.get(key)
+            st = stats[key]
             best = self._score_transaction(t, st)
             if best is None:
                 continue

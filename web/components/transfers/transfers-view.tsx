@@ -12,7 +12,6 @@ import { DedupSummaryBar } from "@/components/transfers/dedup-summary-bar";
 import { TierGroup } from "@/components/transfers/tier-group";
 import { useDedupReview, useSubmitCorrection } from "@/lib/api/dedup";
 import type {
-  CorrectionVerdict,
   MatchedTransfer,
 } from "@/lib/api/engine-types";
 
@@ -54,8 +53,8 @@ function EmptyState() {
 
 export function TransfersView() {
   const { userId } = usePersona();
+  const correction = useSubmitCorrection();
   const { data, isLoading, isError, error, refetch } = useDedupReview(userId);
-  const correction = useSubmitCorrection(userId);
 
   if (isError) return <QueryError error={error} onRetry={() => refetch()} />;
   if (isLoading || !data) return <ExplorerSkeleton />;
@@ -68,16 +67,18 @@ export function TransfersView() {
     },
     { high: [], medium: [], low: [] },
   );
-  const correctionProps = {
-    verdicts: correction.verdicts,
-    pendingByMatchId: correction.pendingByMatchId,
-    errorsByMatchId: correction.errorsByMatchId,
-    onCorrection: (matchId: string, verdict: CorrectionVerdict) =>
-      correction.mutate({ match_id: matchId, verdict }),
-  };
 
+  const submit = (matchId: string, verdict: "confirm" | "reject") =>
+    correction.mutate({ userId, match_id: matchId, verdict });
+  const active = correction.variables?.userId === userId;
+  const pendingId = active && correction.isPending ? correction.variables?.match_id : undefined;
   return (
     <div className="space-y-6">
+      {active && correction.isError ? (
+        <p role="alert" className="text-sm text-negative">
+          Could not verify the review. {correction.error.message} Check the current verdict and try again.
+        </p>
+      ) : null}
       <DedupSummaryBar summary={data.before_after} />
 
       {data.unmatched_candidate_count > 0 ? (
@@ -113,22 +114,25 @@ export function TransfersView() {
             </p>
           </div>
           <TierGroup
+            onCorrection={submit}
+            pendingId={pendingId}
             tier="high"
             matches={byTier.high}
             defaultOpen
-            {...correctionProps}
           />
           <TierGroup
+            onCorrection={submit}
+            pendingId={pendingId}
             tier="medium"
             matches={byTier.medium}
             defaultOpen={byTier.high.length === 0}
-            {...correctionProps}
           />
           <TierGroup
+            onCorrection={submit}
+            pendingId={pendingId}
             tier="low"
             matches={byTier.low}
             defaultOpen={byTier.high.length + byTier.medium.length === 0}
-            {...correctionProps}
           />
         </section>
       )}

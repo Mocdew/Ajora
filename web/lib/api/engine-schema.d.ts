@@ -354,12 +354,12 @@ export interface components {
             totals: components["schemas"]["Totals"];
             /**
              * Matches
-             * @description The phantom self-transfer pairs that were netted out.
+             * @description High- and medium-confidence pairs available for review.
              */
             matches?: components["schemas"]["MatchedTransfer"][];
             /**
              * Deduped Transaction Count
-             * @description Transactions remaining after both legs of every match are removed.
+             * @description Size of the clean ledger including any transfer fees or FX residuals.
              */
             deduped_transaction_count: number;
             /**
@@ -738,6 +738,16 @@ export interface components {
              */
             tier: "high" | "medium" | "low";
             /**
+             * Verdict
+             * @description The latest user decision for this pair, if reviewed.
+             */
+            verdict?: ("confirm" | "reject") | null;
+            /**
+             * Credit Amount Ngn
+             * @description Credit leg in NGN at the rate used by the engine.
+             */
+            credit_amount_ngn?: number | null;
+            /**
              * Fee
              * @description Value lost between the legs, in NGN. For a same-currency pair this is debit.amount - credit.amount (the NIP fee). For a cross-currency pair it is the NGN-equivalent spread (debit_ngn - credit_ngn).
              */
@@ -785,7 +795,7 @@ export interface components {
             net_income: number;
             /**
              * Net Spending
-             * @description Spending after removing transfer debits.
+             * @description Spending after removing transfer principal, including fees.
              */
             net_spending: number;
             /**

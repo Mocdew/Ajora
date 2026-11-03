@@ -52,9 +52,10 @@ def test_cashflow_shows_dedup_removing_phantom_transfers() -> None:
     assert ba["income_inflation_pct"] > 0
     assert ba["matched_transfer_count"] >= 1
     assert len(body["matches"]) == ba["matched_transfer_count"]
-    # Removing both legs of each matched pair shrinks the ledger by exactly 2x matches.
+    # Transfer principal disappears, while each nonzero fee/spread stays in the ledger.
     raw_count = client.get(f"/users/{PERSONA}/transactions").json()["count"]
-    assert body["deduped_transaction_count"] == raw_count - 2 * ba["matched_transfer_count"]
+    residual_count = sum(m["fee"] != 0 for m in body["matches"])
+    assert body["deduped_transaction_count"] == raw_count - len(body["internal_transfer_ids"]) + residual_count
     assert isinstance(body["unmatched_candidate_count"], int)
     assert body["unmatched_candidate_count"] >= 0
     # Totals are internally consistent with the before/after view.

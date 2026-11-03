@@ -7,15 +7,15 @@ grounded offline stub.
 > **Docker alternative:** `docker compose up --build` from the repo root builds both
 > services (`Dockerfile.api`, `web/Dockerfile`, `docker-compose.yml`) and serves the
 > dashboard at **http://localhost:3000** (API on :8000). Consent/audit state lives inside
-> the api container and resets on each `compose up`. The rest of this page covers the
+> the api container and survives container restarts; it resets when the container is removed/recreated. The rest of this page covers the
 > native run.
 
 ## Prerequisites
 
 - Python deps are in the repo-root `.venv` (created already). It must contain `fastapi`,
   `uvicorn`, and the engine libs (`scipy`, `rapidfuzz`, `scikit-learn`, `numpy`,
-  `networkx`, `pydantic`) — all pinned in `backend/requirements.txt`.
-- Node 18+ for the frontend. First time only: `npm --prefix web install`.
+  `networkx`, `pydantic`) — declared in `backend/requirements.txt`.
+- Node 22+ for the frontend. First time only: `npm --prefix web install`.
 
 ## 1. Backend — FastAPI engine (port 8000)
 
@@ -66,5 +66,21 @@ Open **http://localhost:3100**.
 - **Durable state:** `consent.jsonl` and `audit.jsonl` are written at the repo root at
   runtime (git-ignored). Revoking an account persists across restarts; delete these files
   to reset consent/audit to a clean slate before the demo.
-- **Reset demo state:** `rm -f consent.jsonl audit.jsonl`.
+- **Isolated rehearsal:** set `AJORA_STATE_DIR` to a fresh temporary directory before starting the API. This preserves existing consent, audit, and correction files. Re-grant accounts through Settings to reset a regular demo.
+
+## Verification
+
+Run `.venv/bin/python -m pytest -q`, both engine harnesses, and `npm --prefix web run lint` / `npm --prefix web run build`. The CI workflow repeats these checks.
+
+The hackathon demo uses deterministic offline narration when `ANTHROPIC_API_KEY` is unset. This is templated narration of engine output, not a live model call. The current optional live client is Anthropic; the Tensor provider in the project brief remains a separate integration.
+
+### Browser walkthrough
+
+Start a dedicated API against temporary state, with `AJORA_EXPLAINER=offline`, and build/start the web app pointing `AJORA_API_BASE` at that API. Then run:
+
+```bash
+npm --prefix web exec playwright install chromium
+AJORA_TEST_BASE_URL=http://127.0.0.1:3100 npm --prefix web run test:e2e
 ```
+
+An installed Chromium/Chrome can be selected with `AJORA_CHROME_PATH`. The test uses the real API and browser: it switches raw/true cashflow, rejects and confirms a transfer across reloads, revokes the domiciliary account, checks refreshed narration and communal insights, exports the audit log, and restores consent. It writes audit/consent/correction events, so use a dedicated `AJORA_STATE_DIR` rather than normal demo state. The CI workflow starts this isolated stack automatically.

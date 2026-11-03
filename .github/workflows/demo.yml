@@ -1,0 +1,58 @@
+name: Demo checks
+on: [push, pull_request]
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r backend/requirements.txt
+      - run: python -m pytest -q
+      - run: python -m engine.harness
+      - run: python -m engine.communal_harness
+      - run: python -m backend.scripts.run_explainer_eval
+        env:
+          PYTHONPATH: backend:.
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r backend/requirements.txt
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - name: Browser walkthrough
+        shell: bash
+        run: |
+          export AJORA_STATE_DIR="$(mktemp -d)"
+          export AJORA_EXPLAINER=offline
+          python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 >/tmp/ajora-api.log 2>&1 &
+          npm --prefix web run start >/tmp/ajora-web.log 2>&1 &
+          trap 'kill $(jobs -pr) 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl -fsS http://127.0.0.1:3100/api/engine/health >/dev/null; then break; fi
+            sleep 1
+          done
+          AJORA_TEST_BASE_URL=http://127.0.0.1:3100 npm --prefix web run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: demo-walkthrough
+          path: |
+            web/test-results/
+            web/playwright-report/
