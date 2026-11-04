@@ -38,6 +38,17 @@ local filesystem is temporary, so use disposable demo accounts and circles. See
 [Render's free service limitations](https://render.com/docs/free) and the
 [Blueprint reference](https://render.com/docs/blueprint-spec).
 
+To restore a default demo login automatically after every restart or redeployment,
+set `AJORA_DEMO_EMAIL` and `AJORA_DEMO_PASSWORD` together in the Render service's
+environment settings. Use a password of 15–128 characters; keep its value out of
+Git. Startup creates the normal member account if it is missing and preserves an
+existing matching account's ID and records. Conflicting credentials fail startup
+without replacing an existing password. Leave both variables unset to disable
+this bootstrap. The same variables can be set on the local API process.
+
+This restores access to the demo account, **not its previous circles or records**
+after the free host loses its temporary storage. Other accounts are not seeded.
+
 Run this SQLite service as a single instance. Set `AJORA_AUTH_ORIGINS` to an
 exact origin such as `https://ajora-example.vercel.app`, with no path or trailing
 slash. Separate additional origins with commas. You can add the Vercel domain

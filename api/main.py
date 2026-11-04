@@ -10,6 +10,8 @@ the optional bank-insights engine remains stateless.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -19,9 +21,10 @@ from engine.dedup import UnsupportedCurrencyError
 
 from .deps import get_provider
 from .routes import router
-from .savings import router as savings_router
+from .savings import router as savings_router, get_savings_path
 from .savings_identity import router as savings_identity_router
 from .auth import router as auth_router
+from .demo_account import seed_demo_account
 
 # The Next.js dev server. Explicit list (not "*") because credentials are allowed.
 # Note: the frontend normally reaches the API through its same-origin `/api/engine`
@@ -36,7 +39,14 @@ _DEV_ORIGINS = [
     "http://127.0.0.1:3200",
 ]
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    seed_demo_account(get_savings_path())
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Ajora API",
     version="0.1.0",
     description=(
