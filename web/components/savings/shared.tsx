@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useId, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   UsersThree,
@@ -10,8 +11,10 @@ import {
   ArrowUpRight,
   Fingerprint,
 } from "@phosphor-icons/react/dist/ssr";
-import { EngineError, enginePost } from "@/lib/api/engine";
+import { enginePost } from "@/lib/api/engine";
 import {
+  replaceSavingsSession,
+  useSavingsLogout,
   useSavingsSession,
   type SavingsSession,
   type Circle,
@@ -81,23 +84,13 @@ export function Loading() {
   );
 }
 
-async function replaceSavingsSession(
-  client: QueryClient,
-  identity: SavingsSession | null,
-) {
-  await Promise.all([
-    client.cancelQueries({ queryKey: ["savings"] }),
-    client.cancelQueries({ queryKey: ["savings-session"] }),
-    client.cancelQueries({ queryKey: ["account-email"] }),
-  ]);
-  client.removeQueries({ queryKey: ["savings"] });
-  client.removeQueries({ queryKey: ["account-email"] });
-  if (identity) client.setQueryData(["savings-session"], identity);
-  else await client.resetQueries({ queryKey: ["savings-session"] });
+function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
+  return <Suspense fallback={<Loading />}><AuthenticationFields guest={guest} /></Suspense>;
 }
 
-function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
+function AuthenticationFields({ guest }: { guest?: SavingsSession }) {
   const client = useQueryClient();
+  const searchParams = useSearchParams();
   const id = useId();
   const [mode, setMode] = useState<"register" | "login">("register");
   const [name, setName] = useState(guest?.display_name ?? "");
@@ -108,8 +101,8 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
   const [submitted, setSubmitted] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
   useEffect(() => {
-    if (!guest && new URLSearchParams(window.location.search).get("login") === "1") setMode("login");
-  }, [guest]);
+    if (!guest && searchParams.get("login") === "1") setMode("login");
+  }, [guest, searchParams]);
   const registering = mode === "register";
   const mismatch = registering && password !== confirmation;
   const auth = useMutation({
@@ -391,16 +384,7 @@ function AccountAccess({ session }: { session: SavingsSession }) {
       enginePost<{ recovery_key: string }>("/savings/recovery-key", {}),
     onSuccess: (data) => setKey(data.recovery_key),
   });
-  const logout = useMutation({
-    mutationFn: async () => {
-      try {
-        await enginePost("/savings/logout", {});
-      } catch (error) {
-        if (!(error instanceof EngineError && error.status === 401)) throw error;
-      }
-    },
-    onSuccess: () => replaceSavingsSession(client, null),
-  });
+  const logout = useSavingsLogout();
   return (
     <div className="mb-7">
       <details className="account-access rounded-xl border border-border bg-card px-4 py-3">

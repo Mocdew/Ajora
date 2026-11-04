@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
 import { AjoraWordmark } from "@/components/ajora-wordmark";
+import { AccountControl } from "@/components/shell/account-control";
 import { PersonaSwitcher } from "@/components/shell/persona-switcher";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { navItems } from "@/lib/nav";
@@ -19,10 +20,11 @@ const insightLinks = [
 
 export function TopBar() {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const analytics = ["/insights", "/transfers", "/communal", "/audit", "/overview", "/connections"].includes(pathname);
   return (
     <header className="workspace-header sticky top-0 z-30 border-b border-border before:absolute before:inset-0 before:-z-10 before:bg-background/95 before:backdrop-blur-md">
-      <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
+      <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-3 px-5 sm:gap-4 sm:px-8 lg:px-12">
         <Link href="/dashboard" className="shrink-0 rounded-sm" aria-label="Ajora, go home">
           <AjoraWordmark className={analytics ? "[&>span]:hidden sm:[&>span]:inline-flex" : undefined} />
         </Link>
@@ -41,14 +43,10 @@ export function TopBar() {
             );
           })}
         </nav>
-        <div className="flex min-w-0 items-center gap-3">
-          {analytics ? <PersonaSwitcher /> : (
-            <Link href="/circles" className="hidden items-center gap-4 text-xs sm:inline-flex">
-              Save with your people
-              <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card shadow-sm"><ArrowUpRight className="h-4 w-4" aria-hidden /></span>
-            </Link>
-          )}
-          <MobileNav />
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {analytics && <PersonaSwitcher />}
+          <AccountControl onNavigate={() => setMobileMenuOpen(false)} />
+          <MobileNav open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
         </div>
       </div>
       {analytics && (

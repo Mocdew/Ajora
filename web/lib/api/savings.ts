@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { EngineError, engineGet, enginePost } from "./engine";
 
 import type { components } from "./engine-schema";
@@ -9,6 +9,35 @@ export type SavingsSession = components["schemas"]["Session"];
 export type CircleMember = components["schemas"]["Member"];
 export type Circle = components["schemas"]["Circle"];
 export type InvitationPreview = components["schemas"]["InvitationPreview"];
+
+export async function replaceSavingsSession(
+  client: QueryClient,
+  identity: SavingsSession | null,
+) {
+  await Promise.all([
+    client.cancelQueries({ queryKey: ["savings"] }),
+    client.cancelQueries({ queryKey: ["savings-session"] }),
+    client.cancelQueries({ queryKey: ["account-email"] }),
+  ]);
+  client.removeQueries({ queryKey: ["savings"] });
+  client.removeQueries({ queryKey: ["account-email"] });
+  if (identity) client.setQueryData(["savings-session"], identity);
+  else await client.resetQueries({ queryKey: ["savings-session"] });
+}
+
+export function useSavingsLogout() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      try {
+        await enginePost("/savings/logout", {});
+      } catch (error) {
+        if (!(error instanceof EngineError && error.status === 401)) throw error;
+      }
+    },
+    onSuccess: () => replaceSavingsSession(client, null),
+  });
+}
 
 export function useSavingsSession() {
   return useQuery({

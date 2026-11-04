@@ -13,14 +13,19 @@ import { cn } from "@/lib/utils";
  * inert, and Escape returns focus to the button. Closes on navigation, Escape,
  * a second tap, or the viewport widening past `lg`.
  */
-export function MobileNav() {
-  const [open, setOpen] = React.useState(false);
+export function MobileNav({
+  open,
+  onOpenChange: setOpen,
+}: {
+  open: boolean;
+  onOpenChange: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
   const pathname = usePathname();
   const buttonRef = React.useRef<HTMLButtonElement>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
 
   // Close whenever the route changes.
-  React.useEffect(() => setOpen(false), [pathname]);
+  React.useEffect(() => setOpen(false), [pathname, setOpen]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -53,10 +58,10 @@ export function MobileNav() {
       main?.removeAttribute("inert");
       insightsNav?.removeAttribute("inert");
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   return (
-    <div className="lg:hidden">
+    <div className="shrink-0 lg:hidden">
       <button
         ref={buttonRef}
         type="button"
