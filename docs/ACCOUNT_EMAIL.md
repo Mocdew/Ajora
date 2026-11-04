@@ -130,8 +130,8 @@ Both token confirmations succeeded; the old password and session were rejected,
 and a new login restored the same identity and circle. All records belonged to
 isolated local test storage; no hosted member's password was changed.
 
-The sender configuration was saved in Render using **Save only**. The feature
-remains committed locally, without a GitHub push or production deployment, as
-requested. The initial sender supports restricted testing to the Resend account
+For this initial local run, sender configuration was saved in Render using
+**Save only**, and the feature was kept local pending release approval. The
+initial sender supports restricted testing to the Resend account
 owner. Verify an owned sending domain and replace `AJORA_EMAIL_FROM` before
 enabling delivery for other members.

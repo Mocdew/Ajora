@@ -86,3 +86,49 @@ database-export endpoint. Never commit a database backup to Git.
 
 Only report the hosted persistence change as complete after these checks pass
 against the configured remote database.
+
+## Verified hosted run — 4 November 2026
+
+**Hosted account and circle records survived an API redeployment.** The run used
+[Ajora on Vercel](https://ajora-one.vercel.app) through its same-origin
+`/api/engine` proxy, with application commit
+`42dfefe67ecf53e86e0ae6174d7caa36af63832f` before and after deployment.
+
+The Render service stayed on Free. Its existing Turso configuration remained
+unchanged; `AJORA_REQUIRE_REMOTE_SAVINGS=true` was added to require remote storage.
+
+| Evidence | Result |
+| --- | --- |
+| Baseline deployment | `dep-dbll420u01pc73ckbnt0` |
+| [Redeployment](https://dashboard.render.com/web/srv-dblfkjugekts7389f6j0/deploys/dep-dbll996c6qcc73bimt50) | `dep-dbll996c6qcc73bimt50`, **Deploy succeeded / Live**, duration 43.5 seconds |
+| New process startup | 16:52:39 Africa/Lagos; deployment live at 16:52:48 |
+| Post-deployment verification completed | 16:53:33 Africa/Lagos |
+| Synthetic circle | `55cca4ef008717eab5b01e74d1057026` |
+
+Two new synthetic password accounts completed a two-member, two-round circle
+before redeployment. Its record contained four contribution claims, six
+instalments, two recipient-confirmed payouts, and 19 history events. After the
+new deployment became live, both existing cookie sessions still returned the
+same user IDs. Fresh `/auth/login` requests also restored those identities and
+their circle access without registering again.
+
+The complete circle response matched the saved baseline exactly, including
+membership, agreements, contributions, payout history, and events. Its canonical
+SHA-256 fingerprint was identical before and after redeployment:
+
+```text
+59ef866270cea7fc0581cae152d28a2cd41fdd656eb34917395c417fc7af3915
+```
+
+The synthetic records remain available as verification evidence. No real money
+moved. This run does not establish migration of older temporary-storage records.
+Google sign-in was excluded from this run and left unchanged.
+
+Local storage, savings, identity, reconciliation, password-authentication, and
+demo-account checks also returned **75 passed, 1 skipped, 1 deselected**. The
+native-driver concurrency check was skipped because local `libsql` was absent;
+the live Turso transaction test was deliberately deselected to keep that local
+run offline. The hosted lifecycle and redeployment checks above ran separately.
+Local failure checks exercised simulated connection and commit failures without
+local fallback. No production storage outage was injected, so isolated remote
+failure verification remains outstanding.
