@@ -416,6 +416,261 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/savings/circles/{circle_id}/collection-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Collection Account */
+        post: operations["set_collection_account_savings_circles__circle_id__collection_account_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/agreement/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Agreement */
+        post: operations["accept_agreement_savings_circles__circle_id__agreement_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/bank-feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bank Feed */
+        get: operations["bank_feed_savings_circles__circle_id__bank_feed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/payments/{payment_id}/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Match Payment */
+        post: operations["match_payment_savings_circles__circle_id__payments__payment_id__match_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/payments/{payment_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Payment */
+        post: operations["confirm_payment_savings_circles__circle_id__payments__payment_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/payments/{payment_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Payment */
+        post: operations["reject_payment_savings_circles__circle_id__payments__payment_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/payments/{payment_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Payment */
+        post: operations["revoke_payment_savings_circles__circle_id__payments__payment_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/payments/{payment_id}/dispute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dispute Payment */
+        post: operations["dispute_payment_savings_circles__circle_id__payments__payment_id__dispute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/payouts/{round_number}/receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive Payout */
+        post: operations["receive_payout_savings_circles__circle_id__payouts__round_number__receive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/payouts/{round_number}/dispute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dispute Payout */
+        post: operations["dispute_payout_savings_circles__circle_id__payouts__round_number__dispute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/recovery-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace Recovery Key */
+        post: operations["replace_recovery_key_savings_recovery_key_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recover Identity */
+        post: operations["recover_identity_savings_recover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_savings_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register */
+        post: operations["register_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -440,6 +695,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Acceptance */
+        Acceptance: {
+            /** Member Id */
+            member_id: string;
+            /** Version */
+            version: number;
+            /** Accepted At */
+            accepted_at: string;
+        };
+        /** AgreementInput */
+        AgreementInput: {
+            /** Version */
+            version: number;
+        };
         /**
          * AuditEntry
          * @description One immutable record of a single data access.
@@ -482,6 +751,46 @@ export interface components {
             user_id: string;
             /** Entries */
             entries: components["schemas"]["AuditEntry"][];
+        };
+        /** AuthErrorResponse */
+        AuthErrorResponse: {
+            /** Detail */
+            detail: string;
+        };
+        /** BankFeed */
+        BankFeed: {
+            /**
+             * Source
+             * @default demo
+             * @constant
+             */
+            source: "demo";
+            /** Account Id */
+            account_id: string;
+            /** Refreshed At */
+            refreshed_at: string;
+            /** Transactions */
+            transactions: components["schemas"]["BankReceipt"][];
+            /** Matches */
+            matches?: components["schemas"]["MatchCandidate"][];
+            /**
+             * Notice
+             * @default Simulated bank feed. Matches demonstrate reconciliation and do not verify real payments.
+             */
+            notice: string;
+        };
+        /** BankReceipt */
+        BankReceipt: {
+            /** Id */
+            id: string;
+            /** Amount Kobo */
+            amount_kobo: number;
+            /** Reference */
+            reference: string;
+            /** Sender Name */
+            sender_name: string;
+            /** Occurred At */
+            occurred_at: string;
         };
         /**
          * BeforeAfter
@@ -605,6 +914,49 @@ export interface components {
             due_dates: string[];
             /** Created At */
             created_at: string;
+            collection_account?: components["schemas"]["CollectionAccount"] | null;
+            /**
+             * Agreement Version
+             * @default 1
+             */
+            agreement_version: number;
+            /** Acceptances */
+            acceptances?: components["schemas"]["Acceptance"][];
+            /** Events */
+            events?: components["schemas"]["CircleEvent"][];
+        };
+        /** CircleEvent */
+        CircleEvent: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Actor Id */
+            actor_id: string;
+            /** At */
+            at: string;
+            /** Detail */
+            detail: string;
+            /** Agreement */
+            agreement?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** CollectionAccount */
+        CollectionAccount: {
+            /**
+             * Account Id
+             * @constant
+             */
+            account_id: "demo-collection";
+            /** Label */
+            label: string;
+            /**
+             * Source
+             * @default demo
+             * @constant
+             */
+            source: "demo";
         };
         /**
          * CommunalInsight
@@ -773,6 +1125,18 @@ export interface components {
             rejected_at?: string | null;
             /** History */
             history?: components["schemas"]["RejectedClaim"][];
+            /** Payments */
+            payments?: components["schemas"]["Payment"][];
+            /**
+             * Confirmed Kobo
+             * @default 0
+             */
+            confirmed_kobo: number;
+            /**
+             * Matched Kobo
+             * @default 0
+             */
+            matched_kobo: number;
         };
         /** ContributionInput */
         ContributionInput: {
@@ -780,6 +1144,8 @@ export interface components {
             round_number: number;
             /** Reference */
             reference: string;
+            /** Amount Kobo */
+            amount_kobo?: number | null;
         };
         /**
          * CorrectionRecord
@@ -1034,6 +1400,25 @@ export interface components {
             /** Invite Code */
             invite_code: string;
         };
+        /** LoginInput */
+        LoginInput: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+        };
+        /** MatchCandidate */
+        MatchCandidate: {
+            /** Payment Id */
+            payment_id: string;
+            /** Transaction Id */
+            transaction_id: string;
+        };
+        /** MatchInput */
+        MatchInput: {
+            /** Transaction Id */
+            transaction_id: string;
+        };
         /**
          * MatchedTransfer
          * @description A debit leg matched to its mirror credit leg — a phantom self-transfer that
@@ -1098,6 +1483,34 @@ export interface components {
             /** Member Ids */
             member_ids: string[];
         };
+        /** Payment */
+        Payment: {
+            /** Id */
+            id: string;
+            /** Amount Kobo */
+            amount_kobo: number;
+            /** Reference */
+            reference: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "submitted" | "confirmed" | "rejected";
+            /**
+             * Source
+             * @default manual
+             * @enum {string}
+             */
+            source: "manual" | "demo";
+            /** Receipt Id */
+            receipt_id?: string | null;
+            /** Submitted At */
+            submitted_at: string;
+            /** Confirmed At */
+            confirmed_at?: string | null;
+            /** Rejection Reason */
+            rejection_reason?: string | null;
+        };
         /** Payout */
         Payout: {
             /** Round Number */
@@ -1110,6 +1523,16 @@ export interface components {
             reference: string;
             /** Recorded At */
             recorded_at: string;
+            /**
+             * Status
+             * @default legacy_recorded
+             * @enum {string}
+             */
+            status: "sent" | "received" | "disputed" | "legacy_recorded";
+            /** Received At */
+            received_at?: string | null;
+            /** Dispute Reason */
+            dispute_reason?: string | null;
         };
         /** PayoutInput */
         PayoutInput: {
@@ -1117,6 +1540,25 @@ export interface components {
             round_number: number;
             /** Reference */
             reference: string;
+        };
+        /** RecoverInput */
+        RecoverInput: {
+            /** Recovery Key */
+            recovery_key: string;
+        };
+        /** RecoveryKeyResponse */
+        RecoveryKeyResponse: {
+            /** Recovery Key */
+            recovery_key: string;
+        };
+        /** RegisterInput */
+        RegisterInput: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+            /** Display Name */
+            display_name: string;
         };
         /** RejectInput */
         RejectInput: {
@@ -1140,6 +1582,8 @@ export interface components {
             user_id: string;
             /** Display Name */
             display_name: string;
+            /** Email */
+            email?: string | null;
         };
         /** SessionInput */
         SessionInput: {
@@ -2061,6 +2505,522 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_collection_account_savings_circles__circle_id__collection_account_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectionAccount"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_agreement_savings_circles__circle_id__agreement_accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bank_feed_savings_circles__circle_id__bank_feed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankFeed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    match_payment_savings_circles__circle_id__payments__payment_id__match_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_payment_savings_circles__circle_id__payments__payment_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_payment_savings_circles__circle_id__payments__payment_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_payment_savings_circles__circle_id__payments__payment_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dispute_payment_savings_circles__circle_id__payments__payment_id__dispute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    receive_payout_savings_circles__circle_id__payouts__round_number__receive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+                round_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dispute_payout_savings_circles__circle_id__payouts__round_number__dispute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+                round_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_recovery_key_savings_recovery_key_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recover_identity_savings_recover_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoverInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_savings_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthErrorResponse"];
+                };
+            };
+        };
+    };
+    login_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthErrorResponse"];
                 };
             };
         };

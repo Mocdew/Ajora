@@ -31,7 +31,7 @@ from engine.dedup.engine import DedupEngine
 from engine.schemas.transaction import TransactionBatch
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_DEFAULT_DATA_DIR = _REPO_ROOT / "backend" / "data"
+_DEFAULT_DATA_DIR = _REPO_ROOT / "data"
 
 
 def load_batch(path: Path) -> TransactionBatch:

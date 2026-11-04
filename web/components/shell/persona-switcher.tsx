@@ -50,7 +50,7 @@ export function PersonaSwitcher() {
   }
 
   return (
-    <label className="relative inline-flex items-center">
+    <label className="relative inline-flex min-w-0 max-w-full items-center">
       <span className="sr-only">Active persona</span>
       <Users
         className="pointer-events-none absolute left-3 h-4 w-4 text-accent"
@@ -61,7 +61,7 @@ export function PersonaSwitcher() {
         onChange={(e) => setUserId(e.target.value)}
         disabled={isLoading || users.length === 0}
         className={cn(
-          "h-9 appearance-none rounded-lg bg-secondary py-2 pl-8 pr-8 text-sm font-medium text-foreground transition-colors duration-300 hover:bg-input",
+          "h-9 w-full min-w-0 max-w-44 appearance-none rounded-full border border-border bg-background py-2 pl-8 pr-8 text-xs font-medium text-foreground transition-colors duration-300 hover:bg-secondary",
           "disabled:opacity-60",
         )}
         aria-label="Select persona"

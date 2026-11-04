@@ -6,10 +6,7 @@ heterogeneous. We normalize each institution's feed into `Transaction` so the ML
 pipeline never has to know which bank a record came from. Everything downstream
 (dedup, communal classification, the eval harness) consumes these models only.
 
-This module is the **single source of truth** for the dedup-stage transaction
-schema. `backend/app/schemas/transaction.py` is a thin re-export shim over it, so
-every historical import path (`app.schemas.transaction`) keeps resolving to these
-exact classes — no parallel copy.
+This module is the **single source of truth** for the dedup-stage transaction schema.
 
 Purity: only pydantic is imported here. No FastAPI, no DB, no network. The engine
 and its tests import this freely and cheaply. No persistence: these live in memory

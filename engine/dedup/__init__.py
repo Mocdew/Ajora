@@ -4,8 +4,6 @@ The four stages live here: candidate match + scoring (`similarity`, `scorer`),
 optimal Hungarian pairing + tiers + deduped output (`engine`), narration parsing
 (`normalize`), and the precision/recall/F1 eval harness (`evaluation`).
 
-`backend/app/dedup/*` modules are thin re-export shims over this package, so the
-historical `app.dedup.*` import paths resolve to these exact objects.
 """
 
 from engine.dedup.engine import DedupEngine, UnsupportedCurrencyError

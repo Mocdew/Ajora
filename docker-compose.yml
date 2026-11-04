@@ -13,6 +13,8 @@ services:
       - "8000:8000"
     environment:
       AJORA_STATE_DIR: /data
+      AJORA_AUTH_ORIGINS: "${AJORA_AUTH_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}"
+      AJORA_COOKIE_SECURE: "${AJORA_COOKIE_SECURE:-false}"
     volumes:
       - api-state:/data
     healthcheck:

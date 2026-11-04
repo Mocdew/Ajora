@@ -9,14 +9,14 @@ import {
 } from "@/lib/theme";
 
 const OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: "dark", label: "Dark" },
   { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
   { value: "system", label: "Match system" },
 ];
 
-/** Appearance row for Settings. Dark is the default; the choice is per browser. */
+/** The appearance choice is saved per browser. */
 export function ThemeSetting() {
-  const [pref, setPref] = React.useState<ThemePreference>("dark");
+  const [pref, setPref] = React.useState<ThemePreference>("light");
 
   React.useEffect(() => setPref(readThemePreference()), []);
 
@@ -43,8 +43,8 @@ export function ThemeSetting() {
             Appearance
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ajora is designed dark first. Your choice is saved in this browser
-            only.
+            Light, dark, or in step with your device. Your choice is saved in
+            this browser.
           </p>
         </div>
       </div>
@@ -57,7 +57,7 @@ export function ThemeSetting() {
             setPref(next);
             applyThemePreference(next);
           }}
-          className="h-9 appearance-none rounded-lg bg-secondary py-2 pl-3 pr-8 text-sm font-medium text-foreground transition-colors duration-300 hover:bg-input"
+          className="h-11 appearance-none rounded-full border border-border bg-background py-2 pl-4 pr-9 text-sm font-medium text-foreground transition-colors duration-300 hover:bg-secondary"
         >
           {OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>

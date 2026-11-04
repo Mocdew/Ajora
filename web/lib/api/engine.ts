@@ -99,6 +99,8 @@ export async function enginePost<T>(
     throw new EngineError(res.status, detail);
   }
 
+  if (res.status === 204) return undefined as T;
+
   try {
     return (await res.json()) as T;
   } catch {

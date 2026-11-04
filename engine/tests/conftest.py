@@ -1,7 +1,7 @@
 """Shared fixtures for the engine test suite.
 
 Tests may know filesystem paths (only the *library* must stay path-agnostic), so we
-load the labelled fixtures straight from ``backend/data`` here.
+load the labelled fixtures straight from ``data`` here.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import pytest
 from engine.schemas.transaction import TransactionBatch
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _REPO_ROOT / "backend" / "data"
+_DATA_DIR = _REPO_ROOT / "data"
 
 
 def _load(path: Path) -> TransactionBatch:

@@ -42,7 +42,9 @@ Verified on 2026-10-20 after the deletion:
 
 - `from engine import Transaction` resolves to
   `engine.schemas.transaction.Transaction`, whose `amount` annotation is `float`.
-- The full root suite passes: **80 tests** across engine, API, and backend.
+- At the time of this decision, the full root suite passed **80 tests** across
+  engine, API, and the former backend package. Those backend tests now live in
+  `engine/tests/`; use the current root test command for the maintained suite.
 - The dedup harness reports aggregate precision/recall/F1 of **1.0**.
 - The communal harness reports per-class precision/recall/F1 and insight detection
   precision/recall of **1.0**.

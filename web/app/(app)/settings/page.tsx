@@ -20,7 +20,7 @@ export default function SettingsPage() {
       <Reveal className="mt-6">
         <section className="card-soft space-y-3 p-6">
           <h2 className="text-xl font-bold">Your savings profile</h2>
-          <p className="max-w-prose text-sm text-muted-foreground">This preview uses a private browser session to identify you. Keep using this browser to return to your circles. Clearing its cookies loses access; account sign-in and recovery are not available yet.</p>
+          <p className="max-w-prose text-sm text-muted-foreground">Create an account with your email and password to return to your circles on any device. If you already have a browser profile, add a login under Account access on your savings home to keep your circles and history. Existing profiles can still use their private recovery key until they add a login.</p>
           <p className="max-w-prose text-sm text-muted-foreground">Ajora keeps circle rules, contribution records and payout history so your group can track its progress. Payments take place outside Ajora; a recorded payout is an organiser’s confirmation, not a bank receipt.</p>
         </section>
       </Reveal>

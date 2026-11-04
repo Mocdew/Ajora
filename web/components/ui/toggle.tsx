@@ -68,8 +68,8 @@ const Toggle = React.forwardRef<HTMLButtonElement, ToggleProps>(
       >
         <span
           className={cn(
-            "pointer-events-none block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform duration-500",
-            isOn ? "translate-x-5" : "translate-x-0",
+            "pointer-events-none block h-5 w-5 rounded-full shadow-sm ring-0 transition-transform duration-500",
+            isOn ? "translate-x-5 bg-background" : "translate-x-0 bg-foreground",
           )}
         />
       </button>

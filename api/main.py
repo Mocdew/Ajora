@@ -13,22 +13,27 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 
 from engine.dedup import UnsupportedCurrencyError
 
 from .deps import get_provider
 from .routes import router
 from .savings import router as savings_router
+from .savings_identity import router as savings_identity_router
+from .auth import router as auth_router
 
 # The Next.js dev server. Explicit list (not "*") because credentials are allowed.
 # Note: the frontend normally reaches the API through its same-origin `/api/engine`
 # proxy (see web/next.config.ts), so CORS doesn't apply to it; this list only matters
-# for *direct* browser calls. :3000 and :3100 are both dev origins the app has used.
+# for *direct* browser calls. :3200 is current; retain earlier local dev origins.
 _DEV_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3100",
     "http://127.0.0.1:3100",
+    "http://localhost:3200",
+    "http://127.0.0.1:3200",
 ]
 
 app = FastAPI(
@@ -36,7 +41,7 @@ app = FastAPI(
     version="0.1.0",
     description=(
         "Ajo savings circles, contribution tracking and payout turns for Nigeria. "
-        "Tracks external payments with organiser confirmation; optional bank insights "
+        "Tracks external payments, demo receipt matching, and recipient-confirmed payouts; optional bank insights "
         "remain available through the stateless engine."
     ),
 )
@@ -51,6 +56,20 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(savings_router)
+app.include_router(savings_identity_router)
+app.include_router(auth_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    if request.url.path.startswith("/auth/"):
+        # FastAPI's default validation response includes submitted field values.
+        # Keep password-bearing requests out of responses and client error logs.
+        return JSONResponse(status_code=422, content={
+            "detail": "Enter a valid email and password. New passwords need 15–128 characters; names need 2–80 characters.",
+        }, headers={"Cache-Control": "no-store"})
+    from fastapi.exception_handlers import request_validation_exception_handler
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.exception_handler(UnsupportedCurrencyError)

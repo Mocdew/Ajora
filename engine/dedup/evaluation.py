@@ -5,8 +5,8 @@ are one real self-transfer. We compare the engine's predicted matched pairs agai
 gold pairs as unordered id-pairs, so a match counts regardless of debit/credit order.
 
 This is the number that defends the core IP claim; wire it into CI so pipeline changes
-can't silently regress recall/precision. Single source of truth; `app.dedup.evaluation`
-re-exports these. Pure (stdlib + the engine schemas) — no web/DB/network.
+can't silently regress recall/precision. Pure (stdlib + the engine schemas) — no
+web/DB/network.
 
 Note the asymmetry on purpose: the engine never reads `transfer_pair_id`; only this
 harness does, and only to score.

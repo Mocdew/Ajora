@@ -9,13 +9,13 @@ micro-aggregated over every gold pair:
     so a regression is legible at a glance.
 
 The engine library stays path-agnostic — only this harness knows where the files are.
-It reads the labelled fixtures directly (no DB, no backend app import), so it runs from
+It reads the labelled fixtures directly (no DB, no API import), so it runs from
 the repo root with nothing on the path but ``engine`` itself:
 
     .venv/bin/python -m engine.harness
     .venv/bin/python -m engine.harness --data-dir path/to/data
 
-Default data dir: ``<repo-root>/backend/data`` (the labelled sample + persona fixtures).
+Default data dir: ``<repo-root>/data`` (the labelled sample + persona fixtures).
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from engine.schemas.dedup import DedupResult
 from engine.schemas.transaction import Transaction, TransactionBatch
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_DEFAULT_DATA_DIR = _REPO_ROOT / "backend" / "data"
+_DEFAULT_DATA_DIR = _REPO_ROOT / "data"
 
 Pair = frozenset  # a frozenset of two transaction ids
 

@@ -11,8 +11,7 @@ We extract two things that drive matching:
   2. candidate reference tokens (NIP session ids etc.) that, if shared across two
      legs, are near-certain evidence of the same transfer.
 
-Single source of truth; `app.dedup.normalize` re-exports these. Pure (stdlib `re`
-only) — no web/DB/network.
+Pure (stdlib `re` only) — no web/DB/network.
 """
 
 from __future__ import annotations

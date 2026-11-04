@@ -93,7 +93,7 @@ class AnthropicExplainerClient:
         except ImportError as exc:  # pragma: no cover - exercised only when SDK absent
             raise RuntimeError(
                 "The 'anthropic' package is required for AnthropicExplainerClient. "
-                "Install it (see backend/requirements.txt) or use StubExplainerClient."
+                "Install it (see requirements.txt) or use StubExplainerClient."
             ) from exc
 
         key = api_key or os.environ.get("ANTHROPIC_API_KEY")

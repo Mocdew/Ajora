@@ -23,10 +23,13 @@ corrections.jsonl
 *.consent-token
 savings.sqlite3
 savings.sqlite3-*
-backend/data/private/
+data/private/
 
 # Tooling / docs not needed at runtime
 .claude
+.codex
+scripts
+**/tests
 docs
 *.md
 Ajora*.pptx

@@ -5,9 +5,14 @@ import {
   ArrowRight,
   Plus,
   CalendarBlank,
+  ArrowUpRight,
+  Stack,
+  UsersThree,
+  HandCoins,
 } from "@phosphor-icons/react/dist/ssr";
 import { PageHeader } from "@/components/page-header";
 import { useCircles, type SavingsSession } from "@/lib/api/savings";
+import { CircleMotif } from "./circle-motif";
 import {
   CircleCard,
   EmptyCircles,
@@ -35,7 +40,7 @@ function Home({ session }: { session: SavingsSession }) {
           (p) =>
             p.member_id === session.user_id &&
             p.round_number === c.current_round &&
-            p.status !== "rejected",
+            p.confirmed_kobo >= c.contribution_kobo,
         ),
     )
     .sort((a, b) =>
@@ -46,17 +51,34 @@ function Home({ session }: { session: SavingsSession }) {
   const contributed = all.reduce(
     (total, c) =>
       total +
-      c.contributions.filter(
-        (p) => p.member_id === session.user_id && p.status === "confirmed",
-      ).length *
-        c.contribution_kobo,
+      c.contributions
+        .filter((p) => p.member_id === session.user_id)
+        .reduce((sum, p) => sum + p.confirmed_kobo, 0),
     0,
   );
+  const demoContributed = all.reduce(
+    (total, circle) =>
+      total +
+      circle.contributions
+        .filter((contribution) => contribution.member_id === session.user_id)
+        .reduce((sum, contribution) => sum + contribution.matched_kobo, 0),
+    0,
+  );
+  const upcomingRemaining = upcoming
+    ? upcoming.contribution_kobo -
+      (upcoming.contributions.find(
+        (payment) =>
+          payment.member_id === session.user_id &&
+          payment.round_number === upcoming.current_round,
+      )?.confirmed_kobo ?? 0)
+    : 0;
   const received = all.reduce(
     (total, c) =>
       total +
       c.payouts
-        .filter((p) => p.member_id === session.user_id)
+        .filter(
+          (p) => p.member_id === session.user_id && p.status === "received",
+        )
         .reduce((sum, p) => sum + p.amount_kobo, 0),
     0,
   );
@@ -74,38 +96,49 @@ function Home({ session }: { session: SavingsSession }) {
         }
       />
       <section
-        className="grid gap-4 sm:grid-cols-3"
+        className="savings-summary grid overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-3"
         aria-label="Your savings summary"
       >
         {[
-          ["Your confirmed contributions", money(contributed)],
-          ["Your recorded payouts", money(received)],
-          ["Active circles", String(active.length)],
-        ].map(([label, value]) => (
-          <div key={label} className="card-soft p-6">
-            <p className="caption">{label}</p>
-            <p className="mt-4 text-3xl font-semibold tracking-tight">
+          { label: "Your confirmed contributions", value: money(contributed), icon: Stack, detail: "Your savings, recorded" },
+          { label: "Your received payouts", value: money(received), icon: HandCoins, detail: "Receipt confirmed by you" },
+          { label: "Active circles", value: String(active.length), icon: UsersThree, detail: "Growing together" },
+        ].map(({ label, value, icon: Icon, detail }) => (
+          <div key={label} className="savings-stat min-w-0 border-b border-border p-6 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0 lg:p-7">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs leading-5 text-muted-foreground">{label}</p>
+              <Icon className="h-4 w-4 shrink-0 text-muted-foreground/70" aria-hidden />
+            </div>
+            <p className="mt-5 overflow-x-auto whitespace-nowrap font-mono text-3xl font-normal tracking-tighter xl:text-4xl">
               {value}
             </p>
+            <p className="mt-3 text-[11px] text-muted-foreground">{detail}</p>
           </div>
         ))}
       </section>
+      {demoContributed > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Recorded contributions include {money(demoContributed)} matched to
+          simulated demo receipts. Demo records do not verify real payments.
+        </p>
+      )}
       <section
-        className="my-6 rounded-2xl border border-accent/30 bg-accent/10 p-6 sm:p-8"
+        className="savings-next-step relative my-7 overflow-hidden rounded-2xl border p-6 sm:p-8 lg:p-9"
         aria-label="Next contribution"
       >
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-          <div>
+        <CircleMotif className="feature-orbit -right-20 -top-12 h-[360px] w-[528px]" />
+        <div className="relative flex flex-col justify-between gap-7 sm:flex-row sm:items-end">
+          <div className="max-w-xl">
             <span className="eyebrow">Your next step</span>
-            <h2 className="mt-3 text-2xl font-semibold">
+            <h2 className="mt-4 max-w-lg text-2xl font-normal leading-snug tracking-tight sm:text-3xl">
               {upcoming
-                ? `${money(upcoming.contribution_kobo)} for ${upcoming.name}`
+                ? `${money(upcomingRemaining)} remaining for ${upcoming.name}`
                 : active.length
                   ? "Your submissions are up to date"
                   : "Build a savings habit with your people"}
             </h2>
-            <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-              <CalendarBlank className="h-4 w-4 shrink-0" aria-hidden />
+            <p className="mt-4 flex items-start gap-2 text-sm leading-6 text-muted-foreground">
+              <CalendarBlank className="mt-1 h-4 w-4 shrink-0" aria-hidden />
               {upcoming
                 ? `Due ${dateLabel(upcoming.due_dates[upcoming.current_round - 1])} · Round ${upcoming.current_round}`
                 : active.length
@@ -114,16 +147,22 @@ function Home({ session }: { session: SavingsSession }) {
             </p>
           </div>
           <Link
-            className="btn-primary shrink-0"
+            className="btn-secondary shrink-0 self-start sm:self-auto"
             href={upcoming ? `/circles/${upcoming.id}` : "/circles"}
           >
             {upcoming ? "View contribution" : "View my circles"}
-            <ArrowRight className="h-4 w-4" />
+            <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
       </section>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Your circles</h2>
+      <div className="mb-5 mt-10 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-xl font-medium tracking-tight">Your circles</h2>
+            <p className="mt-1 text-xs text-muted-foreground">Good things grow in good company.</p>
+          </div>
+          <span className="flex h-6 min-w-6 items-center justify-center rounded-full border border-border px-1.5 font-mono text-[11px] text-muted-foreground">{all.length}</span>
+        </div>
         {all.length > 0 && (
           <Link href="/circles" className="link-accent">
             View all

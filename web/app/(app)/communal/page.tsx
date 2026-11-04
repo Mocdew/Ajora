@@ -29,7 +29,7 @@ export default function CommunalPage() {
             </h2>
             <p className="mt-1 max-w-prose text-sm text-muted-foreground">
               You sit at the centre, with every counterparty around you. Arrows
-              follow the money: green flows in or is owed to you, gray flows
+              follow the money: the strongest shade flows in or is owed to you, gray flows
               out, and a fainter gray is a balanced two-way circle. Select a node
               to inspect it, filter by relationship type, or drag nodes to
               rearrange.
