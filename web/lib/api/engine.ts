@@ -106,39 +106,22 @@ export async function enginePost<T>(
   }
 }
 
-/** Shared query keys — all data keys are per-persona so switching users never
- *  serves a stale persona's cache. */
+// One prefix per person lets consent and correction writes discard every derived
+// result, including requests still in flight, without affecting other personas.
+const persona = (userId: string) => ["engine", "users", userId] as const;
+
 export const engineKeys = {
   health: ["engine", "health"] as const,
-  cashflow: (userId: string) => ["engine", "cashflow", userId] as const,
-  transactions: (userId: string) => ["engine", "transactions", userId] as const,
-  dashboard: (userId: string) => ["engine", "dashboard", userId] as const,
-  dedupReview: (userId: string) => ["engine", "dedup-review", userId] as const,
-  insights: (userId: string) => ["engine", "insights", userId] as const,
-  graph: (userId: string) => ["engine", "graph", userId] as const,
-  consents: (userId: string) => ["engine", "consents", userId] as const,
-  audit: (userId: string) => ["engine", "audit", userId] as const,
+  persona,
+  transactions: (id: string) => [...persona(id), "transactions"] as const,
+  dashboard: (id: string) => [...persona(id), "dashboard"] as const,
+  dedupReview: (id: string) => [...persona(id), "dedup-review"] as const,
+  insights: (id: string) => [...persona(id), "insights"] as const,
+  graph: (id: string) => [...persona(id), "graph"] as const,
+  explanations: (id: string) => [...persona(id), "explanations"] as const,
+  consents: (id: string) => [...persona(id), "consents"] as const,
+  audit: (id: string) => [...persona(id), "audit"] as const,
 };
-
-/**
- * Every per-persona engine query key for one user, in one place. The consent
- * mutations invalidate all of these on success so the dashboard, communal
- * insights, the connected-accounts list AND the audit log all recompute live
- * off the engine's now consent-scoped results — no reload. Keep in sync with the
- * keyed entries above.
- */
-export function personaQueryKeys(userId: string) {
-  return [
-    engineKeys.cashflow(userId),
-    engineKeys.transactions(userId),
-    engineKeys.dashboard(userId),
-    engineKeys.dedupReview(userId),
-    engineKeys.insights(userId),
-    engineKeys.graph(userId),
-    engineKeys.consents(userId),
-    engineKeys.audit(userId),
-  ] as const;
-}
 
 export interface HealthResponse {
   status: string;

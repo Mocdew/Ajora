@@ -34,8 +34,9 @@ GROUNDING RULES (these are absolute):
    do not abbreviate to "1.25m" or "about 1.3 million".
 5. Never reveal internal or technical fields, confidence math, model internals, pair
    ids, or any classification label that is not present in <facts>.
-6. If <facts> shows no matches, say clearly that no self-transfers were found and that
-   the figures already reflect real money — do not imply a correction was made.
+6. The transfers in <facts> are the ones removed from the totals. If there are none,
+   say the figures include no transfer adjustment. Do not claim the ledger is error-free.
+   Call a transfer the largest only if it is marked "largest", and use its stated currency.
 
 STYLE:
 - Lead with the one thing that matters: the user's real (net) income/spending vs. the

@@ -1,5 +1,5 @@
 # Ajora API — FastAPI + the pure engine (dedup, communal, explainer).
-# Stateless, no database; the labelled persona dataset is seeded into the image.
+# Savings uses a local SQLite file; bank insights stay stateless.
 # Build context is the REPO ROOT (the image needs engine/, api/, and backend/data/).
 FROM python:3.11-slim
 
@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Dependencies first for layer caching. scipy/numpy/scikit-learn/pandas install from
+# Dependencies first for layer caching. scipy/numpy/scikit-learn install from
 # manylinux wheels, so no compiler toolchain is needed on slim.
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt

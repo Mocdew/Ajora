@@ -4,17 +4,21 @@ Run locally with::
 
     .venv/bin/python -m uvicorn api.main:app --reload
 
-OpenAPI docs render at ``/docs``. The app wires the engine pipeline behind four
-read-only endpoints and adds CORS for the Next.js dev origin.
+OpenAPI docs render at ``/docs``. Savings circles use durable SQLite records;
+the optional bank-insights engine remains stateless.
 """
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from engine.dedup import UnsupportedCurrencyError
 
 from .deps import get_provider
 from .routes import router
+from .savings import router as savings_router
 
 # The Next.js dev server. Explicit list (not "*") because credentials are allowed.
 # Note: the frontend normally reaches the API through its same-origin `/api/engine`
@@ -31,10 +35,9 @@ app = FastAPI(
     title="Ajora API",
     version="0.1.0",
     description=(
-        "Consent-first multi-bank financial insights for Nigeria. Serves cross-"
-        "institution transfer-deduped cashflow and communal-finance insights "
-        "(ajo/esusu, dependents, informal lending, remittance) over the stateless "
-        "engine pipeline."
+        "Ajo savings circles, contribution tracking and payout turns for Nigeria. "
+        "Tracks external payments with organiser confirmation; optional bank insights "
+        "remain available through the stateless engine."
     ),
 )
 
@@ -47,6 +50,12 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(savings_router)
+
+
+@app.exception_handler(UnsupportedCurrencyError)
+async def missing_exchange_rate(_request: Request, exc: UnsupportedCurrencyError) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
 @app.get("/health", tags=["meta"])

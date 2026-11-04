@@ -186,6 +186,12 @@ def extract_features(
         f"{debit.narration} {debit.reference or ''}"
     ) & extract_references(f"{credit.narration} {credit.reference or ''}")
 
+    if debit.reference and credit.reference:
+        debit_ref = debit.reference.strip().upper()
+        credit_ref = credit.reference.strip().upper()
+        if debit_ref and debit_ref == credit_ref:
+            shared_refs.add(debit_ref)
+
     route_recurrence = context.route_recurrence(debit, credit) if context else 0
 
     return PairFeatures(
@@ -285,7 +291,7 @@ def build_reasons(f: PairFeatures, score: float) -> list[str]:
         reasons.append("Shared transfer reference on both legs")
     if f.cross_currency:
         reasons.append("Cross-currency self-transfer matched at the configured FX rate")
-    if abs(f.amount_rel_diff) <= 0.005:
+    if round(f.fee_abs, 2) == 0:
         reasons.append("Exact amount match")
     elif f.fee_abs > 0 and not f.cross_currency:
         reasons.append(f"Amount matches net of ~{f.fee_abs:,.0f} fee")

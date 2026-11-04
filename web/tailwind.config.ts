@@ -37,15 +37,11 @@ const config: Config = {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
-        teal: {
-          DEFAULT: "hsl(var(--teal))",
-          foreground: "hsl(var(--teal-foreground))",
+        flow: {
+          in: "hsl(var(--flow-in))",
+          out: "hsl(var(--flow-out))",
+          neutral: "hsl(var(--flow-neutral))",
         },
-        mint: {
-          DEFAULT: "hsl(var(--mint))",
-          foreground: "hsl(var(--mint-foreground))",
-        },
-        gold: "hsl(var(--gold))",
         positive: {
           DEFAULT: "hsl(var(--positive))",
           foreground: "hsl(var(--positive-foreground))",
@@ -53,10 +49,6 @@ const config: Config = {
         negative: {
           DEFAULT: "hsl(var(--negative))",
           foreground: "hsl(var(--negative-foreground))",
-        },
-        warning: {
-          DEFAULT: "hsl(var(--warning))",
-          foreground: "hsl(var(--warning-foreground))",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
@@ -71,15 +63,19 @@ const config: Config = {
           foreground: "hsl(var(--popover-foreground))",
         },
       },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
       fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
+        // One family: `font-display` is kept as an alias of Geist.
+        display: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+      },
+      // Base motion curve from the redesign skill's Design Values.
+      transitionTimingFunction: {
+        DEFAULT: "cubic-bezier(0.22, 1, 0.36, 1)",
+        base: "cubic-bezier(0.22, 1, 0.36, 1)",
+      },
+      transitionDuration: {
+        DEFAULT: "300ms",
       },
       keyframes: {
         "accordion-down": {
@@ -92,8 +88,8 @@ const config: Config = {
         },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        "accordion-down": "accordion-down 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+        "accordion-up": "accordion-up 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
       },
     },
   },

@@ -66,10 +66,11 @@ def get_cashflow(
     provider: DataProvider = Depends(get_provider),
     consent_store: ConsentStore = Depends(get_consent_store),
     audit_log: AuditLog = Depends(get_audit_log),
+    corrections_log: CorrectionsLog = Depends(get_corrections_log),
 ) -> CashflowResponse:
     """Deduped income/spending with the before/after totals."""
     try:
-        return service.get_cashflow(provider, consent_store, audit_log, user_id)
+        return service.get_cashflow(provider, consent_store, audit_log, user_id, corrections_log)
     except UserNotFound:
         raise _not_found(user_id)
 
@@ -108,10 +109,11 @@ def get_insights(
     provider: DataProvider = Depends(get_provider),
     consent_store: ConsentStore = Depends(get_consent_store),
     audit_log: AuditLog = Depends(get_audit_log),
+    corrections_log: CorrectionsLog = Depends(get_corrections_log),
 ) -> InsightsResponse:
     """Communal insights (ajo/esusu, dependents, lending, remittance)."""
     try:
-        return service.get_insights(provider, consent_store, audit_log, user_id)
+        return service.get_insights(provider, consent_store, audit_log, user_id, corrections_log)
     except UserNotFound:
         raise _not_found(user_id)
 
@@ -122,10 +124,11 @@ def get_graph(
     provider: DataProvider = Depends(get_provider),
     consent_store: ConsentStore = Depends(get_consent_store),
     audit_log: AuditLog = Depends(get_audit_log),
+    corrections_log: CorrectionsLog = Depends(get_corrections_log),
 ) -> GraphResponse:
     """Relationship graph nodes + edges for Cytoscape."""
     try:
-        return service.get_graph(provider, consent_store, audit_log, user_id)
+        return service.get_graph(provider, consent_store, audit_log, user_id, corrections_log)
     except UserNotFound:
         raise _not_found(user_id)
 
@@ -136,10 +139,11 @@ def get_explanations(
     provider: DataProvider = Depends(get_provider),
     consent_store: ConsentStore = Depends(get_consent_store),
     audit_log: AuditLog = Depends(get_audit_log),
+    corrections_log: CorrectionsLog = Depends(get_corrections_log),
 ) -> ExplanationsResponse:
     """Grounded GenAI narration of the user's real engine output."""
     try:
-        return explanations.explanations_for(provider, consent_store, audit_log, user_id)
+        return explanations.explanations_for(provider, consent_store, audit_log, user_id, corrections_log)
     except UserNotFound:
         raise _not_found(user_id)
 

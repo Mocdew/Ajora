@@ -19,7 +19,7 @@ for the duration of a request.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -109,3 +109,7 @@ class TransactionBatch(BaseModel):
 
     user: UserProfile
     transactions: list[Transaction]
+    fx_rates_ngn: dict[str, Annotated[float, Field(gt=0, allow_inf_nan=False)]] = Field(
+        default_factory=dict,
+        description="Optional statement-derived NGN valuation rates per foreign currency.",
+    )

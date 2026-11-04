@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import {
-  Sparkles,
+  Sparkle,
   Users,
-  Lock,
+  Vault,
   ArrowRight,
   Repeat,
-  CheckCircle2,
-} from "lucide-react";
+  CheckCircle,
+} from "@phosphor-icons/react/dist/ssr";
 import { PageHeader } from "@/components/page-header";
+import { Reveal } from "@/components/reveal";
 import { DedupToggle } from "@/components/dedup-toggle";
 import { CashflowTiles } from "@/components/cashflow-tiles";
 import { CashflowChart } from "@/components/cashflow-chart";
@@ -31,7 +32,7 @@ const compact: Intl.NumberFormatOptions = {
 };
 
 const COMMUNAL_TAG: Record<RelationshipType, string> = {
-  dependent: "Kin Outflow",
+  dependent: "Kin outflow",
   informal_lending: "Receivable",
   ajo_esusu: "Balanced",
   remittance: "Remittance",
@@ -45,15 +46,16 @@ function GroundedNarration() {
   if (isError) return null;
 
   const dedup = data?.explanations.dedup;
+  if (!isLoading && !dedup?.grounded) return null;
   const grounded = dedup?.grounded;
 
   return (
     <div className="card-soft p-6">
       <div className="flex items-center justify-between gap-3">
-        <span className="eyebrow">Explained by Ajora AI</span>
+        <span className="eyebrow">Explained by Ajora</span>
         {grounded ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-mint px-2.5 py-1 text-[11px] font-semibold text-mint-foreground">
-            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+          <span className="badge">
+            <CheckCircle className="h-3.5 w-3.5" aria-hidden />
             Grounded
           </span>
         ) : null}
@@ -61,20 +63,25 @@ function GroundedNarration() {
 
       {isLoading || !dedup ? (
         <div className="mt-4 space-y-2" aria-hidden>
-          <div className="h-3.5 w-full animate-pulse rounded bg-muted" />
-          <div className="h-3.5 w-11/12 animate-pulse rounded bg-muted" />
-          <div className="h-3.5 w-4/5 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-full animate-pulse rounded bg-secondary" />
+          <div className="h-4 w-11/12 animate-pulse rounded bg-secondary" />
+          <div className="h-4 w-4/5 animate-pulse rounded bg-secondary" />
         </div>
       ) : (
-        <p className="mt-4 text-[15px] leading-relaxed text-foreground">
+        <p className="mt-4 max-w-prose text-base text-foreground">
           {dedup.narration}
         </p>
       )}
+      {data ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {data.generatedBy === "stub-offline" ? "Offline explanation" : data.generatedBy}
+        </p>
+      ) : null}
 
       {dash ? (
-        <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-border bg-secondary/50 px-4 py-3">
+        <div className="panel-inset mt-6 flex items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-card text-accent shadow-sm">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-card text-accent">
               <Repeat className="h-4 w-4" aria-hidden />
             </span>
             <div>
@@ -83,30 +90,30 @@ function GroundedNarration() {
               </p>
               <p className="text-xs text-muted-foreground">
                 {dash.phantom.count} self-transfer loop
-                {dash.phantom.count === 1 ? "" : "s"} · internal wallet
-                pass-through
+                {dash.phantom.count === 1 ? "" : "s"} between your own
+                accounts
               </p>
             </div>
           </div>
           <div className="text-right">
-            <p className="font-display text-lg font-bold tabular-nums text-foreground">
+            <p className="text-lg font-bold tabular-nums text-foreground">
               {formatNaira(dash.phantom.transferVolume, compact)}
             </p>
-            <p className="label-mono text-[10px]">reclassified</p>
+            <p className="caption">reclassified</p>
           </div>
         </div>
       ) : null}
 
       <div className="mt-4 flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Reclassified as internal wallet liquidity pass-through.
+          Counted as money moving between your accounts, not income.
         </p>
         <Link
           href="/audit"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-accent transition-colors hover:text-accent/80"
+          className="link-accent group"
         >
           Inspect audit trail
-          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden />
         </Link>
       </div>
     </div>
@@ -121,15 +128,15 @@ function CommunalPreview() {
 
   return (
     <div className="card-soft flex flex-col p-6">
-      <span className="eyebrow">Social ledger depth</span>
-      <h2 className="mt-2 font-display text-xl font-bold tracking-tight text-foreground">
+      <span className="eyebrow">Communal finance</span>
+      <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground">
         Communal insights
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        The invisible economy, surfaced after phantom self-transfers are cleared.
+        Ajo, dependents, loans and remittances, found once self-transfers are cleared.
       </p>
 
-      <div className="mt-5 flex-1 space-y-3">
+      <div className="mt-6 flex-1 space-y-3">
         {isError ? (
           <p className="text-sm text-muted-foreground">
             Communal insights are unavailable right now.
@@ -138,15 +145,15 @@ function CommunalPreview() {
           [0, 1, 2].map((i) => (
             <div
               key={i}
-              className="h-20 w-full animate-pulse rounded-xl bg-muted/50"
+              className="h-24 w-full animate-pulse rounded-xl bg-secondary"
             />
           ))
         ) : (data.insights.insights ?? []).length === 0 ? (
-          <div className="flex items-start gap-3 rounded-xl border border-dashed border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
+          <div className="panel-inset flex items-start gap-3 p-4 text-sm text-muted-foreground">
             <Users className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>
-              No communal relationships for this persona — a clean, honest ledger
-              once phantom transfers are removed.
+              No communal relationships for this persona. Once phantom
+              transfers are removed, this ledger has nothing to surface.
             </span>
           </div>
         ) : (
@@ -156,23 +163,23 @@ function CommunalPreview() {
             return (
               <div
                 key={`${ins.relationship_type}:${ins.counterparty}`}
-                className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-accent/30"
+                className="panel-inset p-4"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-display text-xl font-bold tabular-nums text-foreground">
+                  <span className="text-xl font-bold tabular-nums text-foreground">
                     {formatNaira(h.value, compact)}
                   </span>
-                  <span className="pill-mint">
+                  <span className="badge">
                     {COMMUNAL_TAG[ins.relationship_type]}
                   </span>
                 </div>
-                <p className="mt-1.5 text-sm font-semibold text-foreground">
+                <p className="mt-2 text-sm font-semibold text-foreground">
                   {prettyName(ins.counterparty)}
                 </p>
                 {narration ? (
-                  <p className="mt-1 text-xs leading-relaxed text-foreground">
-                    <CheckCircle2
-                      className="mr-1 inline h-3.5 w-3.5 -translate-y-px text-mint-foreground"
+                  <p className="mt-1 text-xs text-foreground">
+                    <CheckCircle
+                      className="mr-1 inline h-3.5 w-3.5 -translate-y-px text-accent"
                       aria-label="Grounded"
                     />
                     {narration.narration}
@@ -190,10 +197,10 @@ function CommunalPreview() {
 
       <Link
         href="/communal"
-        className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5"
+        className="btn-primary group mt-6"
       >
-        Explore Communal Ledger
-        <ArrowRight className="h-4 w-4" aria-hidden />
+        Open communal insights
+        <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden />
       </Link>
     </div>
   );
@@ -201,17 +208,17 @@ function CommunalPreview() {
 
 function DeterministicRuleMatch() {
   return (
-    <div className="card-soft flex items-start gap-3 p-5">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-accent">
-        <Lock className="h-4 w-4" aria-hidden />
+    <div className="card-soft flex items-start gap-3 p-6">
+      <span className="panel-inset inline-flex h-9 w-9 shrink-0 items-center justify-center text-accent">
+        <Vault className="h-4 w-4" aria-hidden />
       </span>
       <div>
         <p className="text-sm font-semibold text-foreground">
-          Deterministic rule match
+          Raw transactions are never stored
         </p>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          Ajora runs locally on synced metadata. No bank credentials or transfer
-          tokens are persisted — nothing collected &ldquo;just in case&rdquo;.
+        <p className="mt-1 text-xs text-muted-foreground">
+          Each request pulls, dedups and classifies in memory, then discards
+          the raw ledger. Nothing is collected &ldquo;just in case&rdquo;.
         </p>
       </div>
     </div>
@@ -225,9 +232,9 @@ export function DashboardView() {
   return (
     <div>
       <PageHeader
-        eyebrow="Intelligent ledger reconstruction"
+        eyebrow="Dashboard"
         title="Your true cashflow"
-        description="One honest view across every bank and wallet — once the phantom self-transfers are stripped away."
+        description="One honest view across every bank and wallet, with the phantom self-transfers removed."
         actions={<DedupToggle />}
       />
       {data ? (
@@ -238,31 +245,31 @@ export function DashboardView() {
 
       <section
         aria-label="Key figures"
-        className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"
       >
         <CashflowTiles />
       </section>
 
-      <section className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
+      <Reveal as="section" className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
           <div className="card-soft p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <span className="eyebrow">Liquidity tracking</span>
-                <h2 className="mt-2 font-display text-xl font-bold tracking-tight text-foreground">
+                <span className="eyebrow">Monthly income</span>
+                <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground">
                   Cashflow over time
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Raw vs. deduplicated income. The shaded gap is the phantom
-                  self-transfers Ajora removes.
+                  Raw against deduplicated income. The shaded gap is the
+                  phantom self-transfers Ajora removes.
                 </p>
               </div>
-              <span className="pill-mint">
-                <Sparkles className="h-3 w-3" aria-hidden />
-                Live engine
+              <span className="badge">
+                <Sparkle className="h-3 w-3" aria-hidden />
+                Computed by the engine
               </span>
             </div>
-            <div className="mt-5">
+            <div className="mt-6">
               <CashflowChart />
             </div>
           </div>
@@ -270,11 +277,11 @@ export function DashboardView() {
           <GroundedNarration />
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-6">
           <CommunalPreview />
           <DeterministicRuleMatch />
         </div>
-      </section>
+      </Reveal>
     </div>
   );
 }

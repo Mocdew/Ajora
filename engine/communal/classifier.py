@@ -19,7 +19,7 @@ ground truth. It is given the dedup stage's `internal_transfer_ids` via `skip_id
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
 from ..schemas.communal import (
@@ -58,6 +58,7 @@ class CommunalConfig:
     tier_high: float = 0.75
     recurring_min_months: int = 3   # monthly cadence over >=3 distinct months
     payout_lump_multiple: float = 1.5  # a payout is >= this x the average contribution
+    fx_rates_ngn: Dict[str, float] = field(default_factory=dict)
 
 
 class CommunalClassifier:
@@ -71,16 +72,18 @@ class CommunalClassifier:
         skip_ids: Optional[Set[str]] = None,
     ) -> CommunalResult:
         skip = skip_ids or set()
-        _graph, stats = build_relationship_graph(transactions, user, skip_ids=skip)
+        _graph, stats = build_relationship_graph(
+            transactions, user, skip_ids=skip, fx_rates_ngn=self.cfg.fx_rates_ngn,
+        )
 
         classified: List[ClassifiedTransaction] = []
         for t in transactions:
             if t.id in skip or is_merchant_or_bill(t.narration, t.counterparty_name):
                 continue
             key = counterparty_key(t)
-            if not key:
+            if key not in stats:
                 continue
-            st = stats.get(key)
+            st = stats[key]
             best = self._score_transaction(t, st)
             if best is None:
                 continue
@@ -141,7 +144,7 @@ class CommunalClassifier:
             st and st.months_active >= self.cfg.recurring_min_months and st.out_count >= 3
         )
         cross_currency = t.currency != "NGN"
-        amt_ngn = to_ngn(t.amount, t.currency)
+        amt_ngn = to_ngn(t.amount, t.currency, self.cfg.fx_rates_ngn)
 
         if tag == "ajo":
             if recurring:
@@ -217,7 +220,7 @@ class CommunalClassifier:
     def _summary(self, classified: List[ClassifiedTransaction]) -> Dict[str, CommunalSummaryRow]:
         summary: Dict[str, CommunalSummaryRow] = {}
         for c in classified:
-            amt = to_ngn(c.transaction.amount, c.transaction.currency)
+            amt = to_ngn(c.transaction.amount, c.transaction.currency, self.cfg.fx_rates_ngn)
             row = summary.get(c.tag)
             if row is None:
                 summary[c.tag] = CommunalSummaryRow(count=1, total_ngn=round(amt, 2))

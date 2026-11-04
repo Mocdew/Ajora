@@ -1,8 +1,6 @@
 # Ajora GenAI Explainer — Grounding Contract
 
-**Status:** groundwork complete (model chosen, contract written, eval harness runs).
-**Scope today:** stage-1 **transfer dedup** (`DedupResult`). Designed to extend to the
-communal-finance classifier's insight object with no change to the contract.
+**Scope:** transfer dedup and communal-finance narration for the consented ledger.
 
 The explainer's one job: turn Ajora's **already-computed** structured insight objects
 into clear, trustworthy prose. **The engine computes every number; Claude only explains
@@ -11,33 +9,22 @@ statement of *what data the prompt may use* and *the rules that keep it grounded
 
 ---
 
-## 1. Model choice
+## 1. Narration source
 
-| Role | Model | ID |
-|------|-------|-----|
-| **Default explainer** | Claude Sonnet 5.5 | `claude-sonnet-5-5` |
-| High-volume / cost fallback | Claude Haiku 5.5 | `claude-haiku-5-5` |
-
-**Why Sonnet, not Opus:** the hard reasoning — matching phantom transfers, computing
-net income, confidence tiers — is already done by the dedup engine. The LLM only has to
-restate a handful of figures in warm, careful language and be honest about uncertainty.
-That is well within Sonnet's range; Opus-level capability buys nothing here but cost and
-latency. **Why not Haiku by default:** the explanation must get tone and *uncertainty*
-right (not overstating a low/medium-confidence match), where Sonnet is more reliable;
-Haiku is the sanctioned drop-down for bulk/batch explaining where cost dominates.
-
-Temperature is pinned to **0** (deterministic, reproducible explanations of fixed
-numbers). Configured in `explainer.py` (`DEFAULT_MODEL`) and `client.py`.
-
-> Verify IDs/pricing against the `claude-api` skill before shipping, not from memory.
+The demo uses deterministic templates without credentials. Set `AJORA_EXPLAINER=offline`
+to force this mode even when an Anthropic key is present. With the optional Anthropic
+adapter enabled, the API checks the model output against the same facts. An SDK failure,
+incomplete response, or failed grounding check regenerates the entire response offline.
+`generatedBy` reports the actual source.
 
 ---
 
 ## 2. What the prompt may use (the data boundary)
 
-The prompt is built from **one object only**: the `facts` dict produced by
-[`build_facts`](facts.py) from a `DedupResult` + `UserProfile`. Nothing else is in
-scope. The facts dict is intentionally small, flat, and PII-light:
+The dedup prompt is built from the `facts` dict produced by [`build_facts`](facts.py)
+from a `DedupResult` and `UserProfile`. The communal prompt uses a separate
+[projection](communal.py) for each relationship, including the counterparty, cadence,
+settled amounts and share of income. Neither prompt receives the raw ledger.
 
 ```jsonc
 {
@@ -52,8 +39,8 @@ scope. The facts dict is intentionally small, flat, and PII-light:
     "net_income", "net_spending",
     "income_inflation_pct", "spending_inflation_pct"
   },
-  "transfers": [                         // one per matched self-transfer
-    { "amount", "fee", "confidence_pct", "tier",
+  "transfers": [                         // one per transfer actually removed
+    { "amount", "currency", "fee", "confidence_pct", "tier", "largest"?,
       "from_bank", "to_bank", "reasons": [ "...human-readable..." ] }
   ]
 }
@@ -76,7 +63,7 @@ scope. The facts dict is intentionally small, flat, and PII-light:
 
 ## 3. Grounding rules (stated to the model)
 
-Verbatim in `SYSTEM_PROMPT` ([`prompt.py`](prompt.py)):
+See `SYSTEM_PROMPT` ([`prompt.py`](prompt.py)):
 
 1. Use **only** the data inside the `<facts>` block. Treat nothing else as true.
 2. **Never invent, estimate, re-round, or compute a new number.** Every figure in the
@@ -87,8 +74,8 @@ Verbatim in `SYSTEM_PROMPT` ([`prompt.py`](prompt.py)):
    abbreviated (`1.25m`, "about 1.3 million").
 5. Never reveal internal/technical fields, confidence math, pair ids, or any
    classification label not present in `<facts>`.
-6. If there are **no matches**, say plainly that no self-transfers were found and the
-   figures already reflect real money — don't imply a correction was made.
+6. If no pairs were removed, say that there is no transfer adjustment. Call a move
+   the largest only when its facts mark it as such.
 
 Style: lead with real (net) vs. inflated (gross) income/spending and *why* the gross
 misled; 2–4 short second-person sentences; honest about high/medium/low confidence.
@@ -144,15 +131,8 @@ grounding guardrail is identical for both.
 
 ---
 
-## 6. Left for later (not blocking this groundwork)
+## 6. Limits
 
-- **Communal-finance insight object.** When the classifier lands, add a `build_facts`
-  projection for its result and golden cases; the contract (rules + checks) is unchanged.
-- **Live-model golden expectations.** Today the live path is checked only for *grounding*,
-  not wording. Add reference-style/semantic assertions once wording stabilizes.
-- **Regeneration-on-failure policy.** Strict mode raises on an ungrounded explanation;
-  production should decide between retry-at-temperature-0, fall back to a templated
-  explanation, or suppress — not yet wired.
-- **`audit.jsonl` hook.** Per `CLAUDE.md`, each explanation served should append an
-  audit record (facts hash + grounding result). The explainer returns everything needed;
-  the writer is not built here.
+The guardrail checks numeric membership and excluded terms. It cannot verify that
+a live model linked each supplied number to the right person, unit, or fact.
+The offline demo renders those associations directly from the structured fields.

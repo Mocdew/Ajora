@@ -16,19 +16,10 @@ import type {
  * Dashboard query — the real deduped cashflow, plus a client-derived monthly
  * series for the chart.
  *
- * The engine exposes no monthly time series, so we derive one from the raw ledger
- * (`/transactions`) + the dedup result's `internal_transfer_ids`:
- *   naive income   = Σ credits in the month
- *   deduped income = Σ credits in the month whose id is NOT an internal-transfer leg
- *   (spending likewise, over debits)
- *
- * This reconstructs the same before/after story per month. BUT the raw ledger
- * carries original-currency amounts (e.g. USD domiciliary legs), while the engine
- * totals are NGN-normalized via FX we don't have client-side. So after deriving we
- * reconcile the summed series against the engine's own before/after totals; if they
- * don't match within tolerance (a persona with cross-currency legs), we fall back to
- * `chartMode: "beforeAfter"` and the chart renders real before/after bars straight
- * from `before_after`. Either way the figures are the engine's — never invented.
+ * Monthly NGN sums remove only applied pairs and retain fees. Mixed-currency
+ * ledgers use the engine's normalized before/after totals because the browser
+ * does not have the engine's FX rates. Any reconciliation failure also falls
+ * back to these totals.
  */
 
 export interface CashflowSummary {
@@ -90,8 +81,10 @@ function monthLabel(key: string): string {
 
 function deriveSeries(
   txns: EngineTransaction[],
-  internalIds: Set<string>,
+  cashflow: CashflowResponse,
 ): CashflowPoint[] {
+  if (txns.some((t) => t.currency !== "NGN")) return [];
+  const internalIds = new Set(cashflow.internal_transfer_ids);
   const buckets = new Map<
     string,
     { ni: number; di: number; ns: number; ds: number }
@@ -111,6 +104,16 @@ function deriveSeries(
     buckets.set(key, b);
   }
 
+  // The clean ledger keeps a paid fee as spending and an FX gain as income.
+  for (const match of cashflow.matches ?? []) {
+    if (!internalIds.has(match.debit.id) || !match.fee) continue;
+    const leg = match.fee > 0 ? match.debit : match.credit;
+    const bucket = buckets.get(leg.timestamp.slice(0, 7));
+    if (!bucket) return [];
+    if (match.fee > 0) bucket.ds += match.fee;
+    else bucket.di -= match.fee;
+  }
+
   return [...buckets.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, b]) => ({
@@ -124,18 +127,16 @@ function deriveSeries(
     }));
 }
 
-/** True when every summed-series total is within `tol` of the engine total. */
+/** True when every summed-series total is within one kobo of the engine total. */
 function reconciles(
   series: CashflowPoint[],
   cashflow: CashflowResponse,
-  tol = 0.01,
 ): boolean {
   const sum = (k: keyof CashflowPoint) =>
     series.reduce((acc, p) => acc + (p[k] as number), 0);
   const { before_after: ba } = cashflow;
   const close = (derived: number, actual: number) => {
-    if (actual === 0) return Math.abs(derived) < 1;
-    return Math.abs(derived - actual) / Math.abs(actual) <= tol;
+    return Math.abs(derived - actual) <= 0.01;
   };
   return (
     series.length > 0 &&
@@ -162,8 +163,7 @@ function buildViewModel(
     net: ba.income_after_ngn - ba.spending_after_ngn,
   };
 
-  const internalIds = new Set(cashflow.internal_transfer_ids ?? []);
-  const series = deriveSeries(transactions.transactions, internalIds);
+  const series = deriveSeries(transactions.transactions, cashflow);
   const ok = reconciles(series, cashflow);
   const accounts = new Set(
     transactions.transactions.map((t) => t.account_id),

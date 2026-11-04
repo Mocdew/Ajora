@@ -16,8 +16,10 @@ from api.main import app
 
 
 @pytest.fixture(autouse=True)
-def tmp_trust_state(tmp_path):
+def tmp_trust_state(tmp_path, monkeypatch):
     """Point all trust stores at throwaway files for each test."""
+    # All API tests run offline, including on machines configured for the live adapter.
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     consent_store = FileConsentStore(tmp_path / "consent.jsonl")
     audit_log = FileAuditLog(tmp_path / "audit.jsonl")
     corrections_log = FileCorrectionsLog(tmp_path / "corrections.jsonl")

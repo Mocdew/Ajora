@@ -20,13 +20,13 @@ export function PageHeader({
         className,
       )}
     >
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-        <h1 className="font-display text-3xl font-bold leading-[1.05] tracking-tight text-foreground md:text-[2.75rem]">
+        <h1 className="text-hero pb-1 text-4xl font-bold tracking-tight md:text-5xl md:tracking-tighter">
           {title}
         </h1>
         {description ? (
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+          <p className="max-w-prose text-sm text-muted-foreground md:text-base">
             {description}
           </p>
         ) : null}

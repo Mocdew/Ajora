@@ -8,7 +8,7 @@ optimal Hungarian pairing + tiers + deduped output (`engine`), narration parsing
 historical `app.dedup.*` import paths resolve to these exact objects.
 """
 
-from engine.dedup.engine import DedupEngine
+from engine.dedup.engine import DedupEngine, UnsupportedCurrencyError
 from engine.dedup.evaluation import DedupMetrics, evaluate
 from engine.dedup.normalize import clean_name, extract_references
 from engine.dedup.scorer import (
@@ -31,6 +31,7 @@ from engine.dedup.similarity import (
 
 __all__ = [
     "DedupEngine",
+    "UnsupportedCurrencyError",
     "DedupConfig",
     "BatchContext",
     "PairFeatures",

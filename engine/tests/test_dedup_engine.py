@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from engine.dedup.engine import DedupEngine
+import pytest
+
+from engine.dedup.engine import DedupEngine, UnsupportedCurrencyError
 from engine.dedup.evaluation import evaluate
 from engine.dedup.similarity import BatchContext, DedupConfig, extract_features
 from engine.schemas.transaction import Transaction, UserProfile
@@ -176,7 +178,49 @@ def test_deduped_ledger_removes_both_legs_of_every_match(persona_batches):
     assert len(internal) == 2 * len(result.matches)
     deduped_ids = {t.id for t in result.deduped_transactions}
     assert deduped_ids.isdisjoint(internal)
-    assert len(result.deduped_transactions) == len(batch.transactions) - len(internal)
+    residual_count = sum(m.fee != 0 for m in result.matches)
+    assert len(result.deduped_transactions) == len(batch.transactions) - len(internal) + residual_count
+
+
+def _leg(direction, narration, amount=50_000, currency="NGN"):
+    return Transaction(
+        id=direction, account_id=direction, institution=direction, direction=direction,
+        amount=amount, currency=currency, narration=narration, timestamp="2026-08-03T10:00:00Z",
+    )
+
+
+def test_weak_cash_and_salary_coincidence_keeps_both_legs():
+    transactions = [_leg("debit", "cash"), _leg("credit", "salary")]
+    user = UserProfile(user_id="u", full_name="Emeka Balogun")
+    result = DedupEngine().dedup(transactions, user)
+    assert result.matches == []
+    assert result.deduped_transactions == transactions
+    assert result.totals.net_income == result.totals.net_spending == 50_000
+
+
+@pytest.mark.parametrize(("debit", "credit", "residual_direction", "residual_amount", "principal"), [
+    ((50_010, "NGN"), (50_000, "NGN"), "debit", 10, 50_000),
+    ((100, "USD"), (155_500, "NGN"), "credit", 500, 155_000),
+])
+def test_only_principal_is_removed_from_ledger(debit, credit, residual_direction, residual_amount, principal):
+    narration = "transfer REF:123456"
+    transactions = [_leg("debit", narration, *debit), _leg("credit", narration, *credit)]
+    user = UserProfile(user_id="u", full_name="Emeka Balogun")
+    result = DedupEngine().dedup(transactions, user)
+    residual, = result.deduped_transactions
+    assert "Exact amount match" not in result.matches[0].reasons
+    assert (residual.direction, residual.currency, residual.amount) == (residual_direction, "NGN", residual_amount)
+    assert result.totals.transfer_volume == principal
+    assert result.totals.gross_spending - result.totals.net_spending == principal
+    assert result.totals.gross_income - result.totals.net_income == principal
+    assert result.totals.net_spending + result.totals.net_income == residual.amount
+
+
+def test_unsupported_currency_cannot_masquerade_as_naira():
+    transactions = [_leg("credit", "Deposit", 100, "CAD")]
+    user = UserProfile(user_id="u", full_name="Emeka Balogun")
+    with pytest.raises(UnsupportedCurrencyError, match="CAD"):
+        DedupEngine().dedup(transactions, user)
 
 
 def test_totals_are_ngn_normalized_and_show_inflation(persona_batches):

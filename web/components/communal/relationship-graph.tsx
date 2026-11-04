@@ -2,14 +2,32 @@
 
 import * as React from "react";
 import type cytoscape from "cytoscape";
-import { Users } from "lucide-react";
+import {
+  Users,
+} from "@phosphor-icons/react/dist/ssr";
 import { cn, formatNaira } from "@/lib/utils";
-import { useRelationshipGraph } from "@/lib/api/communal";
+import {
+  useCommunalInsights,
+  useRelationshipGraph,
+  useTransactions,
+} from "@/lib/api/communal";
+import { communalNarration, useExplanations } from "@/lib/api/explanations";
 import { usePersona } from "@/components/persona-context";
 import { QueryError } from "@/components/query-error";
-import { Card } from "@/components/ui/card";
-import { prettyName, type Flow } from "@/lib/communal-insights";
-import type { GraphResponse, GraphNode } from "@/lib/api/engine-types";
+import {
+  RelationshipInspector,
+  type InspectorOption,
+} from "@/components/communal/relationship-inspector";
+import {
+  RELATIONSHIP_LABEL,
+  prettyName,
+  type Flow,
+} from "@/lib/communal-insights";
+import type {
+  GraphResponse,
+  GraphNode,
+  RelationshipType,
+} from "@/lib/api/engine-types";
 
 /**
  * Relationship graph — Cytoscape.js, mounted by hand (useRef + useEffect) so there's
@@ -18,13 +36,12 @@ import type { GraphResponse, GraphNode } from "@/lib/api/engine-types";
  *
  * ── Visual encoding (validated with the dataviz skill) ──────────────────────
  * A node-link graph is an "all-pairs" form (any two nodes can sit side by side), so
- * categorical color is capped at 3 saturated hues. Color therefore carries money
- * DIRECTION (teal = in/owed-to-you, amber = out) plus the green user hub, with a
- * neutral gray for balanced (ajo, net ≈ 0) ties — a diverging-style neutral midpoint,
- * not a 4th category. ROLE rides on node SHAPE + an always-on name label + the legend,
- * so identity is never color-alone. The direction pair passes the validator's CVD,
- * normal-vision and contrast gates in both modes (light amber's sub-3:1 is relieved by
- * the permanent labels + legend + the insight-card figures above).
+ * categorical color is capped. With one brand accent, color carries money
+ * DIRECTION by hue plus lightness: emerald = in/owed-to-you, a high-contrast gray =
+ * out, a low-contrast gray = balanced (ajo, net ≈ 0) ties, and the user hub in ink.
+ * Direction is also on the arrows (balanced ties are double-headed), ROLE rides on
+ * node SHAPE + an always-on name label + the legend, so nothing is color-alone.
+ * Hex values mirror the --flow-* tokens in globals.css (Cytoscape can't read CSS vars).
  */
 
 type Theme = "light" | "dark";
@@ -41,22 +58,22 @@ interface Palette {
 
 const PALETTES: Record<Theme, Palette> = {
   light: {
-    self: "#0E3A2E", // --primary, deep forest green (hero hub)
-    in: "#2FA58C", // --teal / --chart-true — money in / owed to you
-    out: "#E5A23B", // --gold / --chart-inflated — money out
-    neutral: "#8A948C", // green-gray — balanced two-way (ajo)
-    ink: "#0D2B22", // --foreground
-    edgeLabelBg: "#FFFFFF", // --card
-    border: "#E1DDD1", // --border
+    self: "#16211C", // --primary (hub)
+    in: "#2B9765", // --flow-in, the emerald accent
+    out: "#666666", // --flow-out
+    neutral: "#9B9B9B", // --flow-neutral
+    ink: "#14201B", // --foreground
+    edgeLabelBg: "#EFF0ED", // --secondary (graph canvas)
+    border: "#E6E7E3", // --border
   },
   dark: {
-    self: "#3FA87F",
-    in: "#2FA58C",
-    out: "#C27E1E",
-    neutral: "#7E8C86",
-    ink: "#F2EFE6",
-    edgeLabelBg: "#123A2E",
-    border: "#1E4A3C",
+    self: "#FFFFFF", // --primary (hub)
+    in: "#3BBA7F", // --flow-in, the emerald accent
+    out: "#9B9B9B", // --flow-out
+    neutral: "#666666", // --flow-neutral
+    ink: "#FFFFFF", // --foreground
+    edgeLabelBg: "#1F1F1F", // --secondary (graph canvas)
+    border: "#272727", // --border
   },
 };
 
@@ -70,7 +87,7 @@ const SHAPE = {
 } as const;
 
 function readTheme(): Theme {
-  if (typeof document === "undefined") return "light";
+  if (typeof document === "undefined") return "dark";
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
@@ -188,7 +205,7 @@ function buildStylesheet(p: Palette, volMin: number, volMax: number): cytoscape.
         "border-width": 2,
         "border-color": p.edgeLabelBg,
         "transition-property": "border-width, border-color",
-        "transition-duration": 120,
+        "transition-duration": 300,
       },
     },
     {
@@ -263,7 +280,95 @@ function buildStylesheet(p: Palette, volMin: number, volMax: number): cytoscape.
       selector: "edge.hl",
       style: { opacity: 1, width: `mapData(volume, ${lo}, ${hi}, 3, 6)` },
     },
+    // Selection (click-to-inspect) — a heavier ink ring than hover.
+    { selector: "node.sel", style: { "border-width": 4, "border-color": p.ink } },
+    {
+      selector: "edge.sel",
+      style: { opacity: 1, width: `mapData(volume, ${lo}, ${hi}, 3.5, 6.5)` },
+    },
+    // Filtered-out relationship types stay in place (layout is stable) but recede
+    // and stop taking pointer events.
+    { selector: ".faded", style: { opacity: 0.12, events: "no" } },
   ];
+}
+
+/** Apply the filter + selection classes without rebuilding the graph. */
+function applyViewState(
+  cy: cytoscape.Core,
+  selectedId: string | null,
+  hidden: ReadonlySet<RelationshipType>,
+) {
+  cy.batch(() => {
+    cy.elements().removeClass("sel faded");
+    cy.nodes().forEach((n) => {
+      const role = n.data("role") as string;
+      if (role !== "user" && hidden.has(role as RelationshipType)) {
+        n.addClass("faded");
+        n.connectedEdges().addClass("faded");
+      }
+    });
+    if (selectedId) {
+      const n = cy.getElementById(selectedId);
+      if (n.nonempty()) {
+        n.addClass("sel");
+        n.connectedEdges().addClass("sel");
+      }
+    }
+  });
+}
+
+const TYPE_ORDER: RelationshipType[] = [
+  "ajo_esusu",
+  "dependent",
+  "informal_lending",
+  "remittance",
+];
+
+/** One toggle chip per relationship type present in the graph, plus "All". */
+function FilterChips({
+  counts,
+  hidden,
+  onToggle,
+  onShowAll,
+}: {
+  counts: Map<RelationshipType, number>;
+  hidden: ReadonlySet<RelationshipType>;
+  onToggle: (t: RelationshipType) => void;
+  onShowAll: () => void;
+}) {
+  const types = TYPE_ORDER.filter((t) => counts.has(t));
+  if (types.length < 2) return null;
+  const chip =
+    "inline-flex items-center gap-2 rounded-lg px-3 py-1 text-xs font-semibold transition duration-300 active:scale-[0.98]";
+  const on = "bg-primary text-primary-foreground";
+  const off = "bg-secondary text-muted-foreground hover:bg-input hover:text-foreground";
+  return (
+    <div role="group" aria-label="Filter by relationship type" className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        aria-pressed={hidden.size === 0}
+        onClick={onShowAll}
+        className={cn(chip, hidden.size === 0 ? on : off)}
+      >
+        All
+      </button>
+      {types.map((t) => {
+        const active = !hidden.has(t);
+        return (
+          <button
+            key={t}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onToggle(t)}
+            className={cn(chip, active ? on : off)}
+          >
+            {RELATIONSHIP_LABEL[t]}
+            <span className="tabular-nums opacity-75">{counts.get(t)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 const LAYOUT: cytoscape.ConcentricLayoutOptions = {
@@ -277,7 +382,7 @@ const LAYOUT: cytoscape.ConcentricLayoutOptions = {
 };
 
 function GraphSkeleton() {
-  return <div className="h-[460px] w-full animate-pulse rounded-md bg-muted/50" />;
+  return <div className="panel-inset h-[460px] w-full animate-pulse" />;
 }
 
 /* ── Legend — the dependable identity channels (never color-alone) ─────────── */
@@ -325,43 +430,43 @@ function Legend() {
   return (
     <div className="flex flex-col gap-3 text-xs sm:flex-row sm:flex-wrap sm:items-start sm:gap-x-8">
       <div className="flex flex-col gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="text-xs font-semibold text-muted-foreground">
           Money direction · fill &amp; arrow
         </p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span className="inline-flex items-center gap-1.5 text-foreground">
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: "hsl(var(--teal))" }} aria-hidden />
+          <span className="inline-flex items-center gap-2 text-foreground">
+            <span className="h-3 w-3 rounded-full bg-flow-in" aria-hidden />
             Money in / owed to you
           </span>
-          <span className="inline-flex items-center gap-1.5 text-foreground">
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: "hsl(var(--gold))" }} aria-hidden />
+          <span className="inline-flex items-center gap-2 text-foreground">
+            <span className="h-3 w-3 rounded-full bg-flow-out" aria-hidden />
             Money out
           </span>
-          <span className="inline-flex items-center gap-1.5 text-foreground">
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: "#8A948C" }} aria-hidden />
+          <span className="inline-flex items-center gap-2 text-foreground">
+            <span className="h-3 w-3 rounded-full bg-flow-neutral" aria-hidden />
             Balanced (two-way)
           </span>
-          <span className="inline-flex items-center gap-1.5 text-foreground">
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: "hsl(var(--primary))" }} aria-hidden />
+          <span className="inline-flex items-center gap-2 text-foreground">
+            <span className="h-3 w-3 rounded-full bg-primary" aria-hidden />
             You
           </span>
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="text-xs font-semibold text-muted-foreground">
           Role · node shape
         </p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-foreground">
-          <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-2">
             <ShapeGlyph shape="round-rect" /> Ajo / esusu
           </span>
-          <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-2">
             <ShapeGlyph shape="circle" /> Dependent
           </span>
-          <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-2">
             <ShapeGlyph shape="diamond" /> Informal lending
           </span>
-          <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-2">
             <ShapeGlyph shape="hex" /> Remittance
           </span>
         </div>
@@ -373,8 +478,8 @@ function Legend() {
 /** Empty state for a persona with only the user node (no communal ties). */
 function EmptyGraph() {
   return (
-    <Card className="flex h-[460px] flex-col items-center justify-center gap-3 border-dashed bg-muted/10 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+    <div className="panel-inset flex h-[460px] flex-col items-center justify-center gap-3 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-card">
         <Users className="h-6 w-6 text-muted-foreground" aria-hidden />
       </span>
       <div className="space-y-1">
@@ -382,11 +487,11 @@ function EmptyGraph() {
           No relationships to graph yet
         </p>
         <p className="mx-auto max-w-md text-sm text-muted-foreground">
-          This persona has no communal counterparties for the period — just them.
+          This persona has no communal counterparties for the period.
           Switch personas to explore a richer relationship web.
         </p>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -396,11 +501,77 @@ export function RelationshipGraph() {
     useRelationshipGraph(userId);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const cyRef = React.useRef<cytoscape.Core | null>(null);
-  const [theme, setTheme] = React.useState<Theme>("light");
+  const [theme, setTheme] = React.useState<Theme>(readTheme);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [hidden, setHidden] = React.useState<ReadonlySet<RelationshipType>>(
+    () => new Set(),
+  );
+  // Latest view state for the build effect, which must not depend on it (a
+  // selection change should restyle the graph, not rebuild it).
+  const viewRef = React.useRef({ selectedId, hidden });
+  viewRef.current = { selectedId, hidden };
+
+  const { data: insightsData } = useCommunalInsights(userId);
+  const { data: explanations } = useExplanations(userId);
+  const { data: ledger, isLoading: ledgerLoading } = useTransactions(userId);
 
   const hasCounterparties = Boolean(
     data && data.nodes.some((n) => n.kind !== "user"),
   );
+
+  // A new persona starts with a clean view.
+  React.useEffect(() => {
+    setSelectedId(null);
+    setHidden(new Set());
+  }, [userId]);
+
+  const counterparties = React.useMemo(
+    () => (data ? data.nodes.filter((n) => n.kind !== "user") : []),
+    [data],
+  );
+
+  const typeCounts = React.useMemo(() => {
+    const m = new Map<RelationshipType, number>();
+    for (const n of counterparties) {
+      if (n.relationship_type) {
+        m.set(n.relationship_type, (m.get(n.relationship_type) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [counterparties]);
+
+  const selectedNode = counterparties.find((n) => n.id === selectedId);
+  const selectedInsight = selectedNode
+    ? insightsData?.insights.insights?.find(
+        (i) =>
+          i.counterparty === selectedNode.id &&
+          i.relationship_type === selectedNode.relationship_type,
+      )
+    : undefined;
+
+  const options: InspectorOption[] = counterparties
+    .filter((n) => n.relationship_type && !hidden.has(n.relationship_type))
+    .map((n) => ({
+      id: n.id,
+      label: prettyName(n.label),
+      relationshipType: n.relationship_type as RelationshipType,
+    }));
+
+  const toggleType = (t: RelationshipType) => {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+    if (selectedNode?.relationship_type === t && !hidden.has(t)) {
+      setSelectedId(null);
+    }
+  };
+
+  React.useEffect(() => {
+    if (cyRef.current) applyViewState(cyRef.current, selectedId, hidden);
+  }, [selectedId, hidden]);
 
   React.useEffect(() => {
     setTheme(readTheme());
@@ -439,13 +610,27 @@ export function RelationshipGraph() {
         const n = evt.target;
         n.addClass("hl");
         n.connectedEdges().addClass("hl");
+        if (n.data("role") !== "user" && containerRef.current) {
+          containerRef.current.style.cursor = "pointer";
+        }
       });
       cy.on("mouseout", "node", (evt: cytoscape.EventObject) => {
         const n = evt.target;
         n.removeClass("hl");
         n.connectedEdges().removeClass("hl");
+        if (containerRef.current) containerRef.current.style.cursor = "";
+      });
+      // Click a counterparty to inspect it; the hub or empty canvas clears.
+      cy.on("tap", (evt: cytoscape.EventObject) => {
+        const t = evt.target;
+        if (t === cy || (t.isNode?.() && t.data("role") === "user")) {
+          setSelectedId(null);
+        } else if (t.isNode?.()) {
+          setSelectedId(t.id());
+        }
       });
 
+      applyViewState(cy, viewRef.current.selectedId, viewRef.current.hidden);
       cy.fit(undefined, 36);
     })();
 
@@ -471,21 +656,44 @@ export function RelationshipGraph() {
     <figure className="m-0 flex flex-col gap-4">
       <figcaption className="sr-only">
         Relationship graph of your communal money flows. You are at the center,
-        connected to {summary}. Teal nodes and arrows are money coming in or owed
-        to you; amber are money going out; gray are balanced two-way ties. Node
+        connected to {summary}. Green nodes and arrows are money coming in or owed
+        to you; gray are money going out; a fainter gray marks balanced two-way
+        ties, which also have arrows at both ends. Node
         shape encodes the relationship type; node size scales with the amount.
         Figures are listed in the insight cards above.
       </figcaption>
 
-      <div
-        ref={containerRef}
-        role="img"
-        aria-label="Interactive relationship graph; a text summary and the figures are in the insight cards above and the legend below."
-        className={cn(
-          "h-[460px] w-full rounded-md border border-border bg-muted/20",
-          "touch-none",
-        )}
+      <FilterChips
+        counts={typeCounts}
+        hidden={hidden}
+        onToggle={toggleType}
+        onShowAll={() => setHidden(new Set())}
       />
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div
+          ref={containerRef}
+          role="img"
+          aria-label="Interactive relationship graph; the details panel lists every relationship as a button, and the figures are also in the insight cards above."
+          className={cn(
+            "panel-inset h-[460px] w-full",
+            "touch-none",
+          )}
+        />
+        <RelationshipInspector
+          insight={selectedInsight}
+          narration={
+            selectedInsight
+              ? communalNarration(explanations, selectedInsight)
+              : undefined
+          }
+          transactions={ledger?.transactions}
+          transactionsLoading={ledgerLoading}
+          options={options}
+          onSelect={setSelectedId}
+          onClose={() => setSelectedId(null)}
+        />
+      </div>
 
       <Legend />
     </figure>

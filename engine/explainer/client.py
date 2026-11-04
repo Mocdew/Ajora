@@ -20,6 +20,10 @@ class ExplainerClient(Protocol):
     def explain(self, system: str, user: str) -> str: ...
 
 
+class ExplainerUnavailable(RuntimeError):
+    """The live service could not supply narration for this request."""
+
+
 def _money(value: float) -> str:
     """Format a magnitude with thousands separators; drop the decimals when whole."""
     if float(value) == int(value):
@@ -49,20 +53,28 @@ class StubExplainerClient:
 
         if facts["match_count"] == 0:
             return (
-                f"{hello}we checked for money you moved between your own accounts and "
-                f"found none. That means your figures already reflect real money: your "
-                f"income stands at ₦{_money(totals['net_income'])} and your spending at "
-                f"₦{_money(totals['net_spending'])}, with nothing double-counted."
+                f"{hello}no self-transfers have been removed from these figures. "
+                f"Income stands at ₦{_money(totals['net_income'])} and spending at "
+                f"₦{_money(totals['net_spending'])}."
             )
 
-        lead_transfer = facts["transfers"][0]
+        lead_transfer = next(
+            (move for move in facts["transfers"] if move.get("largest")), facts["transfers"][0]
+        )
+        description = "The largest move" if lead_transfer.get("largest") else "One move"
+        unit = lead_transfer["currency"]
+        amount = ("₦" if unit == "NGN" else unit + " ") + _money(lead_transfer["amount"])
+        effect = (
+            f", so counting it inflated your income by {_pct(totals['income_inflation_pct'])}%"
+            if totals["net_income"] > 0
+            else ""
+        )
         return (
             f"{hello}we found {facts['match_count']} transfer(s) you made between your "
             f"own banks, moving ₦{_money(totals['transfer_volume'])} in total. That "
-            f"money is not new income or new spending, so counting it inflated your "
-            f"income by {_pct(totals['income_inflation_pct'])}%. Your real income is "
+            f"money is not new income or new spending{effect}. Your real income is "
             f"₦{_money(totals['net_income'])}, not the ₦{_money(totals['gross_income'])} "
-            f"a naive view shows. The largest move, ₦{_money(lead_transfer['amount'])} "
+            f"a naive view shows. {description}, {amount} "
             f"from {lead_transfer['from_bank']} to {lead_transfer['to_bank']}, is a "
             f"{lead_transfer['tier']}-confidence match ({lead_transfer['confidence_pct']}%)."
         )
@@ -89,19 +101,25 @@ class AnthropicExplainerClient:
             raise RuntimeError("ANTHROPIC_API_KEY is not set.")
 
         self._anthropic = anthropic
-        self._client = anthropic.Anthropic(api_key=key)
+        self._client = anthropic.Anthropic(api_key=key, timeout=5.0, max_retries=0)
         self._model = model
         self._max_tokens = max_tokens
 
     def explain(self, system: str, user: str) -> str:  # pragma: no cover - needs network
-        resp = self._client.messages.create(
-            model=self._model,
-            max_tokens=self._max_tokens,
-            temperature=0,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        return "".join(block.text for block in resp.content if block.type == "text")
+        try:
+            resp = self._client.messages.create(
+                model=self._model,
+                max_tokens=self._max_tokens,
+                temperature=0,
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            )
+        except self._anthropic.APIError as exc:
+            raise ExplainerUnavailable("Live narration is unavailable.") from exc
+        text = "".join(block.text for block in resp.content if block.type == "text").strip()
+        if not text or resp.stop_reason in ("refusal", "max_tokens"):
+            raise ExplainerUnavailable("The model did not return a complete narration.")
+        return text
 
     @staticmethod
     def available() -> bool:

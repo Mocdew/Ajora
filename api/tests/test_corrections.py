@@ -7,8 +7,9 @@ import json
 from fastapi.testclient import TestClient
 
 from api.corrections import FileCorrectionsLog
-from api.deps import get_corrections_log
+from api.deps import get_corrections_log, get_provider
 from api.main import app
+from engine.schemas.transaction import Transaction, TransactionBatch, UserProfile
 
 client = TestClient(app)
 USER = "u_persona_c"
@@ -46,7 +47,8 @@ def test_confirm_appends_correction_and_audit_entry(tmp_trust_state) -> None:
 
 
 def test_reject_is_append_only_and_survives_reload(tmp_trust_state) -> None:
-    match = _first_match()
+    initial = client.get(f"/users/{USER}/cashflow").json()
+    match = initial["matches"][0]
     path = tmp_trust_state["corrections_path"]
     for verdict in ("confirm", "reject"):
         assert client.post(
@@ -58,6 +60,57 @@ def test_reject_is_append_only_and_survives_reload(tmp_trust_state) -> None:
     assert len(lines) == 2
     reloaded = FileCorrectionsLog(path)
     assert [entry.verdict for entry in reloaded.entries_for(USER)] == ["confirm", "reject"]
+    app.dependency_overrides[get_corrections_log] = lambda: reloaded
+    updated = client.get(f"/users/{USER}/cashflow").json()
+    assert updated["matches"][0]["verdict"] == "reject"
+    assert updated["before_after"]["matched_transfer_count"] == initial["before_after"]["matched_transfer_count"] - 1
+    assert updated["totals"]["net_income"] == initial["totals"]["net_income"] + match["credit_amount_ngn"]
+
+
+def _test_provider(monkeypatch, credit_currency="NGN"):
+    user = UserProfile(user_id="u_test", full_name="Emeka Balogun", account_ids=["a", "b"])
+    transactions = [
+        Transaction(
+            id=account, account_id=account, institution=account, direction=direction,
+            amount=50_000, currency=currency, narration="rent", timestamp="2026-08-03T10:00:00Z",
+        )
+        for account, direction, currency in [("a", "debit", "NGN"), ("b", "credit", credit_currency)]
+    ]
+
+    class Provider:
+        def get_batch(self, user_id):
+            assert user_id == user.user_id
+            return TransactionBatch(user=user, transactions=transactions)
+
+    monkeypatch.setitem(app.dependency_overrides, get_provider, Provider)
+    return f"/users/{user.user_id}"
+
+
+def test_confirm_medium_match_recomputes_cashflow_insights_and_explanation(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    url = _test_provider(monkeypatch)
+    pending = client.get(f"{url}/cashflow").json()
+    match, = pending["matches"]
+    assert match["tier"] == "medium" and match["verdict"] is None
+    assert pending["internal_transfer_ids"] == []
+    assert pending["before_after"]["matched_transfer_count"] == 0
+    assert pending["totals"]["net_income"] == pending["totals"]["net_spending"] == 50_000
+    assert client.get(f"{url}/explanations").json()["explanations"]["dedup"]["facts"]["match_count"] == 0
+    assert client.post(f"{url}/corrections", json={"match_id": match["match_id"], "verdict": "confirm"}).is_success
+    confirmed = client.get(f"{url}/cashflow").json()
+    assert confirmed["matches"][0]["verdict"] == "confirm"
+    assert confirmed["internal_transfer_ids"] == ["a", "b"]
+    assert confirmed["before_after"]["matched_transfer_count"] == 1
+    assert confirmed["totals"]["net_income"] == confirmed["totals"]["net_spending"] == 0
+    assert client.get(f"{url}/insights").json()["insights"]["net_income_ngn"] == 0
+    assert client.get(f"{url}/explanations").json()["explanations"]["dedup"]["facts"]["match_count"] == 1
+
+
+def test_missing_fx_rate_returns_an_actionable_response(monkeypatch):
+    url = _test_provider(monkeypatch, credit_currency="CAD")
+    response = client.get(f"{url}/cashflow")
+    assert response.status_code == 422
+    assert "No NGN exchange rate configured for CAD" in response.json()["detail"]
 
 
 def test_correction_rejects_unknown_match_and_invalid_verdict(tmp_trust_state) -> None:

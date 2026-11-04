@@ -1,5 +1,9 @@
 import * as React from "react";
-import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+} from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 
@@ -61,9 +65,9 @@ export function StatTile({
   const DeltaIcon = deltaStyle?.icon;
 
   return (
-    <Card className={cn("p-5", className)} {...props}>
+    <Card className={cn("p-6", className)} {...props}>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="text-xs font-medium text-muted-foreground">
           {label}
         </p>
         {icon ? (
@@ -74,7 +78,7 @@ export function StatTile({
       </div>
 
       <div className="mt-3 flex items-baseline gap-2">
-        <span className="font-display text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+        <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
           {value}
         </span>
       </div>

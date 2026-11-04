@@ -14,6 +14,7 @@ between calls.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Dict, List, Protocol, runtime_checkable
 
@@ -25,6 +26,7 @@ __all__ = ["DataProvider", "FilePersonaProvider", "UserNotFound"]
 # engine harnesses). The API reads them but owns neither the files nor the engine.
 _DATA_DIR = Path(__file__).resolve().parent.parent / "backend" / "data"
 _MOCK_DIR = _DATA_DIR / "mock"
+_PRIVATE_DIR = _DATA_DIR / "private"
 # A small standalone demo persona (u_demo_stephen) lives outside the mock dir.
 _SAMPLE_PATH = _DATA_DIR / "sample_transactions.json"
 
@@ -65,6 +67,21 @@ class FilePersonaProvider:
         self._mock_dir = Path(mock_dir) if mock_dir is not None else _MOCK_DIR
         self._sample_path = Path(sample_path) if sample_path is not None else _SAMPLE_PATH
         self._index: Dict[str, Path] = self._build_index(self._mock_dir, self._sample_path)
+        if mock_dir is None and sample_path is None:
+            paths = sorted(_PRIVATE_DIR.glob("persona_*.json"))
+            secret_path = os.environ.get("AJORA_PERSONA_PATH")
+            if secret_path:
+                path = Path(secret_path)
+                if not path.is_file():
+                    raise FileNotFoundError(f"AJORA_PERSONA_PATH is not a file: {path}")
+                paths.append(path)
+            for path in paths:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                user_id = raw.get("user", {}).get("user_id")
+                if user_id:
+                    if user_id in self._index:
+                        raise ValueError(f"Duplicate persona user id: {user_id!r}")
+                    self._index[str(user_id)] = path
 
     @staticmethod
     def _build_index(mock_dir: Path, sample_path: Path) -> Dict[str, Path]:

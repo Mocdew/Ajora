@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 
 /**
  * ConfirmDialog — a minimal, accessible modal for confirming a destructive-looking
@@ -82,7 +81,7 @@ export function ConfirmDialog({
     >
       {/* backdrop */}
       <div
-        className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-background/70 backdrop-blur-sm animate-in fade-in duration-300"
         onClick={() => !pending && onCancel()}
       />
       <div
@@ -90,17 +89,17 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-desc"
-        className="relative w-full max-w-md rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg"
+        className="relative w-full max-w-md rounded-2xl bg-popover p-6 text-popover-foreground animate-in fade-in zoom-in-95 duration-300"
       >
         <h2
           id="confirm-dialog-title"
-          className="font-display text-lg font-semibold tracking-tight text-foreground"
+          className="text-lg font-semibold tracking-tight text-foreground"
         >
           {title}
         </h2>
         <div
           id="confirm-dialog-desc"
-          className="mt-2 text-sm leading-relaxed text-muted-foreground"
+          className="mt-2 text-sm text-muted-foreground"
         >
           {description}
         </div>
@@ -111,11 +110,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={pending}
-            className={cn(
-              "inline-flex items-center rounded-md border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground",
-              "hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              "disabled:cursor-not-allowed disabled:opacity-50",
-            )}
+            className="btn-secondary"
           >
             {cancelLabel}
           </button>
@@ -124,13 +119,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={pending}
-            className={cn(
-              "inline-flex items-center rounded-md px-3.5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              "disabled:cursor-not-allowed disabled:opacity-60",
-              tone === "danger"
-                ? "bg-negative text-negative-foreground hover:bg-negative/90 focus-visible:ring-negative"
-                : "bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring",
-            )}
+            className={tone === "danger" ? "btn bg-negative text-negative-foreground hover:bg-negative/90" : "btn-primary"}
           >
             {pending ? "Working…" : confirmLabel}
           </button>

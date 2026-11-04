@@ -54,7 +54,7 @@ function Swatch({ color, dashed }: { color: string; dashed?: boolean }) {
 }
 
 function ChartSkeleton() {
-  return <div className="h-72 w-full animate-pulse rounded-md bg-muted/50" />;
+  return <div className="panel-inset h-72 w-full animate-pulse" />;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -75,9 +75,9 @@ function SeriesTooltip({
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
   return (
-    <div className="rounded-lg border border-border bg-popover p-3 text-sm shadow-md">
+    <div className="rounded-xl bg-popover p-3 text-sm text-popover-foreground shadow-lg shadow-black/40">
       <p className="mb-2 font-medium text-popover-foreground">{label}</p>
-      <dl className="space-y-1.5">
+      <dl className="space-y-2">
         <div className="flex items-center justify-between gap-6">
           <dt className="flex items-center gap-2 text-muted-foreground">
             <Swatch color={SERIES.true.color} />
@@ -96,7 +96,7 @@ function SeriesTooltip({
             {formatNaira(row.rawIncome)}
           </dd>
         </div>
-        <div className="mt-1 flex items-center justify-between gap-6 border-t border-border pt-1.5">
+        <div className="mt-1 flex items-center justify-between gap-6 border-t border-border pt-2">
           <dt className="text-muted-foreground">Phantom removed</dt>
           <dd className="font-semibold tabular-nums text-foreground">
             <span aria-hidden>↓ </span>
@@ -134,8 +134,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
             x={8}
             y={0}
             dominantBaseline="central"
-            className="fill-foreground"
-            style={{ fontSize: 11, fontWeight: 600 }}
+            className="fill-foreground text-xs font-semibold"
           >
             {formatNaira(value, compact)}
           </text>
@@ -149,7 +148,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
   return (
     <figure className="m-0">
       {/* Legend — the dependable identity channel (never color-alone). */}
-      <figcaption className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+      <figcaption className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
         <span
           className={cn(
             "inline-flex items-center gap-2 font-medium",
@@ -159,7 +158,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
           <Swatch color={SERIES.true.color} />
           True income (deduped)
           {trueEmph ? (
-            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground">
+            <span className="badge-neutral">
               Shown
             </span>
           ) : null}
@@ -173,7 +172,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
           <Swatch color={SERIES.raw.color} dashed />
           Raw income (inflated)
           {!trueEmph ? (
-            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground">
+            <span className="badge-neutral">
               Shown
             </span>
           ) : null}
@@ -181,8 +180,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
         <span className="ml-auto inline-flex items-center gap-2 text-muted-foreground">
           <span
             aria-hidden
-            className="inline-block h-3 w-4 rounded-sm"
-            style={{ backgroundColor: "hsl(var(--chart-gap))" }}
+            className="inline-block h-3 w-4 rounded-sm bg-[hsl(var(--chart-gap)/0.3)]"
           />
           Phantom self-transfers
         </span>
@@ -205,12 +203,12 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
                 <stop
                   offset="0%"
                   stopColor="hsl(var(--chart-gap))"
-                  stopOpacity={0.55}
+                  stopOpacity={0.12}
                 />
                 <stop
                   offset="100%"
                   stopColor="hsl(var(--chart-gap))"
-                  stopOpacity={0.15}
+                  stopOpacity={0}
                 />
               </linearGradient>
             </defs>
@@ -240,7 +238,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
               cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1 }}
             />
 
-            {/* Shaded phantom band: invisible base at trueIncome, amber wash up
+            {/* Shaded phantom band: faint base at trueIncome, accent wash up
                 to rawIncome. The gap = the self-transfers dedup removes. */}
             <Area
               type="monotone"
@@ -256,7 +254,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
               stackId="band"
               stroke="none"
               fill="hsl(var(--chart-gap))"
-              fillOpacity={0.8}
+              fillOpacity={0.3}
               isAnimationActive={false}
             />
 
@@ -290,7 +288,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Table view — accessible fallback + the amber-contrast relief channel. */}
+      {/* Table view: accessible fallback with every figure. */}
       <details className="mt-4 text-sm">
         <summary className="cursor-pointer select-none text-muted-foreground hover:text-foreground">
           View as table
@@ -298,7 +296,7 @@ function SeriesChart({ data }: { data: DashboardViewModel }) {
         <div className="mt-3 overflow-x-auto">
           <table className="w-full border-collapse text-left tabular-nums">
             <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border text-xs text-muted-foreground">
                 <th scope="col" className="py-2 pr-4 font-medium">
                   Month
                 </th>
@@ -364,9 +362,9 @@ function BarsTooltip({
   if (!active || !payload?.length) return null;
   const row = payload[0].payload;
   return (
-    <div className="rounded-lg border border-border bg-popover p-3 text-sm shadow-md">
+    <div className="rounded-xl bg-popover p-3 text-sm text-popover-foreground shadow-lg shadow-black/40">
       <p className="mb-2 font-medium text-popover-foreground">{row.category}</p>
-      <dl className="space-y-1.5">
+      <dl className="space-y-2">
         <div className="flex items-center justify-between gap-6">
           <dt className="flex items-center gap-2 text-muted-foreground">
             <Swatch color={SERIES.true.color} /> True (deduped)
@@ -383,7 +381,7 @@ function BarsTooltip({
             {formatNaira(row.raw)}
           </dd>
         </div>
-        <div className="mt-1 flex items-center justify-between gap-6 border-t border-border pt-1.5">
+        <div className="mt-1 flex items-center justify-between gap-6 border-t border-border pt-2">
           <dt className="text-muted-foreground">Phantom removed</dt>
           <dd className="font-semibold tabular-nums text-foreground">
             <span aria-hidden>↓ </span>
@@ -416,7 +414,7 @@ function BeforeAfterChart({ data }: { data: DashboardViewModel }) {
 
   return (
     <figure className="m-0">
-      <figcaption className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+      <figcaption className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
         <span
           className={cn(
             "inline-flex items-center gap-2 font-medium",
@@ -425,12 +423,11 @@ function BeforeAfterChart({ data }: { data: DashboardViewModel }) {
         >
           <span
             aria-hidden
-            className="inline-block h-2.5 w-2.5 rounded-sm"
-            style={{ backgroundColor: SERIES.true.color }}
+            className="inline-block h-2.5 w-2.5 rounded-sm bg-[hsl(var(--chart-line))]"
           />
           True (deduped)
           {trueEmph ? (
-            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground">
+            <span className="badge-neutral">
               Shown
             </span>
           ) : null}
@@ -443,12 +440,11 @@ function BeforeAfterChart({ data }: { data: DashboardViewModel }) {
         >
           <span
             aria-hidden
-            className="inline-block h-2.5 w-2.5 rounded-sm"
-            style={{ backgroundColor: SERIES.raw.color }}
+            className="inline-block h-2.5 w-2.5 rounded-sm bg-[hsl(var(--chart-raw))]"
           />
           Raw (inflated)
           {!trueEmph ? (
-            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground">
+            <span className="badge-neutral">
               Shown
             </span>
           ) : null}
@@ -525,7 +521,7 @@ function BeforeAfterChart({ data }: { data: DashboardViewModel }) {
         <div className="mt-3 overflow-x-auto">
           <table className="w-full border-collapse text-left tabular-nums">
             <thead>
-              <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border text-xs text-muted-foreground">
                 <th scope="col" className="py-2 pr-4 font-medium">
                   Measure
                 </th>

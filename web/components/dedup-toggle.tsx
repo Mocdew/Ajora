@@ -11,7 +11,7 @@ import { useDedup } from "@/components/dedup-context";
 export function DedupToggle() {
   const { deduped, setDeduped } = useDedup();
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-sm transition-colors hover:border-accent/40">
+    <label className="card-soft flex cursor-pointer items-center gap-3 px-4 py-2 transition-colors duration-300 hover:bg-secondary">
       <span className="flex flex-col text-right">
         <span className="text-sm font-semibold text-foreground">
           Remove phantom transfers

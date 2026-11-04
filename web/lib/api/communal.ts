@@ -5,6 +5,7 @@ import { engineGet, engineKeys, type EngineError } from "@/lib/api/engine";
 import type {
   InsightsResponse,
   GraphResponse,
+  TransactionsResponse,
 } from "@/lib/api/engine-types";
 
 /**
@@ -45,4 +46,18 @@ export function useRelationshipGraph(userId: string) {
   });
 }
 
-export type { InsightsResponse, GraphResponse };
+/** The raw (consent-scoped) ledger — the graph inspector resolves an insight's
+ *  `member_transaction_ids` against it. */
+export function useTransactions(userId: string) {
+  return useQuery<TransactionsResponse, EngineError>({
+    queryKey: engineKeys.transactions(userId),
+    enabled: Boolean(userId),
+    queryFn: ({ signal }) =>
+      engineGet<TransactionsResponse>(
+        `/users/${encodeURIComponent(userId)}/transactions`,
+        signal,
+      ),
+  });
+}
+
+export type { InsightsResponse, GraphResponse, TransactionsResponse };

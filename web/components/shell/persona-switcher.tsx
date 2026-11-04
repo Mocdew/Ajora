@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Users, ChevronDown, AlertCircle } from "lucide-react";
+import {
+  Users,
+  CaretDown,
+  WarningCircle,
+} from "@phosphor-icons/react/dist/ssr";
 import { useHealth } from "@/lib/api/health";
 import { usePersona, DEFAULT_PERSONA } from "@/components/persona-context";
 import { cn } from "@/lib/utils";
@@ -37,10 +41,10 @@ export function PersonaSwitcher() {
       <button
         type="button"
         onClick={() => refetch()}
-        className="inline-flex items-center gap-1.5 rounded-md border border-negative/40 bg-negative/10 px-3 py-1.5 text-xs font-medium text-negative"
+        className="btn-danger"
       >
-        <AlertCircle className="h-3.5 w-3.5" aria-hidden />
-        Engine offline — retry
+        <WarningCircle className="h-3.5 w-3.5" aria-hidden />
+        Engine offline. Retry
       </button>
     );
   }
@@ -49,7 +53,7 @@ export function PersonaSwitcher() {
     <label className="relative inline-flex items-center">
       <span className="sr-only">Active persona</span>
       <Users
-        className="pointer-events-none absolute left-2.5 h-4 w-4 text-teal"
+        className="pointer-events-none absolute left-3 h-4 w-4 text-accent"
         aria-hidden
       />
       <select
@@ -57,8 +61,7 @@ export function PersonaSwitcher() {
         onChange={(e) => setUserId(e.target.value)}
         disabled={isLoading || users.length === 0}
         className={cn(
-          "h-9 appearance-none rounded-md border border-border bg-card py-1.5 pl-8 pr-8 text-sm font-medium text-foreground",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "h-9 appearance-none rounded-lg bg-secondary py-2 pl-8 pr-8 text-sm font-medium text-foreground transition-colors duration-300 hover:bg-input",
           "disabled:opacity-60",
         )}
         aria-label="Select persona"
@@ -73,8 +76,8 @@ export function PersonaSwitcher() {
           ))
         )}
       </select>
-      <ChevronDown
-        className="pointer-events-none absolute right-2.5 h-4 w-4 text-muted-foreground"
+      <CaretDown
+        className="pointer-events-none absolute right-3 h-4 w-4 text-muted-foreground"
         aria-hidden
       />
     </label>

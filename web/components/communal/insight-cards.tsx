@@ -2,17 +2,17 @@
 
 import {
   Repeat,
-  HeartHandshake,
+  HandHeart,
   HandCoins,
   Globe,
   ArrowDownLeft,
   ArrowUpRight,
-  ArrowLeftRight,
+  ArrowsLeftRight,
   Users,
-  CheckCircle2,
-  type LucideIcon,
-} from "lucide-react";
-import { cn, formatNaira } from "@/lib/utils";
+  CheckCircle,
+} from "@phosphor-icons/react/dist/ssr";
+import type { Icon } from "@phosphor-icons/react";
+import { formatNaira } from "@/lib/utils";
 import { useCommunalInsights } from "@/lib/api/communal";
 import {
   communalNarration,
@@ -38,20 +38,20 @@ const compact: Intl.NumberFormatOptions = {
   maximumFractionDigits: 1,
 };
 
-const TYPE_ICON: Record<RelationshipType, LucideIcon> = {
+export const TYPE_ICON: Record<RelationshipType, Icon> = {
   ajo_esusu: Repeat,
-  dependent: HeartHandshake,
+  dependent: HandHeart,
   informal_lending: HandCoins,
   remittance: Globe,
 };
 
 const flowMeta: Record<
   Flow,
-  { icon: LucideIcon; label: string; tone: "out" | "in" | "neutral" }
+  { icon: Icon; label: string; tone: "out" | "in" | "neutral" }
 > = {
   out: { icon: ArrowUpRight, label: "Money out", tone: "out" },
   in: { icon: ArrowDownLeft, label: "Money in", tone: "in" },
-  neutral: { icon: ArrowLeftRight, label: "Two-way · Balanced", tone: "neutral" },
+  neutral: { icon: ArrowsLeftRight, label: "Two-way · Balanced", tone: "neutral" },
 };
 
 interface Stat {
@@ -93,16 +93,11 @@ function statsFor(ins: CommunalInsight): Stat[] {
   }
 }
 
-function FlowPill({ flow }: { flow: Flow }) {
+export function FlowPill({ flow }: { flow: Flow }) {
   const { icon: Icon, label, tone } = flowMeta[flow];
   return (
     <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
-        tone === "out"
-          ? "bg-[hsl(var(--gold)/0.14)] text-[hsl(36_60%_34%)] dark:text-[hsl(var(--gold))]"
-          : "bg-mint text-mint-foreground",
-      )}
+      className={tone === "out" ? "badge-neutral text-foreground" : "badge"}
     >
       <Icon className="h-3 w-3" aria-hidden />
       {label}
@@ -125,16 +120,16 @@ function InsightCard({
   return (
     <div className="card-soft card-hover flex flex-col p-6">
       <div className="flex items-center justify-between gap-3">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-accent">
+        <span className="panel-inset inline-flex h-10 w-10 items-center justify-center text-accent">
           <Icon className="h-5 w-5" aria-hidden />
         </span>
         <FlowPill flow={flow} />
       </div>
 
-      <p className="label-mono mt-4">{RELATIONSHIP_LABEL[ins.relationship_type]}</p>
+      <p className="caption mt-4">{RELATIONSHIP_LABEL[ins.relationship_type]}</p>
 
       <div className="mt-2 flex items-baseline gap-2">
-        <span className="font-display text-[2.2rem] font-bold leading-none tabular-nums tracking-tight text-foreground">
+        <span className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
           {formatNaira(headline.value, compact)}
         </span>
         {headline.suffix ? (
@@ -144,24 +139,24 @@ function InsightCard({
 
       {narration ? (
         <div className="mt-3">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-mint px-2.5 py-1 text-[11px] font-semibold text-mint-foreground">
-            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+          <span className="badge">
+            <CheckCircle className="h-3.5 w-3.5" aria-hidden />
             Grounded
           </span>
-          <p className="mt-2 text-sm leading-relaxed text-foreground">
+          <p className="mt-2 text-sm text-foreground">
             {narration.narration}
           </p>
         </div>
       ) : (
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-3 text-sm text-muted-foreground">
           {composeInsightSentence(ins)}
         </p>
       )}
 
-      <dl className="mt-5 space-y-2.5 border-t border-border pt-4">
+      <dl className="mt-6 space-y-3 border-t border-border pt-4">
         {stats.map((s) => (
           <div key={s.label} className="flex items-center justify-between gap-3">
-            <dt className="label-mono">{s.label}</dt>
+            <dt className="caption">{s.label}</dt>
             <dd className="text-sm font-semibold tabular-nums text-foreground">
               {s.value}
             </dd>
@@ -173,13 +168,13 @@ function InsightCard({
 }
 
 function CardSkeleton() {
-  return <div className="h-72 w-full animate-pulse rounded-2xl bg-muted/50" />;
+  return <div className="card-soft h-72 w-full animate-pulse" />;
 }
 
 function EmptyInsights() {
   return (
     <div className="card-soft flex flex-col items-center justify-center gap-3 p-12 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+      <span className="panel-inset flex h-12 w-12 items-center justify-center">
         <Users className="h-6 w-6 text-accent" aria-hidden />
       </span>
       <div className="space-y-1">
@@ -208,7 +203,7 @@ export function CommunalInsightCards() {
   }
   if (isLoading || !data) {
     return (
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <CardSkeleton key={i} />
         ))}
@@ -222,7 +217,7 @@ export function CommunalInsightCards() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
       {insights.map((ins) => (
         <InsightCard
           key={`${ins.relationship_type}:${ins.counterparty}`}

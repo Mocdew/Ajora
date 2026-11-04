@@ -74,10 +74,10 @@ class CashflowResponse(BaseModel):
     before_after: BeforeAfter
     totals: Totals
     matches: List[MatchedTransfer] = Field(
-        default_factory=list, description="The phantom self-transfer pairs that were netted out."
+        default_factory=list, description="High- and medium-confidence pairs available for review."
     )
     deduped_transaction_count: int = Field(
-        ..., description="Transactions remaining after both legs of every match are removed."
+        ..., description="Size of the clean ledger including any transfer fees or FX residuals."
     )
     internal_transfer_ids: List[str] = Field(
         default_factory=list, description="Ids flagged as internal-transfer legs."

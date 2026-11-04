@@ -1,60 +1,46 @@
 import {
-  Activity,
-  LayoutDashboard,
-  ArrowLeftRight,
+  House,
   Users,
-  ScrollText,
+  ClockCounterClockwise,
   SlidersHorizontal,
-  type LucideIcon,
-} from "lucide-react";
+} from "@phosphor-icons/react/dist/ssr";
+import type { Icon } from "@phosphor-icons/react";
 
 export type NavItem = {
   title: string;
   href: string;
-  icon: LucideIcon;
+  icon: Icon;
   description: string;
   /** Not yet built — rendered as a disabled "soon" item. */
   comingSoon?: boolean;
 };
 
 /**
- * Primary navigation — the deck's product surfaces. All live.
+ * Savings is the primary journey. Analytics remain available from Settings.
  */
 export const navItems: NavItem[] = [
   {
-    title: "Overview",
-    href: "/overview",
-    icon: Activity,
-    description: "Where Ajora stands this cycle",
-  },
-  {
-    title: "Dashboard",
+    title: "Home",
     href: "/dashboard",
-    icon: LayoutDashboard,
-    description: "Your true cashflow at a glance",
+    icon: House,
+    description: "Your next step towards saving",
   },
   {
-    title: "Transfers & Dedup",
-    href: "/transfers",
-    icon: ArrowLeftRight,
-    description: "Phantom self-transfers, matched and removed",
-  },
-  {
-    title: "Communal",
-    href: "/communal",
+    title: "My circles",
+    href: "/circles",
     icon: Users,
-    description: "Ajo, dependents, lending & remittances",
+    description: "Save together, one round at a time",
   },
   {
-    title: "Audit Log",
-    href: "/audit",
-    icon: ScrollText,
-    description: "Append-only access log — auditable, never sold",
+    title: "Activity",
+    href: "/activity",
+    icon: ClockCounterClockwise,
+    description: "Contributions and payout records",
   },
   {
     title: "Settings",
     href: "/settings",
     icon: SlidersHorizontal,
-    description: "Consent, connections & preferences",
+    description: "Appearance, privacy and insights",
   },
 ];

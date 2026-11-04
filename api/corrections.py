@@ -1,8 +1,8 @@
 """Append-only user feedback for transfer matches.
 
-Confirm/reject verdicts are durable training signals, not live model overrides. Each
-verdict appends one immutable JSON object to ``corrections.jsonl``; the engine remains
-stateless and can consume these records during an offline scorer retraining pass.
+Each verdict appends one immutable JSON object to ``corrections.jsonl``. The latest
+decision for a user's pair applies on subsequent requests. The same history can be
+used to train the scorer offline.
 """
 
 from __future__ import annotations

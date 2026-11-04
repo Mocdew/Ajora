@@ -4,13 +4,14 @@
 **naive inflated view → flip the dedup toggle → honest numbers → the communal insights
 underneath → the trust/consent proof.**
 
-> Rehearsed end-to-end against the real engine on the labelled personas (2026-10-11).
+> Verified against the real engine with all four persona API walkthroughs and the Emeka
+> browser walkthrough on 2026-11-03.
 > Every number below is live engine output, not slideware. Fallback screenshots for each
 > beat are in [`demo-assets/`](demo-assets/) (referenced inline).
 >
-> ⚠️ **Not yet rehearsed against a Docker build** — no container setup exists in the repo
-> yet. This script targets the local stack; re-run the pre-flight against the Docker build
-> once it lands (the flow and talk track don't change, only how you start the servers).
+> Dockerfiles and Compose configuration exist. A container rehearsal requires a running
+> Docker daemon; the native stack is covered by the automated browser walkthrough.
+> Old screenshots/video predate the fee correction below; use the live application for current figures.
 
 ---
 
@@ -21,7 +22,7 @@ stages at once:
 
 | Persona | Dedup headline | Communal story | Graph | Verdict |
 |---|---|---|---|---|
-| **Emeka (B)** ✅ | **Strong** — ₦1.39M phantom, income +24.9%, **spending +76.8%**, 8 transfers | ₦2.56M UK **remittance = 45.7% of net income** + black-tax dependent | 3 nodes | **Demo spine** |
+| **Emeka (B)** ✅ | **Strong** — ₦1.39M phantom, income +24.9%, **spending +76.7%**, 8 transfers | ₦2.56M UK **remittance = 45.7% of net income** + black-tax dependent | 3 nodes | **Demo spine** |
 | Funmilayo (C) | Weak — only 7.8%, 2 transfers | **All 4 patterns** (ajo, lending, dependent, remittance) | 4 nodes | Optional "breadth" beat |
 | Adaeze (A) | Strong (28.3%) | **None** (empty communal) | 1 node | ❌ no communal payoff |
 
@@ -34,11 +35,11 @@ switch to Funmilayo for ~30s.
 
 ## Pre-flight (do this before you present)
 
-1. **Start the engine** (from repo root). For the authentic GenAI story, export your key
-   first so narration comes from the live model; skip it to use the offline grounded stub
+1. **Start the engine** (from repo root). Select deterministic narration
+   as below for the offline grounded stub
    (still real, grounded figures — just templated prose, labelled `stub-offline`).
    ```bash
-   export ANTHROPIC_API_KEY=sk-...        # optional — live Claude narration
+   export AJORA_EXPLAINER=offline        # deterministic credential-free rehearsal
    .venv/bin/python -m uvicorn api.main:app --port 8000
    ```
 2. **Start the web app** (second terminal). The browser calls a same-origin `/api/engine`
@@ -79,27 +80,25 @@ transfers."* NET **₦3.78M**.
 **Action:** Click **"Remove phantom transfers."** Pause ~1s for the numbers to animate down.
 **Screen:** Dashboard, toggle **ON**. → [`02-deduped-honest.jpg`](demo-assets/02-deduped-honest.jpg)
 
-**Shows:** INCOME **₦6.99M → ₦5.6M**, SPENDING **₦3.21M → ₦1.81M** (−76.8% inflation!),
+**Shows:** INCOME **₦6.99M → ₦5.6M**, SPENDING **₦3.21M → ₦1.81M** (−76.7% inflation!),
 NET **holds at ₦3.78M**.
 
 > "One toggle. Our cross-institution matcher found **8 self-transfers** — ₦1.39M of phantom
 > money — using the Hungarian algorithm over fuzzy name, amount and timing signals. Watch
 > what happens: income falls to its real ₦5.6M, spending nearly halves. But look at **Net —
-> it barely moves.** That's the tell: what was fake was never his balance, it was the
+> it stays the same, because transfer fees remain real spending.** That's the tell: what was fake was never his balance, it was the
 > *size* of each side. That inflation is exactly what misleads a loan officer."
 
 ### Beat 3 — Trust the number: grounded GenAI (~35s)
 **Action:** Scroll down to **"Explained by Ajora AI ✓ grounded"** and the raw-vs-deduped chart.
 **Screen:** → [`03-grounded-narration.jpg`](demo-assets/03-grounded-narration.jpg)
 
-**Shows (verbatim):** *"Emeka, we found 8 transfer(s)… inflated your income by 24.9%. Your
+**Key figures in the narration:** *"Emeka, we found 8 transfer(s)… inflated your income by 24.9%. Your
 real income is ₦5,595,250, not the ₦6,986,880 a naive view shows. The largest move,
-₦200,000 from gtbank to opay, is a high-confidence match (98%)."*
+₦300,000 from gtbank to access, is a high-confidence match (95%)."*
 
-> "Every figure gets explained in plain language by Claude — but note the **✓ grounded**
-> badge. The model *explains* the numbers; it never computes them. Every value in that
-> sentence is verified against the engine's output before it's shown — if the model ever
-> invented a figure, we'd catch it and refuse to display it. No hallucinated naira."
+> "Every figure gets explained in plain language by the offline demo narrator — but note the **✓ grounded**
+> badge. The templates explain numbers already computed by the engine. The optional live model follows the same contract. The numeric guard checks that quoted numbers occur in the engine facts; it does not prove every sentence is semantically correct. The largest transfer is selected by the engine before narration."
 
 *(Quirk to mention only if asked: Emeka's chart shows before/after **bars** rather than a
 monthly line, because his domiciliary account is in USD and we don't fabricate an FX-split
@@ -137,10 +136,7 @@ only, never sold"* — records every read and literally lists **"Excluded by rev
 domv-b04"** on every access made after the revoke.
 
 > "And this is consent-first for real, not a checkbox. Emeka revokes his domiciliary account —
-> and that ₦2.6M remittance **vanishes from every view instantly**, because revoked data never
-> reaches the engine. We keep **no database** — nothing collected 'just in case.' The only
-> thing we persist is this **append-only audit log** that proves what we read and what we
-> deliberately left out. Honest numbers, on data he controls, that he can walk back any second."
+> and that ₦2.6M remittance **vanishes from every view instantly**, because revoked account data is excluded from the engine. The fixture demo loads local files; real provider consent must be enforced before bank fetching. We keep **no database** — nothing collected 'just in case.' The durable state is consent decisions, correction verdicts, and this **append-only audit log** that proves what we served and which revoked accounts were excluded from computation. Honest numbers, on data he controls, that he can walk back any second."
 
 **Close (~15s):**
 > "That's Ajora: strip the phantom inflation, surface the communal economy underneath, and do
@@ -155,9 +151,9 @@ domv-b04"** on every access made after the revoke.
 If the audience wants the full communal taxonomy, use the **persona switcher** to jump to
 **Funmilayo Adeyemi (C)** and stay on **Communal**:
 
-> "And it generalizes. Here's a different customer — Ajora detects **all four** patterns: a
+> "Here is another labelled example. Here's a different customer — Ajora detects three further patterns: a
 > rotating **ajo/esusu** savings group, an **informal loan** (₦50k lent, ₦30k still
-> outstanding), a dependent paying school fees, and a remittance — each a node in her
+> outstanding), and a dependent receiving support — each a node in her
 > relationship graph."
 
 Then switch back to Emeka if continuing. Note C's dedup headline is weak (7.8%), so **don't**
@@ -195,11 +191,23 @@ open the dedup story on her.
 | | Naive | Deduped |
 |---|---|---|
 | Income | ₦6,986,880 | ₦5,595,250 |
-| Spending | ₦3,205,100 | ₦1,812,600 |
-| Net | ₦3,781,780 | ₦3,782,650 |
-| Phantom removed | — | ₦1,392,065 over 8 transfers |
-| Inflation | — | income 24.9% · spending 76.8% |
+| Spending | ₦3,205,100 | ₦1,813,470 |
+| Net | ₦3,781,780 | ₦3,781,780 |
+| Phantom removed | — | ₦1,391,630 over 8 transfers |
+| Inflation | — | income 24.9% · spending 76.7% |
 
 Communal: Remittance ₦2,557,500 (Chioma Balogun, quarterly, 45.7% of net) · Dependent
 ₦250,000 (Mama Emeka, monthly, 4.5%). Accounts: `access-b02`, `domv-b04`, `gtb-b01`,
 `opay-b03`.
+
+## Fee and review proof (optional 30 seconds)
+
+Open Transfers. High confidence pairs apply automatically; medium pairs stay in income/spending pending confirmation; low pairs are left untouched. Confirm/reject decisions apply to subsequent cashflow, graph and narration reads and survive restart in `corrections.jsonl`. Re-confirm any rejected pair after demonstrating.
+
+The ₦870 difference between Emeka's transfer debit and credit legs stays in spending (fees/FX settlement); dedup therefore preserves net cashflow. FX uses demo rates, not current market quotes.
+
+## Automated rehearsal
+
+Run the Python suite and browser walkthrough described in RUNNING.md. Browser checks use isolated temporary state. Reset regular demo consent with Settings → Grant and restore any rejected transfer verdicts; do not delete existing audit files.
+
+Validation: 94 Python tests, both precision/recall harnesses, five offline explainer cases, frontend lint/type/build, and the full Emeka browser walkthrough passed. Screenshots are produced under `web/test-results/`; CI uploads them as a walkthrough artifact.

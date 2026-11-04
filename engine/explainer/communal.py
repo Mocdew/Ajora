@@ -144,8 +144,8 @@ def render_communal_stub(facts: Dict[str, Any]) -> str:
 
     if rtype == "ajo_esusu":
         base = (
-            f"{hello}you contribute to an ajo/esusu savings group with {who} — "
-            f"{count} contribution(s) totalling ₦{_money(out)}."
+            f"{hello}your ajo/esusu savings group with {who} has {count} recorded "
+            f"transaction(s). Your contributions total ₦{_money(out)}."
         )
         if inn and inn > 0:
             base += f" You have received ₦{_money(inn)} back in payout(s)."
@@ -161,8 +161,7 @@ def render_communal_stub(facts: Dict[str, Any]) -> str:
     if rtype == "informal_lending":
         return (
             f"{hello}you lent money to {who}: ₦{_money(out)} out and ₦{_money(inn)} "
-            f"repaid so far, leaving ₦{_money(net)} still owed to you. Ajora tracks this "
-            f"as a loan rather than spending, so your real position is not understated."
+            f"repaid so far, leaving ₦{_money(net)} still owed to you."
         )
 
     if rtype == "remittance":

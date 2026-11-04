@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
-import { DedupProvider } from "@/components/dedup-context";
-import { DashboardView } from "@/components/dashboard-view";
-
-export const metadata: Metadata = { title: "Dashboard" };
-
+import { SavingsHome } from "@/components/savings/home";
+export const metadata: Metadata = { title: "Home" };
 export default function DashboardPage() {
-  return (
-    <DedupProvider>
-      <DashboardView />
-    </DedupProvider>
-  );
+  return <SavingsHome />;
 }

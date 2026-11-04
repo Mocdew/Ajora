@@ -2,11 +2,30 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
+import { Fingerprint } from "@phosphor-icons/react/dist/ssr";
 import { navItems } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
-export function Sidebar({ className }: { className?: string }) {
+// Literal classes so Tailwind emits them: links arrive 60ms apart (< 400ms total).
+const STAGGER = [
+  "[animation-delay:0ms]",
+  "[animation-delay:60ms]",
+  "[animation-delay:120ms]",
+  "[animation-delay:180ms]",
+  "[animation-delay:240ms]",
+  "[animation-delay:300ms]",
+];
+
+export function Sidebar({
+  className,
+  staggered = false,
+  onNavigate,
+}: {
+  className?: string;
+  /** Mobile panel: links rise in one after another in reading order. */
+  staggered?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
@@ -14,9 +33,7 @@ export function Sidebar({ className }: { className?: string }) {
       aria-label="Primary"
       className={cn("flex h-full flex-col gap-1 p-4", className)}
     >
-      <p className="label-mono px-3 pb-3 pt-1">Navigation</p>
-
-      {navItems.map((item) => {
+      {navItems.map((item, index) => {
         const active =
           pathname === item.href || pathname.startsWith(`${item.href}/`);
         const Icon = item.icon;
@@ -24,18 +41,23 @@ export function Sidebar({ className }: { className?: string }) {
           <Link
             key={item.href}
             href={item.href}
+            onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "group relative flex items-start gap-3 rounded-xl px-3 py-2.5 text-sm outline-none transition-all duration-200",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "group relative flex items-start gap-3 rounded-xl px-3 py-2 text-sm transition duration-300 active:scale-[0.98]",
               active
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-foreground/70 hover:translate-x-0.5 hover:bg-muted hover:text-foreground",
+                ? "bg-primary text-primary-foreground"
+                : "text-foreground/70 hover:translate-x-0.5 hover:bg-secondary hover:text-foreground",
+              staggered &&
+                cn(
+                  "animate-in fade-in slide-in-from-top-2 fill-mode-both duration-500 [animation-timing-function:cubic-bezier(0.22,1,0.36,1)]",
+                  STAGGER[index] ?? STAGGER[STAGGER.length - 1],
+                ),
             )}
           >
             <Icon
               className={cn(
-                "mt-0.5 h-[18px] w-[18px] shrink-0 transition-colors",
+                "mt-0.5 h-5 w-5 shrink-0 transition-colors duration-300",
                 active
                   ? "text-primary-foreground"
                   : "text-muted-foreground group-hover:text-accent",
@@ -43,12 +65,10 @@ export function Sidebar({ className }: { className?: string }) {
               aria-hidden
             />
             <span className="flex min-w-0 flex-col">
-              <span className="flex items-center gap-2 font-semibold tracking-tight">
+              <span className="flex items-center gap-2 font-semibold">
                 {item.title}
                 {item.comingSoon ? (
-                  <span className="label-mono rounded-full bg-muted px-1.5 py-0.5 text-[9px] tracking-wider">
-                    Soon
-                  </span>
+                  <span className="badge-neutral">Soon</span>
                 ) : null}
               </span>
               <span
@@ -66,12 +86,12 @@ export function Sidebar({ className }: { className?: string }) {
         );
       })}
 
-      <div className="mt-auto flex items-start gap-2.5 rounded-xl border border-border bg-secondary/60 p-3">
-        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
+      <div className="panel-inset mt-auto flex items-start gap-3 p-3">
+        <Fingerprint className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
         <div>
-          <p className="text-xs font-semibold text-foreground">Consent-first</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            Nothing collected &ldquo;just in case&rdquo;. Access is revocable.
+          <p className="text-xs font-semibold text-foreground">Save together, clearly</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Shared rules, visible contributions and a clear turn for every member.
           </p>
         </div>
       </div>

@@ -41,7 +41,7 @@ from ..schemas.communal import (
 )
 from ..schemas.dedup import DedupResult
 from ..schemas.transaction import UserProfile
-from .classifier import CommunalClassifier
+from .classifier import CommunalClassifier, CommunalConfig
 from .graph import to_ngn
 
 # The six transaction tags collapse into the four relationship types.
@@ -67,22 +67,26 @@ def build_insights(
     dedup_result: DedupResult,
     user: UserProfile,
     classifier: Optional[CommunalClassifier] = None,
+    fx_rates_ngn: Optional[Dict[str, float]] = None,
 ) -> CommunalInsights:
     """Run the classifier on the deduped ledger, then roll up relationship insights.
 
     Operates ONLY on `dedup_result.deduped_transactions` (phantom self-transfers already
     removed) and passes `skip_ids=internal_transfer_ids` so no internal leg can leak in.
     """
-    clf = classifier or CommunalClassifier()
+    clf = classifier or CommunalClassifier(CommunalConfig(fx_rates_ngn=fx_rates_ngn or {}))
     result = clf.classify(
         dedup_result.deduped_transactions,
         user,
         skip_ids=set(dedup_result.internal_transfer_ids),
     )
-    return insights_from_result(result, dedup_result.totals.net_income)
+    return insights_from_result(result, dedup_result.totals.net_income, clf.cfg.fx_rates_ngn)
 
 
-def insights_from_result(result: CommunalResult, net_income_ngn: float) -> CommunalInsights:
+def insights_from_result(
+    result: CommunalResult, net_income_ngn: float,
+    fx_rates_ngn: Optional[Dict[str, float]] = None,
+) -> CommunalInsights:
     """Pure aggregation: CommunalResult + net income -> CommunalInsights.
 
     Split out from `build_insights` so the eval harness can classify once and reuse the
@@ -93,7 +97,7 @@ def insights_from_result(result: CommunalResult, net_income_ngn: float) -> Commu
         groups[(c.counterparty, TAG_TO_TYPE[c.tag])].append(c)
 
     insights: List[CommunalInsight] = [
-        _build_one(cp, rtype, members, net_income_ngn)
+        _build_one(cp, rtype, members, net_income_ngn, fx_rates_ngn)
         for (cp, rtype), members in groups.items()
     ]
     # Largest footprint first (|net| then volume) for a stable, legible ordering.
@@ -111,11 +115,12 @@ def _build_one(
     rtype: RelationshipType,
     members: List[ClassifiedTransaction],
     net_income_ngn: float,
+    fx_rates_ngn: Optional[Dict[str, float]] = None,
 ) -> CommunalInsight:
     out_total = 0.0
     in_total = 0.0
     for m in members:
-        amt = to_ngn(m.transaction.amount, m.transaction.currency)
+        amt = to_ngn(m.transaction.amount, m.transaction.currency, fx_rates_ngn)
         if m.transaction.direction == "debit":
             out_total += amt
         else:

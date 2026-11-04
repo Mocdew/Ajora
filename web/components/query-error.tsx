@@ -1,6 +1,9 @@
 "use client";
 
-import { AlertTriangle, RotateCw } from "lucide-react";
+import {
+  Warning,
+  ArrowClockwise,
+} from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
 import { EngineError } from "@/lib/api/engine";
 
@@ -42,17 +45,17 @@ export function QueryError({
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-start gap-3 rounded-lg border border-negative/30 bg-negative/5 p-4",
+        "flex flex-col items-start gap-3 rounded-xl bg-negative/10 p-4",
         compact && "p-3",
         className,
       )}
     >
-      <div className="flex items-start gap-2.5">
-        <AlertTriangle
+      <div className="flex items-start gap-3">
+        <Warning
           className="mt-0.5 h-4 w-4 shrink-0 text-negative"
           aria-hidden
         />
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           <p className="text-sm font-semibold text-foreground">{title}</p>
           <p className="text-sm text-muted-foreground">{detail}</p>
         </div>
@@ -60,12 +63,9 @@ export function QueryError({
       <button
         type="button"
         onClick={onRetry}
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground",
-          "hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        )}
+        className="btn-secondary"
       >
-        <RotateCw className="h-3.5 w-3.5" aria-hidden />
+        <ArrowClockwise className="h-3.5 w-3.5" aria-hidden />
         Retry
       </button>
     </div>
