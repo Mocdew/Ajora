@@ -12,8 +12,7 @@ Two interchangeable scorers share the same feature definition (`PairFeatures`):
 Keeping both behind one `score(...)` interface lets the engine stay agnostic and lets
 the eval harness compare heuristic vs learned without touching pipeline code.
 
-Single source of truth; `app.dedup.scorer` re-exports these. Pure: numpy + (lazy)
-scikit-learn only.
+Pure: numpy + (lazy) scikit-learn only.
 """
 
 from __future__ import annotations

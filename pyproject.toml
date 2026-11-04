@@ -22,10 +22,9 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-# Run every maintained Python suite from the repo root. The path entries expose
-# the engine/API packages plus the backend's historical `app.*` import path.
-pythonpath = [".", "backend"]
-testpaths = ["engine/tests", "api/tests", "backend/tests"]
+# Run both maintained Python suites from the repository root.
+pythonpath = ["."]
+testpaths = ["engine/tests", "api/tests"]
 addopts = ["--import-mode=importlib"]
 
 [build-system]

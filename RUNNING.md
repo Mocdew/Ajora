@@ -14,9 +14,9 @@ tracked after being made outside Ajora; no money moves through the app.
 
 ## Prerequisites
 
-- Python deps are in the repo-root `.venv` (created already). It must contain `fastapi`,
-  `uvicorn`, and the engine libs (`scipy`, `rapidfuzz`, `scikit-learn`, `numpy`,
-  `networkx`, `pydantic`) — declared in `backend/requirements.txt`.
+- Python 3.11+ is recommended. Create the repo-root `.venv` and install
+  `requirements.txt` as shown in [Quick start](README.md#quick-start). It includes
+  the API, analytics, and test dependencies.
 - Node 22+ for the frontend. First time only: `npm --prefix web install`.
 
 ## 1. Backend — FastAPI API (port 8000)
@@ -105,7 +105,8 @@ original analytics walkthrough.
 
 ## Verification
 
-Run `.venv/bin/python -m pytest -q`, both engine harnesses, and `npm --prefix web run lint` / `npm --prefix web run build`. The CI workflow repeats these checks.
+Run `.venv/bin/python -m pytest -q`, both engine harnesses,
+`.venv/bin/python -m scripts.run_explainer_eval`, and `npm --prefix web run lint` / `npm --prefix web run build`. The CI workflow repeats these checks.
 
 The hackathon demo uses deterministic offline narration when `ANTHROPIC_API_KEY` is unset. This is templated narration of engine output, not a live model call. The current optional live client is Anthropic; the Tensor provider in the project brief remains a separate integration.
 

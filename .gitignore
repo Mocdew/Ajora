@@ -32,7 +32,7 @@ savings.sqlite3
 savings.sqlite3-*
 
 # Personal statement personas are local only, never demo/evaluation fixtures.
-backend/data/private/
+data/private/
 
 # OS / editor
 .DS_Store

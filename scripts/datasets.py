@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .schemas.transaction import TransactionBatch
+from engine.schemas.transaction import TransactionBatch
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 SAMPLE_PATH = DATA_DIR / "sample_transactions.json"

@@ -1,135 +1,157 @@
 # Ajora
 
-**Ajo and esusu savings circles, with clear contributions and payout turns.**
-Zecathon 2025 — Team P4L.
+**Run your ajo or esusu circle with clear contributions, agreed turns, and a shared record.**
 
-Ajora helps members organise a rotating savings circle and keep a shared record of
-who has contributed and whose turn it is to collect.
+Ajora helps Nigerian savings circles keep track of money sent through their
+existing bank accounts. Organisers can see what each member has contributed,
+review instalments, and record payouts. Members can check the same history and
+confirm when their payout arrives.
 
-1. **Create or join a circle** with an invite code, contribution amount, weekly or
-   monthly schedule, membership limit, start date, and rules.
-2. **Accept the final agreement** including the payout order and collection account.
-   Every member acknowledges the current version before the organiser starts.
-3. **Track contribution instalments** with integer kobo amounts. Keep submitted,
-   manually confirmed, and demo-feed-matched payments distinct; partial payments
-   contribute only their actual accepted amount.
-4. **Record an external payout**, then let its recipient confirm receipt or report a
-   discrepancy. The round advances only after the recipient confirms receipt.
-5. **Follow the shared history** of agreements, contributions, corrections and
-   payouts. Refresh the record or share a summary through WhatsApp.
+Built for Zecathon 2025 by Team P4L.
 
-Ajora records **payments made outside the app**; it does not collect, hold, or
-transfer money. The collection-account feed is a clearly labelled **demo**. It
-exercises reference-and-amount matching without banking credentials and does not
-prove that real money arrived. Live Mono integration remains future work.
+## Why Ajora
 
-A display name creates an identity with a 30-day HttpOnly browser session. Generate
-and privately save a recovery key under **Account access** to regain the same
-identity after cookie expiry or on another device. The server stores only its hash.
-Replacing the key invalidates the previous one; recovery revokes previous browser
-sessions. Use separate browsers or browser profiles for different circle members.
-These identities are not verified bank identities.
+A rotating savings circle depends on people agreeing when to contribute and who
+collects next. When references, receipts, and payout updates are scattered across
+chats and spreadsheets, the organiser has to piece the record together.
 
-## Architecture: durable circles, ephemeral bank analytics
+Ajora brings that record into one place while your group continues making payments
+through its usual channels. The MVP focuses on existing circles of people who
+already know each other.
 
-No database server is required. The savings service uses the sanctioned SQLite
-fallback because circle membership, obligations, and payment records must survive
-restarts. `AJORA_STATE_DIR/savings.sqlite3` stores this state, recovery-key hashes,
-receipt allocations, and the circle event history; the default state
-directory is the repository root. Keep the state directory on a persistent volume
-when deploying.
+## What you can do
 
-Raw imported bank transactions remain ephemeral: the separate analytics engine
-loads, normalizes, deduplicates, and classifies them in memory. Existing
-`audit.jsonl`, `consent.jsonl`, and `corrections.jsonl` files retain analytics access,
-consent, and feedback records. Runtime state is not source data to commit.
+| Circle workflow | What Ajora records |
+| --- | --- |
+| Create and invite | Contribution amount, weekly or monthly schedule, rules, members, and payout order. |
+| Agree before starting | Each member accepts the current agreement. Membership, order, or collection-account changes require fresh acceptance. |
+| Contribute in instalments | Each payment has its own amount, reference, and review status. Totals use accepted amounts. |
+| Reconcile contributions | Organisers confirm external receipts manually or approve exact reference-and-amount matches from the demo feed. A matched receipt cannot fund two payments. |
+| Confirm payouts | An organiser reports a payout as sent. Its recipient confirms receipt or reports a problem; only receipt confirmation advances the round. |
+| Keep the shared history | Agreement snapshots, payment decisions, corrections, and payout discrepancies remain visible. |
+| Return and stay informed | Private recovery keys restore membership; polling and refresh show updates. WhatsApp actions prepare invitations, reminders, and summaries for you to send. |
 
-## Supporting financial insights
+**Current status:** Ajora is a working MVP with a simulated bank feed. Demo matches
+exercise reconciliation; they do not verify real bank payments. Live Mono
+integration is not implemented. Ajora does not collect, hold, or transfer money.
+Payment discrepancy flags add to the shared history; they do not automatically
+freeze payouts or resolve disputes.
 
-The existing cross-bank transfer deduplication, communal-finance classification,
-relationship graph, and grounded explanations remain available as secondary
-analytics, reached from Settings. Their labelled personas are independent of
-savings-circle identities and records. Historical ajo classification does not
-create circle membership or prove a contribution was received.
+## Quick start
 
-## Stack
+Python 3.11+ and Node.js 22+ are the recommended local setup. Run these commands
+from the repository root. You do not need bank credentials or an AI API key for
+the savings-circle flow.
 
-- **Frontend:** React + Next.js (App Router) + TypeScript, Tailwind + shadcn/ui, Recharts,
-  TanStack Query. Lives in `web/`.
-- **Backend / ML:** Python + FastAPI (Pydantic v2). Dedup uses the Hungarian algorithm
-  (`scipy.optimize.linear_sum_assignment`), RapidFuzz for name/narration similarity,
-  scikit-learn for confidence-tier scoring, NetworkX for the communal graph.
-- **GenAI explainer:** Claude (latest model), grounded so every number traces back to
-  computed facts.
-- **Savings persistence:** Python standard-library SQLite, with integer kobo amounts.
-- **Analytics data:** a file-backed persona provider; live Mono integration remains future work.
-
-## Layout
-
-```
-engine/            Pure, stateless core IP (no web/DB/network)
-  dedup/           Stage 1 — cross-institution transfer dedup
-  communal/        Stage 2 — ajo/esusu, dependents, lending, remittances
-  schemas/         Pydantic v2 models
-  explainer/       Grounded Claude explainer (offline stub by default)
-  harness.py       Dedup eval harness
-  communal_harness.py
-api/               FastAPI app: savings service and secondary engine endpoints
-backend/           Scripts, persona fixtures, re-export shims for legacy imports
-  app/explainer/   Thin re-export shim → engine/explainer/
-  data/mock/       Labelled persona dataset
-web/               Next.js frontend
-docs/              Design + decision records
-```
-
-> Note: the engine standardizes on the float-backed `Transaction` in
-> `engine/schemas/transaction.py`, re-exported as `engine.Transaction`. See
-> [docs/transaction-model-decision.md](docs/transaction-model-decision.md) for the resolution.
-
-## Running it
-
-### Backend / engine (Python ≥ 3.9)
+Install the backend and frontend dependencies:
 
 ```bash
-python -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+npm --prefix web ci
 ```
 
-API server (from repo root):
+Start the API:
 
 ```bash
-.venv/bin/python -m uvicorn api.main:app --reload   # serves :8000
+.venv/bin/python -m uvicorn api.main:app --reload
 ```
 
-See [RUNNING.md](RUNNING.md) for the full stack (API + frontend, or Docker).
-
-Eval harnesses (from repo root):
+In a second terminal, start the frontend:
 
 ```bash
-.venv/bin/python -m engine.harness            # dedup precision/recall
-.venv/bin/python -m engine.communal_harness   # communal classifier P/R/F1
+npm --prefix web run dev
 ```
 
-Tests:
+Open [Ajora at localhost:3100](http://localhost:3100). The API runs on port 8000;
+its [interactive reference](http://localhost:8000/docs) documents the endpoints.
+The frontend proxies API calls through the same origin.
+
+With Docker Compose, you can instead run:
 
 ```bash
-.venv/bin/python -m pytest -q                 # savings, API, engine, backend suites
+docker compose up --build
 ```
 
-The GenAI explainer runs offline against a deterministic stub by default. Set `AJORA_EXPLAINER=offline` to force this credential-free demo mode. For the live
-Claude path, install `anthropic` (already in requirements) and set `ANTHROPIC_API_KEY`.
+The containerised app opens at [localhost:3000](http://localhost:3000). Compose
+retains savings state in the `api-state` volume.
 
-### Frontend
+### Try a complete circle
+
+1. Create a profile and save a private recovery key under **Account access**.
+2. Create a two-member circle. Configure the demo collection account to try matching.
+3. Use a second browser profile to join with the invite code. Tabs in one browser share an identity.
+4. Arrange payout turns, have both members accept the final agreement, and start.
+5. Submit instalments using the demo feed's references and amounts, then approve the matches as organiser. For real external payments, check receipt outside Ajora before confirming manually.
+6. Record a payout as sent. As its recipient, confirm receipt to advance the round.
+
+See [the full walkthrough](RUNNING.md) for recovery, discrepancy reporting,
+configuration, and browser tests.
+
+## Data and access
+
+Circle records survive restarts in `AJORA_STATE_DIR/savings.sqlite3`. SQLite stores
+membership, agreements, contributions, receipt allocations, payout records,
+recovery-key hashes, and the shared event history. No database server is required.
+The state directory defaults to the repository root; use a persistent volume and
+back it up when deploying. Removing the Compose volume removes its saved records.
+
+A profile uses a 30-day HttpOnly session cookie. Generate and privately save a
+recovery key before changing devices or clearing cookies. Only its hash is stored;
+replacing the key invalidates the old one, and recovery signs out previous
+sessions. Anyone with the key can access that profile. Display names are not
+verified bank identities.
+
+Raw bank feeds are processed in memory and are not retained as transaction
+histories. The circle ledger retains the payment evidence needed for its records.
+Analytics consent, access, and correction events use append-only JSONL files.
+Circle event history is append-only through the application; these records are not
+cryptographic proof against tampering.
+
+## For developers
+
+- **Web:** Next.js App Router, React, TypeScript, Tailwind, shadcn/ui, and TanStack Query over OpenAPI-generated types.
+- **API:** FastAPI and Pydantic v2, with standard-library SQLite for savings state.
+- **Analytics:** SciPy, RapidFuzz, scikit-learn, and NetworkX; file-backed persona fixtures keep the demo independent of live banks.
+
+```text
+api/               Savings API, recovery, demo feed, and analytics endpoints
+web/               Next.js app and Playwright walkthroughs
+engine/            Stateless transfer deduplication, classification, and explanations
+data/              Demo fixtures and locally supplied private personas
+scripts/           Dataset generation and evaluation tools
+docs/              Demo guides, technical decisions, pitch files, and archives
+requirements.txt   Python API, analytics, and test dependencies
+```
+
+The original financial-insights engine remains available through Settings. It
+provides transfer deduplication, communal-finance classification, a relationship
+graph, and explanations grounded in computed figures. Its sample personas are
+separate from circle memberships. See the [analytics demo](docs/DEMO_SCRIPT.md)
+and [API reference](api/README.md). Explanations run offline by default without
+credentials; the optional live client uses Anthropic.
+
+### Checks
+
+Run the Python suite and frontend checks from the repository root:
 
 ```bash
-cd web
-npm install
-npm run dev
+.venv/bin/python -m pytest -q
+npm --prefix web run lint
+npm --prefix web run build
 ```
 
-## Deployment
+For analytics evaluation:
 
-Containerized with Docker. No database service to provision; retain `AJORA_STATE_DIR`
-on a persistent volume and back up savings state. Keep recovery keys private. The
-demo bank feed is for rehearsal; connecting live banks and processing payments are
-separate integrations.
+```bash
+.venv/bin/python -m engine.harness
+.venv/bin/python -m engine.communal_harness
+.venv/bin/python -m scripts.run_explainer_eval
+```
+
+Follow [RUNNING.md](RUNNING.md#browser-walkthrough) to run the browser suite against
+an isolated API state directory. [api/README.md](api/README.md) covers endpoint
+contracts, configuration, and regeneration of frontend types.
+
+Original presentation files live in [docs/pitch](docs/pitch/). Earlier build prompts
+are preserved as [archived project history](docs/archive/BUILD_PROMPTS.md).

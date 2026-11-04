@@ -1,3 +1,7 @@
+> **Archived project history.** These prompts describe earlier implementation stages.
+> Use the [README](../../README.md) and [running guide](../../RUNNING.md) for the
+> current savings-circle product, folder layout, and setup instructions.
+
 # Ajora — Build Prompts
 
 Copy-paste prompts for each engineer, phase by phase. Each prompt is written to drop

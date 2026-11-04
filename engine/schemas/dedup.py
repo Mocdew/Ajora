@@ -1,7 +1,6 @@
 """Result models for the transfer-dedup stage.
 
-Single source of truth; `backend/app/schemas/dedup.py` re-exports these exact
-classes. Only pydantic is imported — no web/DB/network.
+Only pydantic is imported — no web/DB/network.
 """
 
 from __future__ import annotations

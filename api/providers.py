@@ -22,9 +22,9 @@ from engine.schemas.transaction import TransactionBatch
 
 __all__ = ["DataProvider", "FilePersonaProvider", "UserNotFound"]
 
-# The labelled persona fixtures live under the backend data dir (shared with the
+# The labelled persona fixtures live under the data directory (shared with the
 # engine harnesses). The API reads them but owns neither the files nor the engine.
-_DATA_DIR = Path(__file__).resolve().parent.parent / "backend" / "data"
+_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 _MOCK_DIR = _DATA_DIR / "mock"
 _PRIVATE_DIR = _DATA_DIR / "private"
 # A small standalone demo persona (u_demo_stephen) lives outside the mock dir.

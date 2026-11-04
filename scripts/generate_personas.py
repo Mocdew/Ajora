@@ -1,6 +1,6 @@
 """Deterministic generator for the labelled persona dataset (Ajora demo + eval data).
 
-    python -m scripts.generate_personas        # from the backend/ directory
+    python -m scripts.generate_personas        # from the repository root
 
 Writes `data/mock/persona_a.json`, `persona_b.json`, `persona_c.json`, each a
 `TransactionBatch` ({"user": {...}, "transactions": [...]}) loadable by
@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from app.datasets import MOCK_DIR
+from scripts.datasets import MOCK_DIR
 
 
 class Builder:

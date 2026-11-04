@@ -40,7 +40,7 @@ class BankFeedProvider(Protocol):
 
 class DemoBankFeedProvider:
     def get_feed(self, circle: dict) -> BankFeed:
-        template = json.loads((Path(__file__).parent.parent / "backend/data/mock/savings_feed.json").read_text())
+        template = json.loads((Path(__file__).parent.parent / "data/mock/savings_feed.json").read_text())
         number = circle["current_round"]
         total = circle["contribution_kobo"]
         first = total * template["first_part_percent"] // 100

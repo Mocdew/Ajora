@@ -12,8 +12,7 @@ Client selection:
     narration with no credentials.
 An unavailable model or ungrounded live response falls back to offline narration.
 
-Ported from the retired ``backend/app`` service; it now sits in the canonical ``api``
-app and loads data through the :class:`~api.providers.DataProvider` seam.
+Loads data through the :class:`~api.providers.DataProvider` seam.
 """
 
 from __future__ import annotations

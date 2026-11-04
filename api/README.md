@@ -42,8 +42,8 @@ curl -s http://localhost:8000/users | python3 -m json.tool
 ```
 
 Dependencies (`fastapi`, `uvicorn[standard]`, plus the engine's `scipy`/`rapidfuzz`/
-`scikit-learn`/`numpy`/`networkx`/`pydantic`) are pinned in
-[`backend/requirements.txt`](../backend/requirements.txt) and already installed in `.venv`.
+`scikit-learn`/`numpy`/`networkx`/`pydantic`) are declared in
+[`requirements.txt`](../requirements.txt). Install them in the repo-root `.venv`.
 Change the port with `--port 8001` if 8000 is taken.
 
 ---
@@ -185,7 +185,7 @@ class DataProvider(Protocol):
 ```
 
 The only implementation today is `FilePersonaProvider`, which reads the labelled fixtures
-in `backend/data/mock/persona_*.json` (+ `backend/data/sample_transactions.json`). A live
+in `data/mock/persona_*.json` (+ `data/sample_transactions.json`). A live
 `MonoProvider` / `OkraProvider` would implement the same two methods and drop in with **no
 route changes**.
 

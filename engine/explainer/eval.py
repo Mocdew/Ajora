@@ -16,8 +16,8 @@ Plus two "teeth" checks that prove the verifier catches real failures: a hand-wr
 explanation with a fabricated figure is rejected, and one that leaks a forbidden term is
 rejected.
 
-Run it:  ../.venv/bin/python -m app.explainer.eval       (from backend/)
-or via:  ../.venv/bin/python -m pytest tests/test_explainer.py -q
+Run it:  .venv/bin/python -m engine.explainer.eval       (from the repository root)
+or via:  .venv/bin/python -m pytest engine/tests/test_explainer.py -q
 """
 
 from __future__ import annotations

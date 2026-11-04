@@ -1,6 +1,6 @@
 """Run the dedup engine on the sample persona dataset and print a readable report.
 
-    python -m scripts.run_dedup_demo        # from the backend/ directory
+    python -m scripts.run_dedup_demo        # from the repository root
 
 Shows the before/after totals (the 30–40% inflation story), every matched self-transfer
 with its confidence tier and reasons, and the eval metrics against the labelled data.
@@ -8,9 +8,9 @@ with its confidence tier and reasons, and the eval metrics against the labelled 
 
 from __future__ import annotations
 
-from app.datasets import load_batch
-from app.dedup.engine import DedupEngine
-from app.dedup.evaluation import evaluate
+from scripts.datasets import load_batch
+from engine.dedup.engine import DedupEngine
+from engine.dedup.evaluation import evaluate
 
 
 def main() -> None:

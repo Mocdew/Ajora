@@ -124,9 +124,9 @@ grounding guardrail is identical for both.
   through the live model and reports (does not gate on) the result.
 
 ```bash
-# from backend/
-../.venv/bin/python -m scripts.run_explainer_eval      # human-readable report
-../.venv/bin/python -m pytest tests/test_explainer.py -q
+# from the repository root
+.venv/bin/python -m scripts.run_explainer_eval      # human-readable report
+.venv/bin/python -m pytest engine/tests/test_explainer.py -q
 ```
 
 ---

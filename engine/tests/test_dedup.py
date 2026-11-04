@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.datasets import load_batch
-from app.dedup.engine import DedupEngine
-from app.dedup.evaluation import evaluate
-from app.dedup.normalize import clean_name, extract_references
-from app.dedup.scorer import LogisticScorer
-from app.dedup.similarity import DedupConfig, extract_features
-from app.schemas.transaction import Transaction, UserProfile
+from scripts.datasets import load_batch
+from engine.dedup.engine import DedupEngine
+from engine.dedup.evaluation import evaluate
+from engine.dedup.normalize import clean_name, extract_references
+from engine.dedup.scorer import LogisticScorer
+from engine.dedup.similarity import DedupConfig, extract_features
+from engine.schemas.transaction import Transaction, UserProfile
 
 
 def _txn(**kw) -> Transaction:
@@ -71,7 +71,7 @@ def test_decoy_same_amount_different_payee_not_matched():
 # --- feasibility gates --------------------------------------------------------------
 
 def test_credit_before_debit_is_infeasible():
-    from app.dedup.similarity import is_feasible
+    from engine.dedup.similarity import is_feasible
 
     cfg = DedupConfig()
     debit = _txn(id="d", account_id="a", direction="debit", amount=5000,
@@ -83,7 +83,7 @@ def test_credit_before_debit_is_infeasible():
 
 
 def test_same_account_is_infeasible():
-    from app.dedup.similarity import is_feasible
+    from engine.dedup.similarity import is_feasible
 
     cfg = DedupConfig()
     debit = _txn(id="d", account_id="a", direction="debit", amount=5000)

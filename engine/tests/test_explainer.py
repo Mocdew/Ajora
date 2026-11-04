@@ -1,6 +1,6 @@
 """Pytest entry point for the explainer eval harness.
 
-Keeps the harness logic in `app.explainer.eval` (so it is also runnable as a script and
+Keeps the harness logic in `engine.explainer.eval` (so it is also runnable as a script and
 reusable against the live model) and asserts the offline suite passes here.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.explainer import (
+from engine.explainer import (
     Explainer,
     StubExplainerClient,
     UngroundedExplanation,
@@ -16,7 +16,7 @@ from app.explainer import (
     collect_allowed_numbers,
     verify_grounded,
 )
-from app.explainer.eval import golden_cases, run_eval
+from engine.explainer.eval import golden_cases, run_eval
 
 
 def test_offline_eval_suite_passes():
@@ -91,6 +91,6 @@ def test_verifier_has_teeth():
 
 
 def _nums(text):
-    from app.explainer.grounding import extract_numbers
+    from engine.explainer.grounding import extract_numbers
 
     return extract_numbers(text)

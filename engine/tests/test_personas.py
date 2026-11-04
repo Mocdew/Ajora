@@ -12,9 +12,9 @@ from collections import defaultdict
 
 import pytest
 
-from app.datasets import load_all_personas, persona_paths
-from app.dedup.engine import DedupEngine
-from app.dedup.evaluation import evaluate
+from scripts.datasets import load_all_personas, persona_paths
+from engine.dedup.engine import DedupEngine
+from engine.dedup.evaluation import evaluate
 
 # Controlled vocabulary for the communal-finance classification stage.
 ALLOWED_COMMUNAL_TAGS = {
