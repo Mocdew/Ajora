@@ -20,7 +20,8 @@ payout turns, with supporting financial insights.
 - **Account access:** email/password or configured Google sign-in establish an HttpOnly
   cookie session. Existing browser-only profiles can add credentials while keeping
   their identity and membership; legacy recovery keys work only before this upgrade.
-  Email verification for password accounts and password-reset emails are not implemented yet.
+  Password accounts support explicit mailbox verification and single-use password
+  reset links when [account email](../docs/ACCOUNT_EMAIL.md) is configured.
   Savings identities remain independent of legacy analytics personas.
 
 > **Interactive docs are built in:** run the server and open
@@ -62,8 +63,9 @@ secure over HTTPS (or with `AJORA_COOKIE_SECURE=true`). Registration returns 201
 and signs in the account; login returns 200. Emails are normalised for
 case-insensitive matching. Passwords contain 15–128 characters and are stored as
 salted PBKDF2-HMAC-SHA256 hashes with 600,000 iterations; passwords are not trimmed.
-Save the password privately: email verification and password-reset emails are not
-implemented yet.
+Mailbox verification and password reset use separate hashed, expiring email
+tokens. A reset revokes existing sessions while preserving the same account and
+circle records. See [account email endpoints and delivery setup](../docs/ACCOUNT_EMAIL.md).
 
 For Google sign-in, follow [Google Cloud setup](../docs/GOOGLE_SIGN_IN.md). Set
 `AJORA_GOOGLE_CLIENT_ID` on this API and the matching

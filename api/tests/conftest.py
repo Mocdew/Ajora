@@ -27,6 +27,8 @@ def tmp_trust_state(tmp_path, monkeypatch):
     monkeypatch.delenv("AJORA_REQUIRE_REMOTE_SAVINGS", raising=False)
     monkeypatch.delenv("AJORA_DEMO_EMAIL", raising=False)
     monkeypatch.delenv("AJORA_DEMO_PASSWORD", raising=False)
+    for key in ("AJORA_RESEND_API_KEY", "AJORA_EMAIL_FROM", "AJORA_PUBLIC_WEB_URL"):
+        monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("AJORA_STATE_DIR", str(tmp_path))
     consent_store = FileConsentStore(tmp_path / "consent.jsonl")
     audit_log = FileAuditLog(tmp_path / "audit.jsonl")

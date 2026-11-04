@@ -221,6 +221,14 @@ def database(path: Path, *, write: bool = False):
             CREATE TABLE IF NOT EXISTS savings_credentials (
                 user_id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS savings_verified_emails (
+                user_id TEXT PRIMARY KEY, email TEXT NOT NULL, verified_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS savings_email_tokens (
+                token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, email TEXT NOT NULL,
+                purpose TEXT NOT NULL CHECK (purpose IN ('reset', 'verify')),
+                credential_hash TEXT NOT NULL, expires_at INTEGER NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS savings_google_accounts (
                 sub TEXT PRIMARY KEY, user_id TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL

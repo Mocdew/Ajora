@@ -42,7 +42,8 @@ jobs:
         run: |
           export AJORA_STATE_DIR="$(mktemp -d)"
           export AJORA_EXPLAINER=offline
-          python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 >/tmp/ajora-api.log 2>&1 &
+          export AJORA_TEST_MAILBOX_PATH="$AJORA_STATE_DIR/mailbox.jsonl"
+          python -m uvicorn api.tests.mail_app:app --host 127.0.0.1 --port 8000 >/tmp/ajora-api.log 2>&1 &
           npm --prefix web run start >/tmp/ajora-web.log 2>&1 &
           trap 'kill $(jobs -pr) 2>/dev/null || true' EXIT
           for attempt in {1..60}; do

@@ -242,3 +242,21 @@ def test_auth_validation_schema_matches_redacted_error_response():
         response = schema["paths"][operation]["post"]["responses"]["422"]
         assert response["content"]["application/json"]["schema"]["$ref"].endswith("/AuthErrorResponse")
     assert schema["components"]["schemas"]["AuthErrorResponse"]["properties"]["detail"]["type"] == "string"
+
+
+def test_password_reset_during_login_hashing_cannot_issue_an_old_password_session(auth, monkeypatch):
+    owner, visitor, path = auth
+    identity = owner.post("/auth/register", json=ACCOUNT).json()
+    original_verify = auth_api.verify_password
+    replacement_hash = auth_api.hash_password("a new private password after reset")
+    def reset_while_verifying(password, encoded):
+        valid = original_verify(password, encoded)
+        with sqlite3.connect(path) as conn:
+            conn.execute("UPDATE savings_credentials SET password_hash=? WHERE user_id=?", (replacement_hash, identity["user_id"]))
+            conn.execute("DELETE FROM savings_sessions WHERE user_id=?", (identity["user_id"],))
+        return valid
+    monkeypatch.setattr(auth_api, "verify_password", reset_while_verifying)
+    assert visitor.post("/auth/login", json={"email": ACCOUNT["email"], "password": PASSWORD}).status_code == 401
+    assert visitor.get("/savings/session").status_code == 401
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("SELECT count(*) FROM savings_sessions").fetchone()[0] == 0

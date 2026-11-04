@@ -117,8 +117,10 @@ Render Blueprint sets this guard to `true`, requiring remote configuration.
 
 Accounts use email/password or configured Google sign-in with a 30-day HttpOnly session cookie. Passwords
 are stored as salted PBKDF2-HMAC-SHA256 hashes with 600,000 iterations. Email
-ownership verification for password accounts and password-reset emails are not implemented yet; save
-your password privately. Login does not verify a member's bank or legal identity.
+ownership verification and password-reset links are available when account email
+delivery is configured. See [account email setup](docs/ACCOUNT_EMAIL.md). Members
+request verification explicitly; resetting a password signs out existing sessions
+and preserves circle records. Login does not verify bank or legal identity.
 
 Existing browser-only profiles can add email/password access under **Account
 access** while keeping their user ID, circles, and history. This upgrade signs out

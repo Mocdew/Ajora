@@ -116,6 +116,14 @@ SQLite hosting instead, attach a persistent disk on a supported plan, set
 does not attach storage. See [Durable savings on free hosting](TURSO_STORAGE.md)
 and [Render's disk setup](https://render.com/docs/disks).
 
+### Password reset and email verification
+
+Follow [account email setup](ACCOUNT_EMAIL.md). Configure `AJORA_RESEND_API_KEY`,
+`AJORA_EMAIL_FROM`, and `AJORA_PUBLIC_WEB_URL` on the API, then redeploy it with
+the accompanying frontend pages. Email secrets stay server-side. Registration and
+login continue working before delivery is configured; actual inbox delivery must
+be checked with an approved sender before onboarding members.
+
 ## 3. Push updates
 
 Commit reviewed changes and push or merge them to the configured production

@@ -24,6 +24,7 @@ from .routes import router
 from .savings import router as savings_router, get_savings_path
 from .savings_identity import router as savings_identity_router
 from .auth import router as auth_router
+from .account_email import router as account_email_router
 from .google_auth import router as google_auth_router
 from .demo_account import seed_demo_account
 
@@ -69,6 +70,7 @@ app.include_router(router)
 app.include_router(savings_router)
 app.include_router(savings_identity_router)
 app.include_router(auth_router)
+app.include_router(account_email_router)
 app.include_router(google_auth_router)
 
 
@@ -85,6 +87,12 @@ async def validation_error(request: Request, exc: RequestValidationError) -> JSO
         return JSONResponse(status_code=422, content={
             "detail": ("Google sign-in could not be completed. Please try again."
                        if request.url.path.startswith("/auth/google") else
+                       "Enter a valid link and a new password of 15–128 characters."
+                       if request.url.path == "/auth/password/reset" else
+                       "Enter a valid verification link."
+                       if request.url.path == "/auth/email/verify" else
+                       "Enter a valid email address."
+                       if request.url.path == "/auth/password/forgot" else
                        "Enter a valid email and password. New passwords need 15–128 characters; names need 2–80 characters."),
         }, headers={"Cache-Control": "no-store"})
     from fastapi.exception_handlers import request_validation_exception_handler

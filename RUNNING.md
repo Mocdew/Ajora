@@ -73,9 +73,10 @@ Repository changes alone do not migrate records or switch an existing service.
 ## 3. Savings-circle walkthrough
 
 1. Open the app and create an account with your display name, email, and a password
-   of 15–128 characters. Save the password privately; email verification and
-   password-reset emails are not implemented yet. Your browser stays signed in
-   with a 30-day HttpOnly session cookie.
+   of 15–128 characters. Your browser stays signed in with a 30-day HttpOnly
+   session cookie. With [account email configured](docs/ACCOUNT_EMAIL.md), use
+   **Send verification email** to confirm mailbox ownership or **Forgot password?**
+   on the login form to recover access.
 2. Open **My Circles**, create a two-member circle, and set its amount, frequency,
    start date and rules. Configure the labelled demo collection account if you want
    to rehearse bank-feed matching.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
@@ -19,6 +19,7 @@ import {
 import { formatNaira } from "@/lib/utils";
 import { CircleMotif } from "./circle-motif";
 import { GoogleSignIn } from "./google-sign-in";
+import { EmailVerificationStatus } from "./account-email";
 
 export const inputClass =
   "mt-2 w-full rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground/70 hover:border-foreground/30";
@@ -87,8 +88,10 @@ async function replaceSavingsSession(
   await Promise.all([
     client.cancelQueries({ queryKey: ["savings"] }),
     client.cancelQueries({ queryKey: ["savings-session"] }),
+    client.cancelQueries({ queryKey: ["account-email"] }),
   ]);
   client.removeQueries({ queryKey: ["savings"] });
+  client.removeQueries({ queryKey: ["account-email"] });
   if (identity) client.setQueryData(["savings-session"], identity);
   else await client.resetQueries({ queryKey: ["savings-session"] });
 }
@@ -104,6 +107,9 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
   const [showPassword, setShowPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
+  useEffect(() => {
+    if (!guest && new URLSearchParams(window.location.search).get("login") === "1") setMode("login");
+  }, [guest]);
   const registering = mode === "register";
   const mismatch = registering && password !== confirmation;
   const auth = useMutation({
@@ -258,6 +264,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
         {auth.isPending ? registering ? "Creating account…" : "Signing in…" : registering ? "Create account" : "Log in"}
         <ArrowRight className="h-4 w-4" aria-hidden />
       </button>
+      {!registering && <Link href="/forgot-password" className="block text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Forgot password?</Link>}
       {!guest && <p className="text-xs leading-relaxed text-muted-foreground">Ajora tracks external payments and does not hold or transfer money.</p>}
       </form>
     </div>
@@ -481,6 +488,7 @@ function AccountAccess({ session }: { session: SavingsSession }) {
           )}
         </div>
       </details>
+      {session.email && <EmailVerificationStatus key={session.user_id} userId={session.user_id} />}
     </div>
   );
 }

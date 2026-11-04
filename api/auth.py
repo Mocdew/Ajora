@@ -1,6 +1,6 @@
 """Email/password account access over the existing savings identity and sessions.
 
-Email addresses are login identifiers, not verified contact or bank identities.
+Email addresses are login identifiers; mailbox verification is tracked separately.
 Passwords use salted, versioned PBKDF2 hashes; credentials never leave the API.
 """
 from __future__ import annotations
@@ -179,6 +179,13 @@ def login(body: LoginInput, request: Request, response: Response, path: Path = D
     if row is None or not valid:
         raise HTTPException(401, "Email or password is incorrect.")
     with database(path, write=True) as conn:
+        current = conn.execute(
+            "SELECT password_hash FROM savings_credentials WHERE user_id=?", (row["user_id"],),
+        ).fetchone()
+        # A reset can revoke sessions while password hashing runs. Only the
+        # credential that was actually checked may authorize a new session.
+        if current is None or not hmac.compare_digest(current["password_hash"], row["password_hash"]):
+            raise HTTPException(401, "Email or password is incorrect.")
         token = issue_session(conn, row["user_id"])
         conn.execute("DELETE FROM auth_attempts WHERE scope=?", (email_scope("login", body.email),))
     set_session_cookie(request, response, token)
