@@ -7,23 +7,23 @@ import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: {
-    default: "Ajora · Your true cashflow",
+    default: "Ajora · Save together",
     template: "%s · Ajora",
   },
   description:
-    "A consent-first, multi-bank financial insights platform for Nigeria. One honest view across every bank and wallet.",
+    "Create an ajo savings circle, track contributions and manage payout turns together.",
   openGraph: {
-    title: "Ajora · Your true cashflow",
+    title: "Ajora · Save together",
     description:
-      "One honest view across every bank and wallet, with the phantom self-transfers removed.",
+      "Create an ajo savings circle, track contributions and manage payout turns together.",
     siteName: "Ajora",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "Ajora · Your true cashflow",
+    title: "Ajora · Save together",
     description:
-      "One honest view across every bank and wallet, with the phantom self-transfers removed.",
+      "Create an ajo savings circle, track contributions and manage payout turns together.",
   },
 };
 

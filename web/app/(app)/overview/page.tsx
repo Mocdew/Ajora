@@ -27,7 +27,7 @@ const PRINCIPLES = [
   {
     icon: Trash,
     title: "Nothing kept just in case",
-    body: "No database and no stored raw ledger. Data is pulled, deduped and served per request, and every read is written to an append-only audit log.",
+    body: "No stored raw bank ledger. Bank data is pulled, deduped and served per request, and every read is written to an append-only audit log. Circle records are stored separately.",
   },
 ];
 

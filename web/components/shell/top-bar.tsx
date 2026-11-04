@@ -1,9 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AjoraWordmark } from "@/components/ajora-wordmark";
 import { PersonaSwitcher } from "@/components/shell/persona-switcher";
 import { MobileNav } from "@/components/shell/mobile-nav";
 
 export function TopBar() {
+  const pathname = usePathname();
+  const analytics = ["/insights", "/transfers", "/communal", "/audit", "/overview", "/connections"].includes(pathname);
   return (
     // The blur lives on a pseudo-element: backdrop-filter on the header itself
     // would trap the mobile nav's `position: fixed` panel inside the bar.
@@ -12,18 +17,18 @@ export function TopBar() {
         <Link
           href="/dashboard"
           className="rounded-lg"
-          aria-label="Ajora, go to dashboard"
+          aria-label="Ajora, go home"
         >
           <AjoraWordmark />
         </Link>
         <span className="badge-neutral hidden sm:inline-flex">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
-          Consent-first · Demo data
+          {analytics ? "Financial insights · Demo data" : "Ajo savings · Payment tracking"}
         </span>
       </div>
 
       <div className="flex items-center gap-2">
-        <PersonaSwitcher />
+        {analytics ? <PersonaSwitcher /> : null}
         <MobileNav />
       </div>
     </header>

@@ -1,5 +1,5 @@
 # Ajora API — FastAPI + the pure engine (dedup, communal, explainer).
-# Stateless, no database; the labelled persona dataset is seeded into the image.
+# Savings uses a local SQLite file; bank insights stay stateless.
 # Build context is the REPO ROOT (the image needs engine/, api/, and backend/data/).
 FROM python:3.11-slim
 

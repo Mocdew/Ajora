@@ -1,9 +1,7 @@
 import {
-  Pulse,
-  SquaresFour,
-  ArrowsLeftRight,
+  House,
   Users,
-  Scroll,
+  ClockCounterClockwise,
   SlidersHorizontal,
 } from "@phosphor-icons/react/dist/ssr";
 import type { Icon } from "@phosphor-icons/react";
@@ -18,43 +16,31 @@ export type NavItem = {
 };
 
 /**
- * Primary navigation — the deck's product surfaces. All live.
+ * Savings is the primary journey. Analytics remain available from Settings.
  */
 export const navItems: NavItem[] = [
   {
-    title: "Overview",
-    href: "/overview",
-    icon: Pulse,
-    description: "How Ajora works",
-  },
-  {
-    title: "Dashboard",
+    title: "Home",
     href: "/dashboard",
-    icon: SquaresFour,
-    description: "Your true cashflow at a glance",
+    icon: House,
+    description: "Your next step towards saving",
   },
   {
-    title: "Transfers & dedup",
-    href: "/transfers",
-    icon: ArrowsLeftRight,
-    description: "Phantom self-transfers, matched and removed",
-  },
-  {
-    title: "Communal",
-    href: "/communal",
+    title: "My circles",
+    href: "/circles",
     icon: Users,
-    description: "Ajo, dependents, lending & remittances",
+    description: "Save together, one round at a time",
   },
   {
-    title: "Audit log",
-    href: "/audit",
-    icon: Scroll,
-    description: "Every read of your data, never sold",
+    title: "Activity",
+    href: "/activity",
+    icon: ClockCounterClockwise,
+    description: "Contributions and payout records",
   },
   {
     title: "Settings",
     href: "/settings",
     icon: SlidersHorizontal,
-    description: "Connections, consent and appearance",
+    description: "Appearance, privacy and insights",
   },
 ];

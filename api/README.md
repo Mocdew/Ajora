@@ -1,17 +1,19 @@
 # Ajora API
 
-HTTP API for **Ajora** — consent-first, multi-bank financial insights for Nigeria. It
-exposes the engine pipeline over four read-only resources: raw transactions, cross-bank
-transfer-deduped **cashflow**, communal-finance **insights** (ajo/esusu, dependents,
-informal lending, remittance), the relationship **graph**, and grounded GenAI
-**explanations**.
+HTTP API for **Ajora** — ajo/esusu savings circles, contribution records, and
+payout turns, with supporting financial insights.
 
-- **Stack:** FastAPI + Pydantic v2 (Python 3.9).
-- **Stateless, no database.** Every request loads a persona from file, runs the engine
-  in memory, and returns JSON. Nothing is persisted; raw bank data is never stored.
-- **The API owns no business logic** — it loads data through a `DataProvider` and calls
-  the pure `engine` library. All numbers come from the engine; the GenAI layer only
-  *explains* them, it never computes them.
+- **Stack:** FastAPI + Pydantic v2, with standard-library SQLite for savings state.
+- **Durable circles:** membership, payout order, contribution claims and confirmations,
+  and payout records live in `AJORA_STATE_DIR/savings.sqlite3` (repository root by
+  default). No database server is required.
+- **Ephemeral bank analytics:** the separate engine processes imported transactions
+  in memory. Its existing access, consent, and correction logs are append-only files.
+- **External payments:** contribution submission records a member's claim; organiser
+  confirmation records receipt. Payout recording does not initiate a bank transfer.
+- **MVP identity:** an HttpOnly browser session cookie identifies each savings member.
+  A name is not a verified identity; production account login and recovery are not
+  implemented. Savings identities are independent of legacy analytics personas.
 
 > **Interactive docs are built in:** run the server and open
 > **http://localhost:8000/docs** (Swagger UI) or **/redoc**. The machine-readable schema
@@ -41,7 +43,72 @@ Change the port with `--port 8001` if 8000 is taken.
 
 ---
 
-## Architecture
+## Savings resources
+
+All savings paths below are relative to the API root. The Next.js app proxies
+these through `/api/engine/savings/...`. JSON requests use `Content-Type:
+application/json`. The session cookie must accompany requests after identity
+creation; use a cookie jar for command-line walkthroughs. The
+`ajora_savings_session` cookie expires after 30 days, uses `SameSite=Lax`, and is
+secure over HTTPS (or with `AJORA_COOKIE_SECURE=true`). Creating another identity
+with an existing session returns 409.
+
+| Method and path | Purpose |
+|---|---|
+| `POST /savings/session` | Create a browser identity with `{ "display_name": "Ada" }` |
+| `GET /savings/session` | Read the current `{user_id, display_name}`; 401 without a session |
+| `GET /savings/circles` | List circles belonging to the current member |
+| `POST /savings/circles` | Create a circle and join as its organiser |
+| `GET /savings/invitations/{invite_code}` | Preview the rules and schedule before joining; requires a session and does not reveal member identities |
+| `POST /savings/join` | Join a forming circle with `{invite_code}` |
+| `GET /savings/circles/{id}` | Read a circle; members only |
+| `POST /savings/circles/{id}/order` | Organiser sets the forming circle's exact member order with `{member_ids}` |
+| `POST /savings/circles/{id}/start` | Organiser starts a full circle and locks membership and payout order |
+| `POST /savings/circles/{id}/contributions` | Member submits `{round_number, reference}` for their current-round external payment |
+| `POST /savings/circles/{id}/contributions/{member_id}/{round_number}/confirm` | Organiser confirms a submitted contribution |
+| `POST /savings/circles/{id}/contributions/{member_id}/{round_number}/reject` | Organiser rejects a submitted contribution with `{reason}` (3–500 characters), allowing the member to resubmit |
+| `POST /savings/circles/{id}/payouts` | Organiser records an external payout with `{round_number, reference}` after every current-round contribution is confirmed |
+
+Create-circle JSON:
+
+```json
+{
+  "name": "Market Friends",
+  "contribution_kobo": 1000000,
+  "frequency": "weekly",
+  "member_limit": 5,
+  "start_date": "2027-01-04",
+  "rules": "Contributions are due before the scheduled payout."
+}
+```
+
+Use a start date from today through the next five years (Africa/Lagos). Amounts are positive **integer kobo**
+(1,000,000 kobo = ₦10,000); membership limits are 2–50. Frequencies are `weekly` or
+`monthly`. Savings amounts must not use the legacy engine's float-NGN convention.
+
+Circle mutations return the updated circle. It includes its identity and rules,
+`organizer_id`, `invite_code`, `status` (`draft`, `active`, `completed`),
+`current_round`, ordered `members`, `due_dates`, `contributions`, and `payouts`.
+A contribution begins as `submitted`. The organiser marks it `confirmed` only
+after checking receipt, or `rejected` with a reason. Rejected claims can be
+resubmitted by their member; previous claim details remain in `history`. Confirmed
+claims are immutable. A reference alone does not verify receipt. Unsubmitted contributions are derived from the
+member list and current round. Payout requests include the round number to reject stale retries. Payout references
+are unique within a circle. Payouts advance the round; the last payout completes
+the cycle. Monthly due dates preserve the original day where possible and clamp
+to the last day of shorter months. Concurrent writes are transactional, and access and organiser permissions
+are checked server-side.
+
+Keep SQLite state on a persistent volume. Browser sessions provide local demo
+continuity; clearing the session cookie removes access to that browser identity.
+There is no bank connection, payment processing, or account-recovery endpoint in
+this MVP.
+
+## Supporting analytics architecture
+
+The remaining reference documents the retained `/users/...` analytics endpoints.
+These process sample bank transactions rather than operating savings circles.
+
 
 ```
 HTTP request
@@ -65,7 +132,7 @@ then the graph. (Communal patterns only emerge after self-transfers are netted o
 
 ### The `DataProvider` seam
 
-All data access goes through [`api/providers.py`](providers.py):
+Analytics transaction access goes through [`api/providers.py`](providers.py):
 
 ```python
 class DataProvider(Protocol):
@@ -85,8 +152,8 @@ route changes**.
 | | |
 |---|---|
 | **Base URL** | `http://localhost:8000` (dev) |
-| **Methods** | all endpoints are `GET` (read-only) |
-| **Money** | floats in **NGN**, already FX-normalized by the engine (a USD leg is converted before summing) |
+| **Methods** | analytics reads use `GET`; consent and correction writes use `POST` |
+| **Money** | analytics uses floats in **NGN**, already FX-normalized by the engine; savings uses integer **kobo** |
 | **Casing** | engine-backed endpoints use **`snake_case`**; `/explanations` uses **`camelCase`** (it mirrors the frontend's existing type verbatim) |
 | **Timestamps** | ISO-8601 strings as stored in the fixtures |
 | **IDs** | `user_id` path param, e.g. `u_persona_c` (see [Personas](#personas)) |

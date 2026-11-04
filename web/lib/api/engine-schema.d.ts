@@ -224,6 +224,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/savings/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Session */
+        get: operations["get_session_savings_session_get"];
+        put?: never;
+        /** Create Session */
+        post: operations["create_session_savings_session_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Circles */
+        get: operations["list_circles_savings_circles_get"];
+        put?: never;
+        /** Create Circle */
+        post: operations["create_circle_savings_circles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join Circle */
+        post: operations["join_circle_savings_join_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Circle */
+        get: operations["get_circle_savings_circles__circle_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Order */
+        post: operations["set_order_savings_circles__circle_id__order_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Circle */
+        post: operations["start_circle_savings_circles__circle_id__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/contributions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Contribution */
+        post: operations["submit_contribution_savings_circles__circle_id__contributions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/contributions/{member_id}/{round_number}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Contribution */
+        post: operations["confirm_contribution_savings_circles__circle_id__contributions__member_id___round_number__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Payout */
+        post: operations["record_payout_savings_circles__circle_id__payouts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/invitations/{invite_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Invitation
+         * @description Show the agreement before joining, without exposing member identities.
+         */
+        get: operations["preview_invitation_savings_invitations__invite_code__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/contributions/{member_id}/{round_number}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Contribution */
+        post: operations["reject_contribution_savings_circles__circle_id__contributions__member_id___round_number__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -373,6 +565,47 @@ export interface components {
              */
             unmatched_candidate_count: number;
         };
+        /** Circle */
+        Circle: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Organizer Id */
+            organizer_id: string;
+            /** Contribution Kobo */
+            contribution_kobo: number;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "weekly" | "monthly";
+            /** Member Limit */
+            member_limit: number;
+            /** Start Date */
+            start_date: string;
+            /** Rules */
+            rules: string;
+            /** Invite Code */
+            invite_code: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "completed";
+            /** Current Round */
+            current_round: number;
+            /** Members */
+            members: components["schemas"]["Member"][];
+            /** Contributions */
+            contributions: components["schemas"]["Contribution"][];
+            /** Payouts */
+            payouts: components["schemas"]["Payout"][];
+            /** Due Dates */
+            due_dates: string[];
+            /** Created At */
+            created_at: string;
+        };
         /**
          * CommunalInsight
          * @description A single communal relationship, summarized for the API / GenAI explainer.
@@ -517,6 +750,37 @@ export interface components {
             /** Consents */
             consents: components["schemas"]["ConsentRecord"][];
         };
+        /** Contribution */
+        Contribution: {
+            /** Member Id */
+            member_id: string;
+            /** Round Number */
+            round_number: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "submitted" | "confirmed" | "rejected";
+            /** Reference */
+            reference: string;
+            /** Submitted At */
+            submitted_at: string;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Rejection Reason */
+            rejection_reason?: string | null;
+            /** Rejected At */
+            rejected_at?: string | null;
+            /** History */
+            history?: components["schemas"]["RejectedClaim"][];
+        };
+        /** ContributionInput */
+        ContributionInput: {
+            /** Round Number */
+            round_number: number;
+            /** Reference */
+            reference: string;
+        };
         /**
          * CorrectionRecord
          * @description One immutable verdict over a dedup match.
@@ -561,6 +825,32 @@ export interface components {
              */
             verdict: "confirm" | "reject";
         };
+        /** CreateCircle */
+        CreateCircle: {
+            /** Name */
+            name: string;
+            /** Contribution Kobo */
+            contribution_kobo: number;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "weekly" | "monthly";
+            /** Member Limit */
+            member_limit: number;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Rules
+             * @default
+             */
+            rules: string;
+        };
+        /** EmptyInput */
+        EmptyInput: Record<string, never>;
         /**
          * ExplanationItem
          * @description One grounded explanation for a single insight (``dedup`` today).
@@ -714,6 +1004,36 @@ export interface components {
             full_name: string;
             insights: components["schemas"]["CommunalInsights"];
         };
+        /** InvitationPreview */
+        InvitationPreview: {
+            /** Name */
+            name: string;
+            /** Contribution Kobo */
+            contribution_kobo: number;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "weekly" | "monthly";
+            /** Member Limit */
+            member_limit: number;
+            /** Start Date */
+            start_date: string;
+            /** Rules */
+            rules: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active" | "completed";
+            /** Member Count */
+            member_count: number;
+        };
+        /** JoinCircle */
+        JoinCircle: {
+            /** Invite Code */
+            invite_code: string;
+        };
         /**
          * MatchedTransfer
          * @description A debit leg matched to its mirror credit leg — a phantom self-transfer that
@@ -763,6 +1083,68 @@ export interface components {
              * @description Human-readable signals that drove the match.
              */
             reasons?: string[];
+        };
+        /** Member */
+        Member: {
+            /** User Id */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Position */
+            position: number;
+        };
+        /** OrderInput */
+        OrderInput: {
+            /** Member Ids */
+            member_ids: string[];
+        };
+        /** Payout */
+        Payout: {
+            /** Round Number */
+            round_number: number;
+            /** Member Id */
+            member_id: string;
+            /** Amount Kobo */
+            amount_kobo: number;
+            /** Reference */
+            reference: string;
+            /** Recorded At */
+            recorded_at: string;
+        };
+        /** PayoutInput */
+        PayoutInput: {
+            /** Round Number */
+            round_number: number;
+            /** Reference */
+            reference: string;
+        };
+        /** RejectInput */
+        RejectInput: {
+            /** Reason */
+            reason: string;
+        };
+        /** RejectedClaim */
+        RejectedClaim: {
+            /** Reference */
+            reference: string;
+            /** Submitted At */
+            submitted_at: string;
+            /** Rejected At */
+            rejected_at: string;
+            /** Rejection Reason */
+            rejection_reason: string;
+        };
+        /** Session */
+        Session: {
+            /** User Id */
+            user_id: string;
+            /** Display Name */
+            display_name: string;
+        };
+        /** SessionInput */
+        SessionInput: {
+            /** Display Name */
+            display_name: string;
         };
         /**
          * Totals
@@ -1255,6 +1637,421 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_savings_session_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+        };
+    };
+    create_session_savings_session_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_circles_savings_circles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"][];
+                };
+            };
+        };
+    };
+    create_circle_savings_circles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCircle"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    join_circle_savings_join_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinCircle"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_circle_savings_circles__circle_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_order_savings_circles__circle_id__order_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_circle_savings_circles__circle_id__start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_contribution_savings_circles__circle_id__contributions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_contribution_savings_circles__circle_id__contributions__member_id___round_number__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+                member_id: string;
+                round_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_payout_savings_circles__circle_id__payouts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayoutInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_invitation_savings_invitations__invite_code__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_contribution_savings_circles__circle_id__contributions__member_id___round_number__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                circle_id: string;
+                member_id: string;
+                round_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
                 };
             };
             /** @description Validation Error */

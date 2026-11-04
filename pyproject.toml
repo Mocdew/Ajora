@@ -1,7 +1,7 @@
 [project]
 name = "ajora-engine"
 version = "0.1.0"
-description = "Ajora — consent-first multi-bank financial insights for Nigeria. Stateless engine for transfer dedup, communal-finance classification, and grounded explanations."
+description = "Ajora — ajo savings circles, contribution tracking, and payout turns, with supporting financial insights."
 requires-python = ">=3.9"
 dependencies = [
     "pydantic>=2.5",

@@ -21,6 +21,8 @@ consent.jsonl
 audit.jsonl
 corrections.jsonl
 *.consent-token
+savings.sqlite3
+savings.sqlite3-*
 backend/data/private/
 
 # Tooling / docs not needed at runtime

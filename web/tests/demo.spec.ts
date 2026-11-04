@@ -7,8 +7,8 @@ const api = `/api/engine/users/${user}`;
 const account = "domv-b04";
 
 async function go(page: Page, route: string) {
-  await page.getByRole("navigation", { name: "Primary", exact: true })
-    .locator(`a[href="/${route}"]`).click();
+  const legacyRoute = route === "dashboard" ? "insights" : route === "settings" ? "connections" : route;
+  await page.goto(`/${legacyRoute}`);
 }
 
 test("Emeka can reconcile a transfer, revoke a bank and verify what changed", async ({ page, request }, testInfo) => {
@@ -21,7 +21,7 @@ test("Emeka can reconcile a transfer, revoke a bank and verify what changed", as
   };
   const explain = () => read<ExplanationsResponse>("explanations");
   const cashflow = () => read<CashflowResponse>("cashflow");
-  await page.goto("/dashboard");
+  await page.goto("/insights");
   await page.getByRole("combobox", { name: "Select persona" }).selectOption(user);
   await expect(page.getByText("Emeka Balogun", { exact: true })).toBeVisible();
 

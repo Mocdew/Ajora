@@ -2,8 +2,7 @@
 # On a machine with Docker:  docker compose up --build
 # Then open http://<host>:3000  (demo persona: Emeka Balogun / u_persona_b).
 #
-# Trust-layer state (consent.jsonl / audit.jsonl) lives inside the api container and is
-# retained on restart; removing/recreating the container resets the demo state.
+# Circle records and trust-layer state live in the api-state volume.
 services:
   api:
     build:
@@ -12,6 +11,10 @@ services:
     image: ajora-api
     ports:
       - "8000:8000"
+    environment:
+      AJORA_STATE_DIR: /data
+    volumes:
+      - api-state:/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
       interval: 10s
@@ -32,3 +35,6 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+volumes:
+  api-state:

@@ -89,10 +89,9 @@ export function Sidebar({
       <div className="panel-inset mt-auto flex items-start gap-3 p-3">
         <Fingerprint className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
         <div>
-          <p className="text-xs font-semibold text-foreground">Consent-first</p>
+          <p className="text-xs font-semibold text-foreground">Save together, clearly</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Nothing collected &ldquo;just in case&rdquo;. You can revoke access
-            at any time.
+            Shared rules, visible contributions and a clear turn for every member.
           </p>
         </div>
       </div>
