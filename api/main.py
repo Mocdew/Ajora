@@ -19,6 +19,7 @@ from engine.dedup import UnsupportedCurrencyError
 from .deps import get_provider
 from .routes import router
 from .savings import router as savings_router
+from .savings_identity import router as savings_identity_router
 
 # The Next.js dev server. Explicit list (not "*") because credentials are allowed.
 # Note: the frontend normally reaches the API through its same-origin `/api/engine`
@@ -36,7 +37,7 @@ app = FastAPI(
     version="0.1.0",
     description=(
         "Ajo savings circles, contribution tracking and payout turns for Nigeria. "
-        "Tracks external payments with organiser confirmation; optional bank insights "
+        "Tracks external payments, demo receipt matching, and recipient-confirmed payouts; optional bank insights "
         "remain available through the stateless engine."
     ),
 )
@@ -51,6 +52,7 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(savings_router)
+app.include_router(savings_identity_router)
 
 
 @app.exception_handler(UnsupportedCurrencyError)

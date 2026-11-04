@@ -35,7 +35,7 @@ function Home({ session }: { session: SavingsSession }) {
           (p) =>
             p.member_id === session.user_id &&
             p.round_number === c.current_round &&
-            p.status !== "rejected",
+            p.confirmed_kobo >= c.contribution_kobo,
         ),
     )
     .sort((a, b) =>
@@ -46,17 +46,34 @@ function Home({ session }: { session: SavingsSession }) {
   const contributed = all.reduce(
     (total, c) =>
       total +
-      c.contributions.filter(
-        (p) => p.member_id === session.user_id && p.status === "confirmed",
-      ).length *
-        c.contribution_kobo,
+      c.contributions
+        .filter((p) => p.member_id === session.user_id)
+        .reduce((sum, p) => sum + p.confirmed_kobo, 0),
     0,
   );
+  const demoContributed = all.reduce(
+    (total, circle) =>
+      total +
+      circle.contributions
+        .filter((contribution) => contribution.member_id === session.user_id)
+        .reduce((sum, contribution) => sum + contribution.matched_kobo, 0),
+    0,
+  );
+  const upcomingRemaining = upcoming
+    ? upcoming.contribution_kobo -
+      (upcoming.contributions.find(
+        (payment) =>
+          payment.member_id === session.user_id &&
+          payment.round_number === upcoming.current_round,
+      )?.confirmed_kobo ?? 0)
+    : 0;
   const received = all.reduce(
     (total, c) =>
       total +
       c.payouts
-        .filter((p) => p.member_id === session.user_id)
+        .filter(
+          (p) => p.member_id === session.user_id && p.status === "received",
+        )
         .reduce((sum, p) => sum + p.amount_kobo, 0),
     0,
   );
@@ -79,7 +96,7 @@ function Home({ session }: { session: SavingsSession }) {
       >
         {[
           ["Your confirmed contributions", money(contributed)],
-          ["Your recorded payouts", money(received)],
+          ["Your received payouts", money(received)],
           ["Active circles", String(active.length)],
         ].map(([label, value]) => (
           <div key={label} className="card-soft p-6">
@@ -90,6 +107,12 @@ function Home({ session }: { session: SavingsSession }) {
           </div>
         ))}
       </section>
+      {demoContributed > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Recorded contributions include {money(demoContributed)} matched to
+          simulated demo receipts. Demo records do not verify real payments.
+        </p>
+      )}
       <section
         className="my-6 rounded-2xl border border-accent/30 bg-accent/10 p-6 sm:p-8"
         aria-label="Next contribution"
@@ -99,7 +122,7 @@ function Home({ session }: { session: SavingsSession }) {
             <span className="eyebrow">Your next step</span>
             <h2 className="mt-3 text-2xl font-semibold">
               {upcoming
-                ? `${money(upcoming.contribution_kobo)} for ${upcoming.name}`
+                ? `${money(upcomingRemaining)} remaining for ${upcoming.name}`
                 : active.length
                   ? "Your submissions are up to date"
                   : "Build a savings habit with your people"}

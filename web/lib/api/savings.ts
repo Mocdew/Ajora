@@ -16,12 +16,16 @@ export function useSavingsSession() {
     queryFn: ({ signal }) =>
       engineGet<SavingsSession>("/savings/session", signal),
     retry: false,
+    refetchInterval: 10_000,
+    refetchOnWindowFocus: "always",
   });
 }
 export function useCircles(userId: string) {
   return useQuery({
     queryKey: ["savings", userId, "circles"],
     queryFn: ({ signal }) => engineGet<Circle[]>("/savings/circles", signal),
+    refetchInterval: 10_000,
+    refetchOnWindowFocus: true,
   });
 }
 export function useCircle(userId: string, id: string) {
@@ -29,6 +33,8 @@ export function useCircle(userId: string, id: string) {
     queryKey: ["savings", userId, "circles", id],
     queryFn: ({ signal }) =>
       engineGet<Circle>(`/savings/circles/${encodeURIComponent(id)}`, signal),
+    refetchInterval: 10_000,
+    refetchOnWindowFocus: true,
   });
 }
 export function useSavingsAction<T = Circle>() {
@@ -39,5 +45,18 @@ export function useSavingsAction<T = Circle>() {
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["savings"] });
     },
+  });
+}
+
+export function useBankFeed(userId: string, id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["savings", userId, "bank-feed", id],
+    queryFn: ({ signal }) =>
+      engineGet<components["schemas"]["BankFeed"]>(
+        `/savings/circles/${encodeURIComponent(id)}/bank-feed`,
+        signal,
+      ),
+    enabled,
+    refetchInterval: 10_000,
   });
 }

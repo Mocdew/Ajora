@@ -7,30 +7,35 @@ Ajora helps members organise a rotating savings circle and keep a shared record 
 who has contributed and whose turn it is to collect.
 
 1. **Create or join a circle** with an invite code, contribution amount, weekly or
-   monthly schedule, membership limit, start date, and agreed rules.
-2. **Agree the payout order** while the circle is forming. The organiser starts a
-   full circle, locking membership and payout turns for the cycle.
-3. **Track contributions** through submitted and organiser-confirmed statuses.
-   Organisers can reject an incorrect claim with a reason so the member can resubmit.
-4. **Record payouts** after every contribution for the current round is confirmed;
-   advance through each member's turn until the cycle is complete.
-5. **Follow your savings** from Home, My Circles, and Activity.
+   monthly schedule, membership limit, start date, and rules.
+2. **Accept the final agreement** including the payout order and collection account.
+   Every member acknowledges the current version before the organiser starts.
+3. **Track contribution instalments** with integer kobo amounts. Keep submitted,
+   manually confirmed, and demo-feed-matched payments distinct; partial payments
+   contribute only their actual accepted amount.
+4. **Record an external payout**, then let its recipient confirm receipt or report a
+   discrepancy. The round advances only after the recipient confirms receipt.
+5. **Follow the shared history** of agreements, contributions, corrections and
+   payouts. Refresh the record or share a summary through WhatsApp.
 
-This MVP records **payments made outside Ajora**. A submitted reference is a claim,
-not automatic payment verification. Organisers confirm receipt and record external
-payouts. Ajora does not collect, hold, or disburse money, and no live bank integration
-is implemented.
+Ajora records **payments made outside the app**; it does not collect, hold, or
+transfer money. The collection-account feed is a clearly labelled **demo**. It
+exercises reference-and-amount matching without banking credentials and does not
+prove that real money arrived. Live Mono integration remains future work.
 
-A display name creates a browser-bound identity using an HttpOnly session cookie.
-The cookie lasts 30 days. This is a demonstration identity, without production
-account login or recovery. Use
-separate browsers or browser profiles to act as different members.
+A display name creates an identity with a 30-day HttpOnly browser session. Generate
+and privately save a recovery key under **Account access** to regain the same
+identity after cookie expiry or on another device. The server stores only its hash.
+Replacing the key invalidates the previous one; recovery revokes previous browser
+sessions. Use separate browsers or browser profiles for different circle members.
+These identities are not verified bank identities.
 
 ## Architecture: durable circles, ephemeral bank analytics
 
 No database server is required. The savings service uses the sanctioned SQLite
 fallback because circle membership, obligations, and payment records must survive
-restarts. `AJORA_STATE_DIR/savings.sqlite3` stores this state; the default state
+restarts. `AJORA_STATE_DIR/savings.sqlite3` stores this state, recovery-key hashes,
+receipt allocations, and the circle event history; the default state
 directory is the repository root. Keep the state directory on a persistent volume
 when deploying.
 
@@ -125,5 +130,6 @@ npm run dev
 ## Deployment
 
 Containerized with Docker. No database service to provision; retain `AJORA_STATE_DIR`
-on a persistent volume and back up savings state. Browser identities and manual
-payment tracking are MVP capabilities, not production authentication or payment infrastructure.
+on a persistent volume and back up savings state. Keep recovery keys private. The
+demo bank feed is for rehearsal; connecting live banks and processing payments are
+separate integrations.

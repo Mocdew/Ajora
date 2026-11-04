@@ -22,39 +22,50 @@ function Activity({ session }: { session: SavingsSession }) {
     .flatMap((circle) => [
       ...circle.contributions
         .filter((c) => c.member_id === session.user_id)
-        .map((c) => ({
-          id: `${circle.id}-contribution-${c.round_number}`,
-          circleId: circle.id,
-          circleName: circle.name,
-          round: c.round_number,
-          at: c.rejected_at ?? c.confirmed_at ?? c.submitted_at,
-          reference: c.reference,
-          reason: c.rejection_reason,
-          amount: circle.contribution_kobo,
-          incoming: false,
-          title: "Your contribution",
-          status:
-            c.status === "confirmed"
-              ? "Confirmed"
-              : c.status === "rejected"
-                ? "Rejected"
-                : "Awaiting confirmation",
-        })),
+        .flatMap((c) =>
+          (c.payments ?? []).map((payment) => ({
+            id: `${circle.id}-payment-${payment.id}`,
+            circleId: circle.id,
+            circleName: circle.name,
+            round: c.round_number,
+            at: payment.confirmed_at ?? payment.submitted_at,
+            reference: payment.reference,
+            reason: payment.rejection_reason,
+            amount: payment.amount_kobo,
+            incoming: false,
+            title: "Your contribution",
+            status:
+              payment.status === "confirmed"
+                ? payment.source === "demo"
+                  ? "Demo matched"
+                  : "Manually confirmed"
+                : payment.status === "rejected"
+                  ? "Rejected"
+                  : "Awaiting confirmation",
+          })),
+        ),
       ...circle.payouts.map((p) => ({
         id: `${circle.id}-payout-${p.round_number}`,
         circleId: circle.id,
         circleName: circle.name,
         round: p.round_number,
-        at: p.recorded_at,
+        at: p.received_at ?? p.recorded_at,
         reference: p.reference,
-        reason: null,
+        reason: p.dispute_reason,
         amount: p.amount_kobo,
         incoming: true,
         title:
           p.member_id === session.user_id
             ? "Your payout"
             : `Payout to ${circle.members.find((m) => m.user_id === p.member_id)?.display_name ?? "member"}`,
-        status: "Payout recorded",
+        status:
+          p.status === "received"
+            ? "Recipient confirmed received"
+            : p.status === "disputed"
+              ? "Payout disputed"
+              : p.status === "sent"
+                ? "Sent · receipt unconfirmed"
+                : "Historical payout · receipt unconfirmed",
       })),
     ])
     .sort((a, b) => b.at.localeCompare(a.at));
@@ -137,6 +148,46 @@ function Activity({ session }: { session: SavingsSession }) {
           </Link>
         </div>
       )}
+      <section
+        className="card-soft mt-6 p-6"
+        aria-label="Shared circle history"
+      >
+        <h2 className="text-xl font-semibold">Shared circle history</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Changes and explanations remain in the record after a payment is
+          corrected.
+        </p>
+        <ol className="mt-4 divide-y divide-border">
+          {(result.data ?? [])
+            .flatMap((circle) =>
+              (circle.events ?? []).map((event) => ({
+                ...event,
+                circleId: circle.id,
+                circleName: circle.name,
+              })),
+            )
+            .sort((a, b) => b.at.localeCompare(a.at))
+            .map((event) => (
+              <li key={event.id} className="py-4">
+                <Link
+                  className="text-sm font-semibold text-accent"
+                  href={`/circles/${event.circleId}`}
+                >
+                  {event.circleName}
+                </Link>
+                <p className="mt-1 text-sm">
+                  {event.kind.replaceAll("_", " ")}
+                </p>
+                <p className="mt-1 break-words text-sm text-muted-foreground">
+                  {event.detail}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {dateLabel(event.at)}
+                </p>
+              </li>
+            ))}
+        </ol>
+      </section>
       <TrackingNote />
     </>
   );

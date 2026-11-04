@@ -34,6 +34,9 @@ def ready(clients):
     owner, member, *_ = clients
     circle = create(owner).json()
     assert member.post("/savings/join", json={"invite_code": circle["invite_code"]}).status_code == 200
+    accepted_circle = owner.get(f"/savings/circles/{circle['id']}").json()
+    for client in (owner, member):
+        assert client.post(f"/savings/circles/{circle['id']}/agreement/accept", json={"version": accepted_circle["agreement_version"]}).status_code == 200
     return owner.post(f"/savings/circles/{circle['id']}/start", json={}).json()
 
 
@@ -54,6 +57,9 @@ def test_complete_lifecycle_and_durable_restart(savings):
     fund(clients, circle, 1)
     response = owner.post(f"{base}/payouts", json={"round_number": 1, "reference": "first-external-payout"})
     assert response.status_code == 200
+    assert response.json()["current_round"] == 1
+    assert response.json()["payouts"][0]["status"] == "sent"
+    response = owner.post(f"{base}/payouts/1/receive", json={})
     assert response.json()["current_round"] == 2
     assert response.json()["payouts"][0]["amount_kobo"] == 2_000_000
     assert response.json()["payouts"][0]["member_id"] == circle["members"][0]["user_id"]
@@ -64,7 +70,8 @@ def test_complete_lifecycle_and_durable_restart(savings):
     fund(clients, circle, 2)
     stale = owner.post(f"{base}/payouts", json={"round_number": 1, "reference": "first-external-payout"})
     assert stale.status_code == 409
-    final = owner.post(f"{base}/payouts", json={"round_number": 2, "reference": "second-external-payout"}).json()
+    owner.post(f"{base}/payouts", json={"round_number": 2, "reference": "second-external-payout"})
+    final = member.post(f"{base}/payouts/2/receive", json={}).json()
     assert final["status"] == "completed"
     assert len(final["payouts"]) == 2
     assert owner.post(f"{base}/payouts", json={"round_number": 2, "reference": "duplicate"}).status_code == 409
@@ -111,6 +118,8 @@ def test_private_membership_and_organiser_permissions(savings):
     assert owner.post(f"{base}/order", json={"member_ids": [ids[0], ids[0]]}).status_code == 422
     changed = owner.post(f"{base}/order", json={"member_ids": ids[::-1]}).json()
     assert changed["members"][0]["user_id"] == ids[1]
+    for client in (owner, member):
+        assert client.post(f"{base}/agreement/accept", json={"version": changed["agreement_version"]}).status_code == 200
     assert owner.post(f"{base}/start", json={}).status_code == 200
     assert owner.post(f"{base}/order", json={"member_ids": ids}).status_code == 409
     assert owner.post(f"{base}/start", json={}).status_code == 409
@@ -176,7 +185,15 @@ def test_concurrent_payout_cannot_advance_twice(savings):
     assert sorted(r.status_code for r in responses) == [200, 409]
     result = clients[0].get(f"/savings/circles/{circle['id']}").json()
     assert len(result["payouts"]) == 1
-    assert result["current_round"] == 2
+    assert result["current_round"] == 1
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        def receive(_):
+            with TestClient(app) as client:
+                client.cookies.update(cookies)
+                return client.post(f"/savings/circles/{circle['id']}/payouts/1/receive", json={})
+        responses = list(pool.map(receive, [1, 2]))
+    assert [r.status_code for r in responses] == [200, 200]
+    assert clients[0].get(f"/savings/circles/{circle['id']}").json()["current_round"] == 2
 
 
 def test_invitation_preview_excludes_member_details(savings):

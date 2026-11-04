@@ -4,16 +4,21 @@ HTTP API for **Ajora** — ajo/esusu savings circles, contribution records, and
 payout turns, with supporting financial insights.
 
 - **Stack:** FastAPI + Pydantic v2, with standard-library SQLite for savings state.
-- **Durable circles:** membership, payout order, contribution claims and confirmations,
-  and payout records live in `AJORA_STATE_DIR/savings.sqlite3` (repository root by
-  default). No database server is required.
+- **Durable circles:** membership, versioned agreements, instalments, receipt
+  allocations, correction events and payout records live in
+  `AJORA_STATE_DIR/savings.sqlite3` (repository root by default). No database server
+  is required.
 - **Ephemeral bank analytics:** the separate engine processes imported transactions
   in memory. Its existing access, consent, and correction logs are append-only files.
-- **External payments:** contribution submission records a member's claim; organiser
-  confirmation records receipt. Payout recording does not initiate a bank transfer.
-- **MVP identity:** an HttpOnly browser session cookie identifies each savings member.
-  A name is not a verified identity; production account login and recovery are not
-  implemented. Savings identities are independent of legacy analytics personas.
+- **External payments:** contribution submission records a member's claim. Organisers
+  manually confirm receipt or approve a match against a labelled demo feed. Demo
+  matches do not verify real bank payments. Payout recording does not initiate a
+  bank transfer; the recipient separately confirms receipt.
+- **Recoverable identity:** an HttpOnly browser session cookie identifies each
+  savings member. A private recovery key restores the same identity and membership
+  after cookie expiry or on another device. The server stores only its hash. A
+  display name is not a verified identity; savings identities remain independent of
+  legacy analytics personas.
 
 > **Interactive docs are built in:** run the server and open
 > **http://localhost:8000/docs** (Swagger UI) or **/redoc**. The machine-readable schema
@@ -51,23 +56,38 @@ application/json`. The session cookie must accompany requests after identity
 creation; use a cookie jar for command-line walkthroughs. The
 `ajora_savings_session` cookie expires after 30 days, uses `SameSite=Lax`, and is
 secure over HTTPS (or with `AJORA_COOKIE_SECURE=true`). Creating another identity
-with an existing session returns 409.
+with an existing session returns 409. Generate and privately save a recovery key
+before relying on a browser identity for a multi-round circle. Recovery keys remain
+valid until replaced, and recovery revokes all previous sessions for that identity.
 
 | Method and path | Purpose |
 |---|---|
 | `POST /savings/session` | Create a browser identity with `{ "display_name": "Ada" }` |
 | `GET /savings/session` | Read the current `{user_id, display_name}`; 401 without a session |
+| `POST /savings/recovery-key` | With `{}`, generate or replace the current member's key; returns `{recovery_key}` once and invalidates the previous key |
+| `POST /savings/recover` | Restore the same identity using `{recovery_key}` and set a new session cookie; revoke its previous sessions |
+| `POST /savings/logout` | With `{}`, revoke the current session and clear its cookie; returns 204 |
 | `GET /savings/circles` | List circles belonging to the current member |
 | `POST /savings/circles` | Create a circle and join as its organiser |
 | `GET /savings/invitations/{invite_code}` | Preview the rules and schedule before joining; requires a session and does not reveal member identities |
 | `POST /savings/join` | Join a forming circle with `{invite_code}` |
 | `GET /savings/circles/{id}` | Read a circle; members only |
-| `POST /savings/circles/{id}/order` | Organiser sets the forming circle's exact member order with `{member_ids}` |
-| `POST /savings/circles/{id}/start` | Organiser starts a full circle and locks membership and payout order |
-| `POST /savings/circles/{id}/contributions` | Member submits `{round_number, reference}` for their current-round external payment |
+| `POST /savings/circles/{id}/order` | Organiser sets the forming circle's exact member order with `{member_ids}`; a change creates a new agreement version |
+| `POST /savings/circles/{id}/collection-account` | Organiser configures `{account_id: "demo-collection", label, source: "demo"}` while forming; a change creates a new agreement version |
+| `POST /savings/circles/{id}/agreement/accept` | Member accepts the current agreement using `{version}`; stale versions return 409 |
+| `POST /savings/circles/{id}/start` | Organiser starts a full circle after every member accepts the current agreement; locks membership and order |
+| `POST /savings/circles/{id}/contributions` | Member submits an instalment with `{round_number, reference, amount_kobo}`; omitting the amount claims one full scheduled contribution |
 | `POST /savings/circles/{id}/contributions/{member_id}/{round_number}/confirm` | Organiser confirms a submitted contribution |
 | `POST /savings/circles/{id}/contributions/{member_id}/{round_number}/reject` | Organiser rejects a submitted contribution with `{reason}` (3–500 characters), allowing the member to resubmit |
-| `POST /savings/circles/{id}/payouts` | Organiser records an external payout with `{round_number, reference}` after every current-round contribution is confirmed |
+| `GET /savings/circles/{id}/bank-feed` | Organiser reads the current round's simulated receipts and unique unused reference-and-amount match candidates; active circle only |
+| `POST /savings/circles/{id}/payments/{payment_id}/match` | Organiser approves a suggested demo match using `{transaction_id}`; a receipt cannot fund two payments |
+| `POST /savings/circles/{id}/payments/{payment_id}/confirm` | Organiser manually confirms one submitted instalment using `{}` |
+| `POST /savings/circles/{id}/payments/{payment_id}/reject` | Organiser rejects one submitted instalment using `{reason}` |
+| `POST /savings/circles/{id}/payments/{payment_id}/revoke` | Organiser corrects a confirmed instalment using `{reason}` before payout; releases its receipt and retains the correction event |
+| `POST /savings/circles/{id}/payments/{payment_id}/dispute` | Member records a discrepancy using `{reason}` in the shared event history |
+| `POST /savings/circles/{id}/payouts` | Organiser records `{round_number, reference}` as `sent` after all full contributions are confirmed; does not advance the round |
+| `POST /savings/circles/{id}/payouts/{round_number}/receive` | Recipient confirms receipt using `{}`; advances the round or completes the circle |
+| `POST /savings/circles/{id}/payouts/{round_number}/dispute` | Recipient records non-receipt using `{reason}`; holds the round open |
 
 Create-circle JSON:
 
@@ -86,23 +106,47 @@ Use a start date from today through the next five years (Africa/Lagos). Amounts 
 (1,000,000 kobo = ₦10,000); membership limits are 2–50. Frequencies are `weekly` or
 `monthly`. Savings amounts must not use the legacy engine's float-NGN convention.
 
-Circle mutations return the updated circle. It includes its identity and rules,
-`organizer_id`, `invite_code`, `status` (`draft`, `active`, `completed`),
-`current_round`, ordered `members`, `due_dates`, `contributions`, and `payouts`.
-A contribution begins as `submitted`. The organiser marks it `confirmed` only
-after checking receipt, or `rejected` with a reason. Rejected claims can be
-resubmitted by their member; previous claim details remain in `history`. Confirmed
-claims are immutable. A reference alone does not verify receipt. Unsubmitted contributions are derived from the
-member list and current round. Payout requests include the round number to reject stale retries. Payout references
-are unique within a circle. Payouts advance the round; the last payout completes
-the cycle. Monthly due dates preserve the original day where possible and clamp
-to the last day of shorter months. Concurrent writes are transactional, and access and organiser permissions
-are checked server-side.
+Circle mutations return the updated circle, including its agreement version,
+member acceptances, event history, contribution instalments and payout states.
+Contributions retain the aggregate `submitted`, `confirmed` and `rejected` statuses.
+Their `payments` carry actual kobo amounts, references, individual statuses and
+provenance (`manual` or `demo`). `confirmed_kobo` is the accepted amount;
+`matched_kobo` is the portion backed by approved demo-feed matches. A demo match is
+not independent proof of a real payment. Partial confirmations leave an obligation
+outstanding until the full scheduled amount is accepted. Raw bank feed records are
+not persisted. Feed access is organiser-only so unrelated account activity need not
+be exposed to other members. The bundled provider derives two demo receipts per
+member and round from a fixture template, independently of submitted claims. It
+returns `source`, `account_id`, `refreshed_at`, `notice`, `transactions`, and `matches`.
+Only unique, unused exact reference-and-amount matches can be approved. Manual
+confirmation remains available when there is no unambiguous match.
 
-Keep SQLite state on a persistent volume. Browser sessions provide local demo
-continuity; clearing the session cookie removes access to that browser identity.
-There is no bank connection, payment processing, or account-recovery endpoint in
-this MVP.
+Joining, changing the payout order, or changing the collection account creates a
+new agreement version. Each member must accept that version before the organiser
+starts. Agreement history remains in the shared events.
+
+Payouts begin as `sent`. Only the named recipient can confirm receipt or dispute
+non-receipt. Recipient confirmation advances the round; confirmation of the last
+payout completes the circle. Older payouts remain `legacy_recorded` rather than
+being relabelled as recipient-confirmed. Payout references are unique within a
+circle, and requests include the round number to reject stale retries.
+
+Monthly due dates preserve the original day where possible and clamp to the last
+day of shorter months. Concurrent writes are transactional. Circle membership,
+organiser actions and recipient actions are checked server-side. Circle events
+retain agreement changes, payment decisions, corrections and payout discrepancies;
+these application records do not provide cryptographic tamper evidence.
+
+Missing sessions return 401, insufficient membership or role returns 403, missing
+records return 404, and invalid fields return 422. Conflicting lifecycle actions,
+stale agreement versions, reused receipts, overpayments, and missing/ambiguous
+matches return 409. Invalid recovery keys return 401; malformed keys return 422.
+Reason fields accept 3–500 characters.
+
+Keep SQLite state on a persistent volume and retain a backup. Existing savings
+records remain readable; generate recovery keys while their browser sessions are
+still accessible. The demo collection account is for rehearsal. Live bank
+connections and payment processing are not implemented.
 
 ## Supporting analytics architecture
 
@@ -167,8 +211,10 @@ A request for an unknown user returns **404** with a JSON body:
 { "detail": "No data for user 'nobody'." }
 ```
 
-Validation errors (malformed path) return FastAPI's standard **422**. There are no auth
-errors — the demo API is unauthenticated — but consent **is** enforced per account (see
+Validation errors (malformed path) return FastAPI's standard **422**. The legacy
+analytics routes are unauthenticated demo endpoints; savings routes require a
+session and enforce membership and roles (401/403). Analytics consent is enforced
+per account (see
 [Trust layer](#trust-layer-consent--audit)): a revoked account is dropped from the
 pipeline, and revoking/granting an account that isn't the user's returns **404**.
 
@@ -508,9 +554,10 @@ debit_transaction_id, credit_transaction_id, previous_score, previous_tier }`.
 The endpoint records `correction_confirm` or `correction_reject` in the audit log;
 subsequent reads apply the latest verdict: confirm includes the pair in deduplication; reject keeps both legs in cashflow.
 
-### Durable state = append-only files (no DB)
+### Analytics durable state
 
-Per [`CLAUDE.md`](../CLAUDE.md), durable state is append-only files, never a database:
+The analytics service uses append-only files. Savings-circle records use SQLite
+as described above:
 
 - **`consent.jsonl`** (repo root) — one grant/revoke **event** per line
   (`{ts, user_id, account_id, institution, action}`). Current consent is the fold of

@@ -52,22 +52,35 @@ Open **http://localhost:3100**.
 
 ## 3. Savings-circle walkthrough
 
-1. Open the app and enter a display name. Ajora creates a browser-bound identity
-   using an HttpOnly cookie that expires after 30 days. This MVP has no production
-   login or account recovery; expired or cleared cookies lose access to that identity.
-2. Open **My Circles**, create a circle, and set its contribution amount, frequency,
-   member limit, start date, and rules.
-3. Copy the invite code. In another browser or browser profile, enter a different
-   display name, preview the circle rules using that code, and confirm joining.
-   Tabs in one browser share an identity.
-4. Back as the organiser, arrange payout turns. Once every place is filled, start
-   the circle. Membership and payout order are locked for this cycle.
-5. Each member makes their contribution outside Ajora and submits its reference.
-   The organiser checks receipt before confirming each contribution. If a claim
-   is incorrect, reject it with a reason so the member can correct and resubmit it.
-6. When all contributions for the round are confirmed, make the payout outside
-   Ajora and record its reference. The circle advances to the next payout turn.
-7. Inspect Home and Activity, then reload to verify the records remain available.
+1. Open the app and enter a display name. In **Account access**, generate a recovery
+   key and save it privately. You can use it to recover the same membership on a
+   different device or after the 30-day browser session expires. Recovery signs out
+   previous sessions; replacing a key invalidates the old key.
+2. Open **My Circles**, create a two-member circle, and set its amount, frequency,
+   start date and rules. Configure the labelled demo collection account if you want
+   to rehearse bank-feed matching.
+3. Share the invite code with a second browser profile. Create another identity,
+   preview the rules and join. Tabs in one browser share an identity.
+4. As the organiser, arrange payout turns. Each member accepts the final agreement.
+   Changing membership, payout order or the collection account requires acceptance
+   of the new version. Start once all places are filled and all members have accepted.
+5. Submit contributions with references and actual instalment amounts. For the demo
+   matching path, use the references and amounts shown in the demo bank feed; submit
+   two instalments to exercise a partial contribution. The organiser reviews matches
+   before approving them. For real externally made payments, use manual confirmation
+   after checking receipt outside Ajora. A submitted reference alone is not proof.
+6. Once every member has met the round's contribution, make the external payout and
+   record its reference. The recipient confirms receipt or reports a discrepancy.
+   Recording a payout does not advance the round; recipient confirmation does.
+7. Inspect the circle history and Activity. Use refresh to fetch the latest shared
+   state; open circle views also refresh periodically. WhatsApp actions prepare text
+   for you to review and send yourself.
+8. In a fresh browser, choose recovery and enter the saved key. Confirm that the
+   existing circles and membership remain available.
+
+The demo feed simulates receipts; **a demo match does not verify a real bank
+payment**. No live Mono connection is configured. Raw feed data is processed in
+memory; circle records retain only the payment evidence needed for the ledger.
 
 The legacy analytics demonstration is separate: Settings links to **Insights**
 (`/insights`), transfer review (`/transfers`), communal insights (`/communal`), and
@@ -80,8 +93,8 @@ original analytics walkthrough.
 - **Ports:** backend defaults to `:8000` (`--port 8001` to change; then set
   `AJORA_API_BASE` for the frontend). Frontend runs on **`:3100`** (pinned in
   `web/package.json`; override with `npm --prefix web run dev -- -p <port>`).
-- **Durable savings state:** SQLite stores circle identities, membership, contributions,
-  and payout records at `AJORA_STATE_DIR/savings.sqlite3`. The default directory is
+- **Durable savings state:** SQLite stores circle identities, recovery-key hashes,
+  agreements, contributions, receipt allocations, event history and payout records at `AJORA_STATE_DIR/savings.sqlite3`. The default directory is
   the repository root. Set a persistent directory before starting the API; do not
   delete it to reset a demonstration that contains records you need.
 - **Analytics state:** `consent.jsonl`, `audit.jsonl`, and `corrections.jsonl` share the

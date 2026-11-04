@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { engineGet } from "@/lib/api/engine";
 import { useRouter } from "next/navigation";
@@ -28,6 +28,10 @@ function Circles({ session }: { session: SavingsSession }) {
   const router = useRouter();
   const [form, setForm] = useState<"create" | "join" | null>(null);
   const [localError, setLocalError] = useState("");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("invite"))
+      setForm("join");
+  }, []);
   return (
     <>
       <PageHeader
@@ -265,6 +269,12 @@ export function SavingsCircles() {
 
 function JoinCircle({ onJoined }: { onJoined: (id: string) => void }) {
   const [code, setCode] = useState("");
+  useEffect(() => {
+    const invitation = new URLSearchParams(window.location.search).get(
+      "invite",
+    );
+    if (invitation) setCode(invitation);
+  }, []);
   const [accepted, setAccepted] = useState(false);
   const [preview, setPreview] = useState<InvitationPreview | null>(null);
   const lookup = useMutation({

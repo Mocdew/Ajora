@@ -2,13 +2,13 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   UsersThree,
   ShieldCheck,
 } from "@phosphor-icons/react/dist/ssr";
-import { EngineError } from "@/lib/api/engine";
+import { EngineError, enginePost } from "@/lib/api/engine";
 import {
   useSavingsAction,
   useSavingsSession,
@@ -85,10 +85,28 @@ export function SavingsGate({
   const create = useSavingsAction<SavingsSession>();
   const client = useQueryClient();
   const [name, setName] = useState("");
+  const [recoveryKey, setRecoveryKey] = useState("");
+  const recover = useMutation({
+    mutationFn: () =>
+      enginePost<SavingsSession>("/savings/recover", {
+        recovery_key: recoveryKey.trim(),
+      }),
+    onSuccess: (identity) => {
+      setRecoveryKey("");
+      client.removeQueries({ queryKey: ["savings"] });
+      client.setQueryData(["savings-session"], identity);
+    },
+  });
   if (session.isPending) return <Loading />;
   const unauthorized =
     session.error instanceof EngineError && session.error.status === 401;
-  if (session.data && !unauthorized) return <>{children(session.data)}</>;
+  if (session.data && !unauthorized)
+    return (
+      <>
+        <AccountAccess session={session.data} />
+        {children(session.data)}
+      </>
+    );
   if (!unauthorized)
     return (
       <ErrorNotice error={session.error} retry={() => session.refetch()} />
@@ -144,11 +162,141 @@ export function SavingsGate({
           <ArrowRight className="h-4 w-4" />
         </button>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          This MVP remembers your identity in this browser for up to 30 days. It
-          tracks payments made outside Ajora and does not hold or transfer
-          money. Clearing browser cookies loses access to this identity.
+          After creating your profile, save a private recovery key under Account
+          access. Use it to return on another device or after your session
+          expires. Ajora tracks external payments and does not hold or transfer
+          money.
         </p>
       </form>
+      <form
+        className="card-soft mt-5 space-y-4 p-6"
+        onSubmit={(event) => {
+          event.preventDefault();
+          recover.mutate();
+        }}
+      >
+        <h2 className="text-lg font-semibold">Return to your circles</h2>
+        <label className="block text-sm font-medium">
+          Recovery key
+          <input
+            className={inputClass}
+            type="password"
+            value={recoveryKey}
+            onChange={(event) => setRecoveryKey(event.target.value)}
+            required
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={200}
+          />
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Restoring access signs out your other sessions.
+        </p>
+        <ErrorNotice error={recover.error} />
+        <button
+          className="btn-secondary"
+          disabled={recover.isPending || !recoveryKey.trim()}
+        >
+          Restore my profile
+        </button>
+      </form>
+    </div>
+  );
+}
+function AccountAccess({ session }: { session: SavingsSession }) {
+  const client = useQueryClient();
+  const [key, setKey] = useState("");
+  const recovery = useMutation({
+    mutationFn: () =>
+      enginePost<{ recovery_key: string }>("/savings/recovery-key", {}),
+    onSuccess: (data) => setKey(data.recovery_key),
+  });
+  const logout = useMutation({
+    mutationFn: () => enginePost("/savings/logout", {}),
+    onSuccess: () => {
+      client.removeQueries({ queryKey: ["savings"] });
+      void client.resetQueries({ queryKey: ["savings-session"] });
+    },
+  });
+  return (
+    <div className="mb-6">
+      <p className="mb-2 text-xs text-muted-foreground">
+        Save a private recovery key under Account access to keep access across
+        devices and expired sessions.
+      </p>
+      <details className="card-soft p-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          Account access · {session.display_name} · Save your recovery key
+        </summary>
+        <div className="mt-4 space-y-4">
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Save a recovery key now so you can return to these circles on
+            another device. Anyone with the key can access your profile.
+            Replacing it invalidates the previous key.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={recovery.isPending}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Create a new recovery key? Any previous key will stop working. Save the new key privately before leaving this page.",
+                  )
+                )
+                  recovery.mutate();
+              }}
+            >
+              Create or replace recovery key
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={logout.isPending}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Sign out? Make sure you have saved your recovery key so you can return to your circles.",
+                  )
+                )
+                  logout.mutate();
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+          <ErrorNotice error={recovery.error ?? logout.error} />
+          {key && (
+            <div className="panel-inset space-y-3 p-4" role="status">
+              <label className="block text-sm font-medium">
+                Your new recovery key
+                <input
+                  className={`${inputClass} font-mono`}
+                  value={key}
+                  readOnly
+                  autoComplete="off"
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Shown only here. Copy it to a password manager or another
+                private place. Ajora cannot show it again.
+              </p>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setKey("");
+                  recovery.reset();
+                }}
+              >
+                I saved my key
+              </button>
+            </div>
+          )}
+        </div>
+      </details>
     </div>
   );
 }
@@ -159,15 +307,17 @@ export function TrackingNote() {
       <p>
         Ajora tracks your circle’s records. Send money through your agreed
         payment method, then submit a reference here. Only organiser-confirmed
-        contributions count as received.
+        amounts count toward the recorded collection. Demo matches are simulated
+        evidence and do not verify real payments. Payout receipt is confirmed by
+        the recipient.
       </p>
     </div>
   );
 }
 export function CircleCard({ circle }: { circle: Circle }) {
-  const confirmed = circle.contributions.filter(
-    (c) => c.round_number === circle.current_round && c.status === "confirmed",
-  ).length;
+  const confirmed = circle.contributions
+    .filter((c) => c.round_number === circle.current_round)
+    .reduce((sum, c) => sum + c.confirmed_kobo, 0);
   return (
     <Link
       href={`/circles/${circle.id}`}
@@ -200,7 +350,7 @@ export function CircleCard({ circle }: { circle: Circle }) {
           </span>
           <span>
             {circle.status === "active"
-              ? `${confirmed}/${circle.members.length} paid this round`
+              ? `${money(confirmed)} confirmed this round`
               : circle.status === "draft"
                 ? "Waiting to start"
                 : `${circle.payouts.length} payouts recorded`}
@@ -210,7 +360,7 @@ export function CircleCard({ circle }: { circle: Circle }) {
           <div
             className="h-full rounded-full bg-accent"
             style={{
-              width: `${100 * (circle.status === "active" ? confirmed / circle.member_limit : circle.status === "completed" ? 1 : circle.members.length / circle.member_limit)}%`,
+              width: `${100 * (circle.status === "active" ? confirmed / (circle.contribution_kobo * circle.member_limit) : circle.status === "completed" ? 1 : circle.members.length / circle.member_limit)}%`,
             }}
           />
         </div>
