@@ -245,4 +245,4 @@ def consented_batch(
         aliases=batch.user.aliases,
         account_ids=[a for a in batch.user.account_ids if a not in revoked],
     )
-    return TransactionBatch(user=filtered_user, transactions=kept_transactions)
+    return batch.model_copy(update={"user": filtered_user, "transactions": kept_transactions})

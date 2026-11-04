@@ -29,6 +29,9 @@ consent.jsonl
 corrections.jsonl
 *.consent-token
 
+# Personal statement personas are local only, never demo/evaluation fixtures.
+backend/data/private/
+
 # OS / editor
 .DS_Store
 .idea/

@@ -86,7 +86,7 @@ def explanations_for(
     """
     batch = consented_batch(provider, consent_store, audit_log, user_id, "explanations")
     result = service._run_dedup(batch, corrections_log)
-    insights = build_insights(result, batch.user).insights
+    insights = build_insights(result, batch.user, fx_rates_ngn=batch.fx_rates_ngn).insights
     client = _make_client()
     try:
         items = _narrate(client, result, insights, batch.user)

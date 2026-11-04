@@ -28,10 +28,10 @@ FX_RATES_NGN: Dict[str, float] = {"USD": 1550.0, "GBP": 1950.0, "EUR": 1680.0}
 USER_NODE = "__user__"
 
 
-def to_ngn(amount: float, currency: str) -> float:
+def to_ngn(amount: float, currency: str, fx_rates_ngn: Optional[Dict[str, float]] = None) -> float:
     if currency == "NGN":
         return amount
-    return amount * FX_RATES_NGN.get(currency.upper(), 1.0)
+    return amount * (fx_rates_ngn or {}).get(currency.upper(), FX_RATES_NGN.get(currency.upper(), 1.0))
 
 
 def _name_key(name: str) -> str:
@@ -81,6 +81,7 @@ def build_relationship_graph(
     transactions: List[Transaction],
     user: UserProfile,
     skip_ids: Optional[Set[str]] = None,
+    fx_rates_ngn: Optional[Dict[str, float]] = None,
 ) -> Tuple[nx.MultiDiGraph, Dict[str, CounterpartyStats]]:
     """Build the graph and per-counterparty aggregates over relationship transfers.
 
@@ -105,7 +106,7 @@ def build_relationship_graph(
         key = counterparty_key(t)
         if not key or key in own_names:
             continue
-        amt_ngn = to_ngn(t.amount, t.currency)
+        amt_ngn = to_ngn(t.amount, t.currency, fx_rates_ngn)
         st = stats.get(key) or CounterpartyStats(name=key)
         stats[key] = st
         if key not in g:

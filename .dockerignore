@@ -21,6 +21,7 @@ consent.jsonl
 audit.jsonl
 corrections.jsonl
 *.consent-token
+backend/data/private/
 
 # Tooling / docs not needed at runtime
 .claude

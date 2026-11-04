@@ -186,6 +186,12 @@ def extract_features(
         f"{debit.narration} {debit.reference or ''}"
     ) & extract_references(f"{credit.narration} {credit.reference or ''}")
 
+    if debit.reference and credit.reference:
+        debit_ref = debit.reference.strip().upper()
+        credit_ref = credit.reference.strip().upper()
+        if debit_ref and debit_ref == credit_ref:
+            shared_refs.add(debit_ref)
+
     route_recurrence = context.route_recurrence(debit, credit) if context else 0
 
     return PairFeatures(

@@ -12,6 +12,7 @@ from typing import List, Tuple
 
 from engine.communal.insights import build_insights
 from engine.dedup import DedupEngine
+from engine.dedup.similarity import DedupConfig
 from engine.schemas.communal import CommunalInsight, CommunalInsights
 from engine.schemas.dedup import DedupResult
 from engine.schemas.transaction import TransactionBatch, UserProfile
@@ -49,7 +50,12 @@ def _run_dedup(batch: TransactionBatch, corrections_log: CorrectionsLog) -> Dedu
         entry.match_id: entry.verdict
         for entry in corrections_log.entries_for(batch.user.user_id, limit=0)
     }
-    return _ENGINE.dedup(batch.transactions, batch.user, verdicts)
+    engine = _ENGINE
+    if batch.fx_rates_ngn:
+        engine = DedupEngine(DedupConfig(
+            fx_rates_ngn={**_ENGINE.cfg.fx_rates_ngn, **batch.fx_rates_ngn},
+        ))
+    return engine.dedup(batch.transactions, batch.user, verdicts)
 
 
 def get_transactions(
@@ -146,7 +152,7 @@ def get_insights(
 ) -> InsightsResponse:
     batch = consented_batch(provider, consent_store, audit_log, user_id, "insights")
     result = _run_dedup(batch, corrections_log)
-    insights = build_insights(result, batch.user)
+    insights = build_insights(result, batch.user, fx_rates_ngn=batch.fx_rates_ngn)
     return InsightsResponse(
         user_id=batch.user.user_id,
         full_name=batch.user.full_name,
@@ -163,7 +169,7 @@ def get_graph(
 ) -> GraphResponse:
     batch = consented_batch(provider, consent_store, audit_log, user_id, "graph")
     result = _run_dedup(batch, corrections_log)
-    insights = build_insights(result, batch.user)
+    insights = build_insights(result, batch.user, fx_rates_ngn=batch.fx_rates_ngn)
     nodes, edges = _graph_elements(batch.user, insights)
     return GraphResponse(
         user_id=batch.user.user_id,
