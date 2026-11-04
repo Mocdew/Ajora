@@ -1,0 +1,23 @@
+# Free demo API for the Vercel frontend. Files are temporary on this plan:
+# accounts and circle records can reset on restart or deployment.
+services:
+  - type: web
+    name: ajora-api
+    runtime: docker
+    branch: main
+    plan: free
+    dockerfilePath: ./Dockerfile.api
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: AJORA_STATE_DIR
+        value: /tmp/ajora-state
+      - key: AJORA_COOKIE_SECURE
+        value: "true"
+      - key: AJORA_EXPLAINER
+        value: offline
+      - key: AJORA_AUTH_ORIGINS
+        sync: false

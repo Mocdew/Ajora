@@ -7,11 +7,11 @@ import { Sidebar } from "@/components/shell/sidebar";
 import { cn } from "@/lib/utils";
 
 /**
- * Mobile navigation (below `md`): a menu button in the top bar that opens a
+ * Mobile navigation (below `lg`): a menu button in the top bar that opens a
  * full-height panel under it. The panel renders right after the button so Tab
  * reaches the links next; focus moves into it on open, the page behind is made
  * inert, and Escape returns focus to the button. Closes on navigation, Escape,
- * a second tap, or the viewport widening past `md`.
+ * a second tap, or the viewport widening past `lg`.
  */
 export function MobileNav() {
   const [open, setOpen] = React.useState(false);
@@ -31,7 +31,7 @@ export function MobileNav() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close(true);
     };
-    const wide = window.matchMedia("(min-width: 768px)");
+    const wide = window.matchMedia("(min-width: 1024px)");
     const onWide = () => {
       if (wide.matches) close(false);
     };
@@ -41,7 +41,9 @@ export function MobileNav() {
     const { overflow } = document.body.style;
     document.body.style.overflow = "hidden";
     const main = document.getElementById("main");
+    const insightsNav = document.getElementById("insights-navigation");
     main?.setAttribute("inert", "");
+    insightsNav?.setAttribute("inert", "");
     panelRef.current?.querySelector<HTMLElement>("a")?.focus();
 
     return () => {
@@ -49,11 +51,12 @@ export function MobileNav() {
       wide.removeEventListener("change", onWide);
       document.body.style.overflow = overflow;
       main?.removeAttribute("inert");
+      insightsNav?.removeAttribute("inert");
     };
   }, [open]);
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       <button
         ref={buttonRef}
         type="button"
@@ -83,7 +86,7 @@ export function MobileNav() {
         <div
           ref={panelRef}
           id="mobile-nav-panel"
-          className="fixed inset-x-0 bottom-0 top-16 z-40 overflow-y-auto bg-background animate-in fade-in duration-300"
+          className="fixed inset-x-0 bottom-0 top-20 z-40 overflow-y-auto border-t border-border bg-background animate-in fade-in duration-300"
         >
           <Sidebar staggered onNavigate={() => setOpen(false)} />
         </div>

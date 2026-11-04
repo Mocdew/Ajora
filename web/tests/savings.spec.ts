@@ -6,11 +6,12 @@ const base = "/api/engine/savings";
 type BankFeed = components["schemas"]["BankFeed"];
 
 async function profile(page: Page, name: string) {
+  // Keep this walkthrough exercising recovery for pre-account browser profiles.
+  const response = await page.request.post(`${base}/session`, {
+    data: { display_name: name },
+  });
+  expect(response.status()).toBe(201);
   await page.goto("/dashboard");
-  await page
-    .getByRole("textbox", { name: "What should your circle call you?" })
-    .fill(name);
-  await page.getByRole("button", { name: "Start saving together" }).click();
   await expect(
     page.getByRole("heading", { name: "Save together. Grow together." }),
   ).toBeVisible();
@@ -264,6 +265,7 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
         const originalIdentity = await memberId.json();
         await memberContext.clearCookies();
         await member.goto(`/circles/${id}`);
+        await member.getByText("Recover an existing profile", { exact: true }).click();
         await member
           .getByLabel("Recovery key", { exact: true })
           .fill(memberRecoveryKey);

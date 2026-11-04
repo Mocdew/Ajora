@@ -29,7 +29,7 @@ already know each other.
 | Reconcile contributions | Organisers confirm external receipts manually or approve exact reference-and-amount matches from the demo feed. A matched receipt cannot fund two payments. |
 | Confirm payouts | An organiser reports a payout as sent. Its recipient confirms receipt or reports a problem; only receipt confirmation advances the round. |
 | Keep the shared history | Agreement snapshots, payment decisions, corrections, and payout discrepancies remain visible. |
-| Return and stay informed | Private recovery keys restore membership; polling and refresh show updates. WhatsApp actions prepare invitations, reminders, and summaries for you to send. |
+| Return and stay informed | Email/password login restores access to your circles; polling and refresh show updates. WhatsApp actions prepare invitations, reminders, and summaries for you to send. |
 
 **Current status:** Ajora is a working MVP with a simulated bank feed. Demo matches
 exercise reconciliation; they do not verify real bank payments. Live Mono
@@ -63,7 +63,7 @@ In a second terminal, start the frontend:
 npm --prefix web run dev
 ```
 
-Open [Ajora at localhost:3100](http://localhost:3100). The API runs on port 8000;
+Open [Ajora at localhost:3200](http://localhost:3200). The API runs on port 8000;
 its [interactive reference](http://localhost:8000/docs) documents the endpoints.
 The frontend proxies API calls through the same origin.
 
@@ -76,31 +76,43 @@ docker compose up --build
 The containerised app opens at [localhost:3000](http://localhost:3000). Compose
 retains savings state in the `api-state` volume.
 
+For GitHub deployments, follow [Deploying Ajora](docs/DEPLOYMENT.md): Vercel hosts
+the frontend, and Render's free plan runs the demo API. Accounts and circle
+records on that free API can reset on restart or deployment. Pushing to the
+configured production branch triggers a fresh deployment.
+
 ### Try a complete circle
 
-1. Create a profile and save a private recovery key under **Account access**.
+1. Create an account with your display name, email, and a password of 15–128 characters.
 2. Create a two-member circle. Configure the demo collection account to try matching.
 3. Use a second browser profile to join with the invite code. Tabs in one browser share an identity.
 4. Arrange payout turns, have both members accept the final agreement, and start.
 5. Submit instalments using the demo feed's references and amounts, then approve the matches as organiser. For real external payments, check receipt outside Ajora before confirming manually.
 6. Record a payout as sent. As its recipient, confirm receipt to advance the round.
 
-See [the full walkthrough](RUNNING.md) for recovery, discrepancy reporting,
+See [the full walkthrough](RUNNING.md) for login, legacy profile recovery, discrepancy reporting,
 configuration, and browser tests.
 
 ## Data and access
 
-Circle records survive restarts in `AJORA_STATE_DIR/savings.sqlite3`. SQLite stores
+Local circle records live in `AJORA_STATE_DIR/savings.sqlite3`. SQLite stores
 membership, agreements, contributions, receipt allocations, payout records,
-recovery-key hashes, and the shared event history. No database server is required.
+account emails, salted password hashes, session and legacy recovery-key hashes,
+and the shared event history. No database server is required.
 The state directory defaults to the repository root; use a persistent volume and
-back it up when deploying. Removing the Compose volume removes its saved records.
+back it up when retaining records. Removing the Compose volume removes its saved
+records. The free Render demo uses temporary storage instead, so its accounts and
+circles can reset when the service restarts or deploys.
 
-A profile uses a 30-day HttpOnly session cookie. Generate and privately save a
-recovery key before changing devices or clearing cookies. Only its hash is stored;
-replacing the key invalidates the old one, and recovery signs out previous
-sessions. Anyone with the key can access that profile. Display names are not
-verified bank identities.
+Accounts use email/password login and a 30-day HttpOnly session cookie. Passwords
+are stored as salted PBKDF2-HMAC-SHA256 hashes with 600,000 iterations. Email
+ownership verification and password-reset emails are not implemented yet; save
+your password privately. Login does not verify a member's bank or legal identity.
+
+Existing browser-only profiles can add email/password access under **Account
+access** while keeping their user ID, circles, and history. This upgrade signs out
+earlier sessions and retires the profile's recovery key. Before upgrading, a saved
+legacy recovery key can still restore that profile; anyone with the key can use it.
 
 Raw bank feeds are processed in memory and are not retained as transaction
 histories. The circle ledger retains the payment evidence needed for its records.
@@ -115,7 +127,7 @@ cryptographic proof against tampering.
 - **Analytics:** SciPy, RapidFuzz, scikit-learn, and NetworkX; file-backed persona fixtures keep the demo independent of live banks.
 
 ```text
-api/               Savings API, recovery, demo feed, and analytics endpoints
+api/               Account access, savings API, legacy recovery, demo feed, and analytics endpoints
 web/               Next.js app and Playwright walkthroughs
 engine/            Stateless transfer deduplication, classification, and explanations
 data/              Demo fixtures and locally supplied private personas

@@ -1,6 +1,5 @@
 /**
- * Theme preference. Dark is the default; light and "follow the system" are
- * opt-ins from Settings. Stored per browser under `ajora-theme`.
+ * Light is the default. The viewer's choice is stored under `ajora-theme`.
  */
 export type ThemePreference = "dark" | "light" | "system";
 
@@ -25,7 +24,7 @@ export function readThemePreference(): ThemePreference {
   } catch {
     // Storage blocked: fall through to the default.
   }
-  return "dark";
+  return "light";
 }
 
 export function applyThemePreference(pref: ThemePreference) {
@@ -44,4 +43,4 @@ export function applyThemePreference(pref: ThemePreference) {
  * Runs in <head> before first paint so the page never flashes the wrong theme.
  * Also marks <html class="js"> so scroll reveals only hide content when JS runs.
  */
-export const THEME_INIT_SCRIPT = `(function(){document.documentElement.classList.add("js");try{var p=localStorage.getItem("${THEME_STORAGE_KEY}");var light=p==="light"||(p==="system"&&matchMedia("(prefers-color-scheme: light)").matches);if(light)document.documentElement.classList.remove("dark");}catch(e){}})();`;
+export const THEME_INIT_SCRIPT = `(function(){document.documentElement.classList.add("js");try{var p=localStorage.getItem("${THEME_STORAGE_KEY}");var dark=p==="dark"||(p==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",dark);}catch(e){}})();`;

@@ -31,8 +31,9 @@ export function Sidebar({
   return (
     <nav
       aria-label="Primary"
-      className={cn("flex h-full flex-col gap-1 p-4", className)}
+      className={cn("flex h-full flex-col gap-2 p-6", className)}
     >
+      <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Your workspace</p>
       {navItems.map((item, index) => {
         const active =
           pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -86,7 +87,7 @@ export function Sidebar({
         );
       })}
 
-      <div className="panel-inset mt-auto flex items-start gap-3 p-3">
+      <div className="mt-10 flex items-start gap-3 border-t border-border pt-6">
         <Fingerprint className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
         <div>
           <p className="text-xs font-semibold text-foreground">Save together, clearly</p>

@@ -89,7 +89,7 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-desc"
-        className="relative w-full max-w-md rounded-2xl bg-popover p-6 text-popover-foreground animate-in fade-in zoom-in-95 duration-300"
+        className="relative w-full max-w-md rounded-2xl border border-border bg-popover p-6 text-popover-foreground shadow-xl animate-in fade-in zoom-in-95 duration-300"
       >
         <h2
           id="confirm-dialog-title"

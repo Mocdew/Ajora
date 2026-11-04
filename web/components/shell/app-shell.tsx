@@ -1,14 +1,11 @@
 import { TopBar } from "@/components/shell/top-bar";
-import { Sidebar } from "@/components/shell/sidebar";
 
 /**
- * AppShell — top bar + left sidebar + scrollable content region.
- * Below `md` the sidebar is replaced by the full-height mobile panel opened from
- * the top bar (see MobileNav).
+ * A paper workspace with floating navigation and a mobile menu.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="app-shell min-h-dvh bg-background">
       <a
         href="#main"
         className="btn-primary fixed left-4 top-4 z-50 -translate-y-16 focus-visible:translate-y-0"
@@ -16,17 +13,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
       <TopBar />
-      <div className="mx-auto flex w-full max-w-[1440px]">
-        <aside className="sticky top-16 hidden h-[calc(100dvh-4rem)] w-72 shrink-0 overflow-y-auto border-r border-border md:block">
-          <Sidebar />
-        </aside>
+      <div className="workspace-frame mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-[1280px] flex-col border-x border-border">
         <main
           id="main"
           tabIndex={-1}
-          className="min-w-0 flex-1 px-4 pb-12 pt-6 outline-none md:px-8 md:pb-16 md:pt-8"
+          className="min-w-0 flex-1 px-5 py-10 outline-none sm:px-8 sm:py-12 lg:px-12 lg:py-14"
         >
           {children}
         </main>
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-6 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground sm:px-8 lg:px-12">
+          <span>Ajo / Esusu, made simple.</span>
+          <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full border border-foreground/50" aria-hidden /> Your people. Your progress.</span>
+        </footer>
       </div>
     </div>
   );

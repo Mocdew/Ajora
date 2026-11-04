@@ -37,7 +37,7 @@ import type {
  * ── Visual encoding (validated with the dataviz skill) ──────────────────────
  * A node-link graph is an "all-pairs" form (any two nodes can sit side by side), so
  * categorical color is capped. With one brand accent, color carries money
- * DIRECTION by hue plus lightness: emerald = in/owed-to-you, a high-contrast gray =
+ * DIRECTION by lightness: charcoal = in/owed-to-you, a medium gray =
  * out, a low-contrast gray = balanced (ajo, net ≈ 0) ties, and the user hub in ink.
  * Direction is also on the arrows (balanced ties are double-headed), ROLE rides on
  * node SHAPE + an always-on name label + the legend, so nothing is color-alone.
@@ -58,17 +58,17 @@ interface Palette {
 
 const PALETTES: Record<Theme, Palette> = {
   light: {
-    self: "#16211C", // --primary (hub)
-    in: "#2B9765", // --flow-in, the emerald accent
+    self: "#121212", // --primary (hub)
+    in: "#2C2C30", // --flow-in
     out: "#666666", // --flow-out
     neutral: "#9B9B9B", // --flow-neutral
-    ink: "#14201B", // --foreground
-    edgeLabelBg: "#EFF0ED", // --secondary (graph canvas)
-    border: "#E6E7E3", // --border
+    ink: "#242428", // --foreground
+    edgeLabelBg: "#F7F7F7", // --secondary (graph canvas)
+    border: "#E7E7E9", // --border
   },
   dark: {
     self: "#FFFFFF", // --primary (hub)
-    in: "#3BBA7F", // --flow-in, the emerald accent
+    in: "#E6E6E6", // --flow-in
     out: "#9B9B9B", // --flow-out
     neutral: "#666666", // --flow-neutral
     ink: "#FFFFFF", // --foreground
@@ -87,7 +87,7 @@ const SHAPE = {
 } as const;
 
 function readTheme(): Theme {
-  if (typeof document === "undefined") return "dark";
+  if (typeof document === "undefined") return "light";
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 

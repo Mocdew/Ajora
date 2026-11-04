@@ -2,39 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
- * Ajora design tokens. Dark first: `.dark` is the default theme (set on <html>
- * in the root layout); `:root` holds the opt-in light theme. Values follow the
- * redesign skill's Design Values (.claude/skills/redesign-existing-projects):
- * neutral gray surfaces, one emerald accent, red only as a status colour.
- * HSL triplets so hsl(var(--token)) resolves directly.
- */
+/* Paper, chalk and ink. Colour stays reserved for meaningful statuses. */
 @layer base {
   :root {
-    /* Light (opt-in) */
-    --background: 100 11% 97%; /* #F6F7F4 */
-    --foreground: 160 14% 9%; /* #14201B */
+    --background: 40 20% 97%;
+    --foreground: 40 6% 13%;
 
     --card: 0 0% 100%;
-    --card-foreground: 160 14% 9%;
+    --card-foreground: 40 6% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 160 14% 9%;
+    --popover-foreground: 240 5% 15%;
 
-    --primary: 160 14% 10%; /* #16211C, primary buttons */
-    --primary-foreground: 100 11% 98%;
+    --primary: 40 6% 13%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 100 8% 94%; /* #EFF0ED raised fill */
-    --secondary-foreground: 160 14% 14%;
-    --muted: 100 8% 94%;
-    --muted-foreground: 155 7% 40%;
+    --secondary: 40 15% 94%;
+    --secondary-foreground: 40 6% 13%;
+    --muted: 40 15% 94%;
+    --muted-foreground: 40 3% 42%;
 
-    /* The one accent: emerald. Tints are opacity of this value. */
-    --accent: 152 56% 38%;
+    --accent: 240 5% 18%;
     --accent-foreground: 0 0% 100%;
-    /* Accent as small text: darker on light so 12px labels pass AA. */
-    --accent-ink: 153 62% 24%;
+    --accent-ink: 240 5% 18%;
 
-    /* Status, never colour alone. Positive reuses the accent. */
+    /* Status is also expressed in text or iconography. */
     --positive: 152 56% 34%;
     --positive-foreground: 0 0% 100%;
     --negative: 4 66% 51%;
@@ -42,35 +33,31 @@
     --destructive: 4 66% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Charts: ink "true" line over an accent band, gray dashed "raw". */
-    --chart-line: 160 14% 9%;
+    --chart-line: 240 5% 15%;
     --chart-raw: 0 0% 40%; /* #666666 */
-    --chart-gap: 152 56% 38%;
+    --chart-gap: 240 3% 60%;
 
-    /* Relationship graph money direction: accent in, high-contrast gray out,
-       low-contrast gray for balanced two-way ties. */
-    --flow-in: 152 56% 38%;
+    --flow-in: 240 5% 18%;
     --flow-out: 0 0% 40%; /* #666666 */
     --flow-neutral: 0 0% 60.8%; /* #9B9B9B */
 
-    --border: 100 7% 90%;
-    --input: 100 7% 86%;
-    --ring: 152 56% 38%;
+    --border: 40 10% 87%;
+    --input: 40 7% 79%;
+    --ring: 40 6% 25%;
 
-    /* Hero heading text gradient stops. */
-    --hero-from: #000000;
-    --hero-to: #666666;
+    --surface-shadow: 40 12% 20%;
+    --feature: 40 6% 13%;
+    --feature-foreground: 40 20% 96%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
   }
 
   .dark {
-    /* Surfaces: #000000 page, #181818 card, #1F1F1F raised, #272727 hairline,
-       #313131 input and hover. */
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
+    /* Warm charcoal surfaces retain the paper-and-ink hierarchy. */
+    --background: 40 5% 6%;
+    --foreground: 40 12% 94%;
 
-    --card: 0 0% 9.4%;
+    --card: 40 4% 10%;
     --card-foreground: 0 0% 100%;
     --popover: 0 0% 12.2%;
     --popover-foreground: 0 0% 100%;
@@ -78,14 +65,14 @@
     --primary: 0 0% 100%;
     --primary-foreground: 0 0% 0%;
 
-    --secondary: 0 0% 12.2%;
+    --secondary: 40 4% 13%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 12.2%;
+    --muted: 40 4% 13%;
     --muted-foreground: 0 0% 60.8%; /* #9B9B9B */
 
-    --accent: 152 52% 48%; /* #3BBA7F */
+    --accent: 0 0% 90%;
     --accent-foreground: 0 0% 0%;
-    --accent-ink: 152 52% 48%;
+    --accent-ink: 0 0% 90%;
 
     --positive: 152 52% 48%;
     --positive-foreground: 0 0% 0%;
@@ -96,18 +83,20 @@
 
     --chart-line: 0 0% 100%;
     --chart-raw: 0 0% 60.8%; /* #9B9B9B */
-    --chart-gap: 152 52% 48%;
+    --chart-gap: 0 0% 65%;
 
-    --flow-in: 152 52% 48%;
+    --flow-in: 0 0% 90%;
     --flow-out: 0 0% 60.8%; /* #9B9B9B */
     --flow-neutral: 0 0% 40%; /* #666666 */
 
-    --border: 0 0% 15.3%; /* #272727 */
+    --border: 40 3% 20%;
     --input: 0 0% 19.2%; /* #313131 */
-    --ring: 152 52% 48%;
+    --ring: 0 0% 80%;
 
-    --hero-from: #ffffff;
-    --hero-to: #9b9b9b;
+    --surface-shadow: 0 0% 0%;
+    --feature: 40 8% 15%;
+    --feature-foreground: 40 20% 96%;
+
   }
 }
 
@@ -127,8 +116,6 @@
     font-feature-settings: "tnum";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* Subtle grain so flat surfaces carry some texture (no gradients). */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   h1,
   h2,
@@ -137,6 +124,9 @@
   }
   p {
     text-wrap: pretty;
+  }
+  ::selection {
+    background: hsl(var(--foreground) / 0.12);
   }
 
   /* One visible focus ring for every interactive element. */
@@ -160,75 +150,199 @@
 }
 
 @layer components {
-  /* Small sentence-case label (e.g. "True inflow"). */
   .caption {
-    @apply text-xs font-medium text-muted-foreground;
+    @apply font-mono text-[10px] font-normal uppercase tracking-[0.1em] text-muted-foreground;
   }
 
-  /* Accent dot eyebrow above a title. */
   .eyebrow {
-    @apply inline-flex items-center gap-2 text-xs font-medium text-[hsl(var(--accent-ink))];
+    @apply inline-flex items-center gap-2 font-mono text-[10px] font-normal uppercase tracking-[0.14em] text-muted-foreground;
   }
   .eyebrow::before {
     content: "";
-    @apply h-1.5 w-1.5 shrink-0 rounded-full bg-accent;
+    @apply h-1 w-1 shrink-0 bg-foreground;
   }
 
-  /* Hero heading: left to right text gradient, text only. */
   .text-hero {
-    background-image: linear-gradient(90deg, var(--hero-from), var(--hero-to));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    @apply text-foreground;
   }
 
-  /* Card: surface colour alone carries elevation. */
-  .card-soft {
-    @apply rounded-2xl bg-card;
+  .font-editorial {
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.045em;
   }
-  :root:not(.dark) .card-soft {
-    box-shadow: 0 1px 2px hsl(160 14% 9% / 0.04), 0 8px 24px -12px hsl(160 14% 9% / 0.1);
+
+  .card-soft {
+    @apply rounded-xl border border-border bg-card;
+    box-shadow: 0 2px 3px -2px hsl(var(--surface-shadow) / 0.1),
+      0 12px 28px -22px hsl(var(--surface-shadow) / 0.18);
   }
   .card-hover {
-    @apply transition-[transform,background-color] duration-500 hover:-translate-y-0.5 hover:bg-secondary;
+    @apply transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-foreground/25;
+  }
+  .card-hover:hover {
+    box-shadow: 0 3px 5px -3px hsl(var(--surface-shadow) / 0.12),
+      0 18px 32px -22px hsl(var(--surface-shadow) / 0.3);
   }
 
   /* Inset panel one surface step up from a card. */
   .panel-inset {
-    @apply rounded-xl bg-secondary;
+    @apply rounded-lg border border-border/70 bg-secondary;
   }
 
-  /* Square status badges. */
+  /* Compact status badges. */
   .badge {
-    @apply inline-flex items-center gap-1 rounded-md bg-accent/15 px-2 py-0.5 text-xs font-medium text-[hsl(var(--accent-ink))];
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 font-mono text-[10px] font-normal text-foreground;
   }
   .badge-neutral {
-    @apply inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground;
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 font-mono text-[10px] font-normal text-muted-foreground;
   }
   .badge-negative {
-    @apply inline-flex items-center gap-1 rounded-md bg-negative/15 px-2 py-0.5 text-xs font-medium text-negative;
+    @apply inline-flex items-center gap-1 rounded-full bg-negative/10 px-2.5 py-1 text-xs font-medium text-negative;
   }
 
-  /* Buttons: 8px by 12px, semibold, base curve, pressed feedback. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition duration-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition duration-300 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-primary {
     @apply btn bg-primary text-primary-foreground hover:bg-primary/85;
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.12),
+      0 3px 6px -3px hsl(var(--surface-shadow) / 0.3);
   }
   .btn-secondary {
-    @apply btn bg-secondary text-foreground hover:bg-input;
+    @apply btn border border-border bg-background text-foreground hover:border-input hover:bg-secondary;
   }
   .btn-danger {
     @apply btn bg-negative/15 text-negative hover:bg-negative/25;
   }
   .btn-icon {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition duration-300 hover:bg-secondary hover:text-foreground active:scale-[0.98];
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-full border border-border text-muted-foreground transition duration-300 hover:bg-secondary hover:text-foreground active:scale-[0.98];
   }
 
   /* Tertiary text link. */
   .link-accent {
-    @apply inline-flex items-center gap-1 rounded-sm text-sm font-semibold text-[hsl(var(--accent-ink))] transition-colors duration-300 hover:opacity-80;
+    @apply inline-flex items-center gap-2 rounded-sm text-sm font-medium text-foreground underline-offset-4 transition-colors duration-300 hover:underline;
+  }
+
+  .app-shell {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.09) 0.65px, transparent 0.65px);
+    background-size: 8px 8px;
+  }
+  .workspace-frame {
+    background: hsl(var(--background));
+    box-shadow: 0 0 60px hsl(var(--surface-shadow) / 0.025);
+  }
+  .workspace-header {
+    box-shadow: 0 2px 16px hsl(var(--surface-shadow) / 0.025);
+  }
+  .workspace-nav {
+    box-shadow: inset 0 1px 0 hsl(var(--card)),
+      0 2px 3px hsl(var(--surface-shadow) / 0.035),
+      0 8px 20px -10px hsl(var(--surface-shadow) / 0.12);
+  }
+  .workspace-nav [aria-current="page"] {
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.12),
+      0 2px 4px hsl(var(--surface-shadow) / 0.12);
+  }
+
+  .onboarding-visual {
+    background: radial-gradient(ellipse at 50% 42%, hsl(var(--card)) 5%, hsl(var(--secondary)) 72%);
+    box-shadow: inset 0 1px 0 hsl(var(--card)),
+      0 16px 30px -28px hsl(var(--surface-shadow) / 0.3);
+  }
+  .onboarding-center {
+    filter: drop-shadow(0 8px 8px hsl(var(--surface-shadow) / 0.06));
+  }
+  .onboarding-form {
+    position: relative;
+    box-shadow: 0 7px 0 -3px hsl(var(--card)),
+      0 7px 0 -2px hsl(var(--border)),
+      0 1px 3px hsl(var(--surface-shadow) / 0.04),
+      0 8px 16px -10px hsl(var(--surface-shadow) / 0.12),
+      0 28px 60px -36px hsl(var(--surface-shadow) / 0.25);
+  }
+  .onboarding-step > span {
+    display: flex;
+    height: 1.75rem;
+    width: 1.75rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid hsl(var(--border));
+    border-radius: 50%;
+    background: hsl(var(--card));
+    box-shadow: 0 2px 3px hsl(var(--surface-shadow) / 0.035);
+  }
+  .savings-summary {
+    box-shadow: 0 2px 4px -2px hsl(var(--surface-shadow) / 0.06),
+      0 12px 30px -22px hsl(var(--surface-shadow) / 0.18);
+  }
+  .savings-stat {
+    background: linear-gradient(150deg, hsl(var(--card)), hsl(var(--secondary) / 0.25));
+  }
+  .savings-next-step {
+    isolation: isolate;
+    background: hsl(var(--feature));
+    color: hsl(var(--feature-foreground));
+    border-color: hsl(var(--feature));
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.08),
+      0 12px 24px -16px hsl(var(--surface-shadow) / 0.5);
+  }
+  .savings-next-step .eyebrow,
+  .savings-next-step .text-muted-foreground {
+    color: hsl(var(--feature-foreground) / 0.65);
+  }
+  .savings-next-step .eyebrow::before {
+    background: hsl(var(--feature-foreground) / 0.65);
+  }
+  .savings-next-step .btn-secondary {
+    color: hsl(var(--feature));
+    border-color: hsl(var(--feature-foreground));
+    background: hsl(var(--feature-foreground));
+  }
+  .savings-next-step .btn-secondary:hover {
+    background: hsl(var(--feature-foreground) / 0.88);
+  }
+  .savings-next-step :focus-visible {
+    outline-color: hsl(var(--feature-foreground));
+  }
+  .feature-orbit {
+    --motif-surface: var(--feature);
+    position: absolute;
+    z-index: -1;
+    pointer-events: none;
+    color: hsl(var(--feature-foreground));
+    opacity: 0.4;
+  }
+  .circle-avatar {
+    box-shadow: inset 0 1px 0 hsl(var(--card)),
+      0 3px 6px -4px hsl(var(--surface-shadow) / 0.2);
+  }
+  .circle-progress {
+    box-shadow: inset 0 1px 2px hsl(var(--surface-shadow) / 0.07);
+  }
+  .savings-empty {
+    background-image: radial-gradient(ellipse at top, hsl(var(--secondary) / 0.8), transparent 70%);
+  }
+  .account-access {
+    box-shadow: inset 0 1px 0 hsl(var(--card) / 0.6);
+  }
+
+  @media (max-width: 639px) {
+    .savings-stat {
+      padding: 1rem 1.25rem;
+    }
+    .savings-stat > p:nth-child(2) {
+      margin-top: 0.5rem;
+      font-size: 1.75rem;
+    }
+    .savings-stat > p:last-child {
+      display: none;
+    }
+    .feature-orbit {
+      opacity: 0.12;
+    }
   }
 
   /* Scroll reveal: rise and fade once (see components/reveal.tsx). Content
@@ -245,6 +359,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     html.js .reveal:not([data-visible="true"]) {
+      opacity: 1;
       transform: none;
     }
   }

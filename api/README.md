@@ -14,11 +14,11 @@ payout turns, with supporting financial insights.
   manually confirm receipt or approve a match against a labelled demo feed. Demo
   matches do not verify real bank payments. Payout recording does not initiate a
   bank transfer; the recipient separately confirms receipt.
-- **Recoverable identity:** an HttpOnly browser session cookie identifies each
-  savings member. A private recovery key restores the same identity and membership
-  after cookie expiry or on another device. The server stores only its hash. A
-  display name is not a verified identity; savings identities remain independent of
-  legacy analytics personas.
+- **Account access:** email/password registration and login establish an HttpOnly
+  cookie session. Existing browser-only profiles can add credentials while keeping
+  their identity and membership; legacy recovery keys work only before this upgrade.
+  Email ownership verification and password-reset emails are not implemented yet.
+  Savings identities remain independent of legacy analytics personas.
 
 > **Interactive docs are built in:** run the server and open
 > **http://localhost:8000/docs** (Swagger UI) or **/redoc**. The machine-readable schema
@@ -48,24 +48,52 @@ Change the port with `--port 8001` if 8000 is taken.
 
 ---
 
-## Savings resources
+## Account and savings resources
 
-All savings paths below are relative to the API root. The Next.js app proxies
-these through `/api/engine/savings/...`. JSON requests use `Content-Type:
-application/json`. The session cookie must accompany requests after identity
-creation; use a cookie jar for command-line walkthroughs. The
+All paths below are relative to the API root. The Next.js app proxies them through
+`/api/engine/auth/...` and `/api/engine/savings/...`. JSON requests use `Content-Type:
+application/json`. The session cookie must accompany requests after registration
+or login; use a cookie jar for command-line walkthroughs. The
 `ajora_savings_session` cookie expires after 30 days, uses `SameSite=Lax`, and is
-secure over HTTPS (or with `AJORA_COOKIE_SECURE=true`). Creating another identity
-with an existing session returns 409. Generate and privately save a recovery key
-before relying on a browser identity for a multi-round circle. Recovery keys remain
-valid until replaced, and recovery revokes all previous sessions for that identity.
+secure over HTTPS (or with `AJORA_COOKIE_SECURE=true`). Registration returns 201
+and signs in the account; login returns 200. Emails are normalised for
+case-insensitive matching. Passwords contain 15–128 characters and are stored as
+salted PBKDF2-HMAC-SHA256 hashes with 600,000 iterations; passwords are not trimmed.
+Save the password privately: email verification and password-reset emails are not
+implemented yet.
+
+Registering while signed in to a browser-only profile attaches credentials to the
+same user ID, preserving circles and history. This upgrade revokes prior sessions
+and removes its legacy recovery key. Registering an already registered profile,
+logging in while signed in, or creating another browser identity with a session
+returns 409; sign out before switching accounts. Profiles are not silently merged.
+Legacy recovery keys remain valid until replaced or upgraded, and recovery revokes
+all previous sessions for the browser-only profile.
+
+Set `AJORA_AUTH_ORIGINS` on the API to a comma-separated list of allowed public
+frontend origins, such as `https://ajora.example`, when deploying or using a
+non-default frontend port. Local `localhost` and `127.0.0.1` origins on ports 3000,
+3100, and 3200 are allowed by default. This browser-origin check is separate from the
+Next.js `AJORA_API_BASE` proxy target.
+
+For Vercel frontend hosting, run this API on a separate service. The included
+Render configuration uses the free plan and temporary storage: accounts and
+circle records can reset on restart or deployment. See
+[Deploying Ajora](../docs/DEPLOYMENT.md) for the configuration, frontend origins,
+and GitHub deployment setup.
+
+Registration and login attempts are rate-limited by email and caller IP over a
+15-minute window. A blocked request returns 429 with a `Retry-After` header; invalid
+login credentials return the same 401 message for unknown emails and wrong passwords.
 
 | Method and path | Purpose |
 |---|---|
-| `POST /savings/session` | Create a browser identity with `{ "display_name": "Ada" }` |
-| `GET /savings/session` | Read the current `{user_id, display_name}`; 401 without a session |
-| `POST /savings/recovery-key` | With `{}`, generate or replace the current member's key; returns `{recovery_key}` once and invalidates the previous key |
-| `POST /savings/recover` | Restore the same identity using `{recovery_key}` and set a new session cookie; revoke its previous sessions |
+| `POST /auth/register` | Register or upgrade a browser-only profile with `{display_name, email, password}`; returns `{user_id, display_name, email}` and a session cookie |
+| `POST /auth/login` | Sign in with `{email, password}`; returns `{user_id, display_name, email}` and a session cookie |
+| `POST /savings/session` | Legacy compatibility: create a browser-only identity with `{ "display_name": "Ada" }`; new app onboarding uses registration |
+| `GET /savings/session` | Read the current `{user_id, display_name, email}`; `email` is null for a browser-only profile; 401 without a session |
+| `POST /savings/recovery-key` | Browser-only profiles: with `{}`, generate or replace a key; returns `{recovery_key}` once and invalidates the previous key |
+| `POST /savings/recover` | Restore a browser-only identity using `{recovery_key}` and set a new session cookie; revoke its previous sessions |
 | `POST /savings/logout` | With `{}`, revoke the current session and clear its cookie; returns 204 |
 | `GET /savings/circles` | List circles belonging to the current member |
 | `POST /savings/circles` | Create a circle and join as its organiser |
@@ -143,9 +171,11 @@ stale agreement versions, reused receipts, overpayments, and missing/ambiguous
 matches return 409. Invalid recovery keys return 401; malformed keys return 422.
 Reason fields accept 3–500 characters.
 
-Keep SQLite state on a persistent volume and retain a backup. Existing savings
-records remain readable; generate recovery keys while their browser sessions are
-still accessible. The demo collection account is for rehearsal. Live bank
+For local or Docker records you intend to retain, keep SQLite state on a
+persistent volume and retain a backup. The free Render demo uses temporary
+storage and can lose its records on restart or deployment. Existing savings
+records remain readable; add email/password access while their browser sessions are
+still accessible, or restore a legacy profile with its saved key first. The demo collection account is for rehearsal. Live bank
 connections and payment processing are not implemented.
 
 ## Supporting analytics architecture
@@ -235,9 +265,8 @@ browser → GET /api/engine/users/{id}/cashflow   (same-origin, no CORS)
 - `AJORA_API_BASE` (server-only env) points Next at the engine; in prod set it to the
   deployed engine URL — no frontend code changes.
 - Client helper `engineGet()` in `web/lib/api/engine.ts` prefixes `/api/engine`.
-- **CORS:** the app also sets an allow-list covering both dev origins —
-  `http://localhost:3000` / `127.0.0.1:3000` and `http://localhost:3100` / `127.0.0.1:3100` —
-  for *direct* browser access. The dev server runs on **:3100** but reaches the API through
+- **CORS:** the app also sets an allow-list covering localhost and `127.0.0.1` on ports
+  3000, 3100, and 3200 for *direct* browser access. The dev server runs on **:3200** but reaches the API through
   the proxy, so CORS doesn't apply to it anyway. To call the API directly from a browser on
   some other origin, add it to `_DEV_ORIGINS` in [`api/main.py`](main.py) (one line).
 

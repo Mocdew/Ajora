@@ -1,9 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/**
- * Ajora logo — a near-black rounded tile with a white "A", next to the
- * "Ajora" wordmark. Matches the product header in the brand mockups.
- */
+/** A circle mark and a compact, typographic wordmark. */
 export function AjoraWordmark({
   className,
   showTagline = false,
@@ -12,20 +9,19 @@ export function AjoraWordmark({
   showTagline?: boolean;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-3", className)}>
-      <span
-        aria-hidden
-        className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground"
-      >
-        A
-      </span>
+    <span className={cn("inline-flex items-center gap-2.5", className)}>
+      <svg aria-hidden="true" viewBox="0 0 32 32" fill="none" className="h-7 w-7 text-foreground">
+        <circle cx="16" cy="16" r="12.5" stroke="currentColor" strokeWidth="1.5" />
+        <ellipse cx="16" cy="16" rx="5.5" ry="12.5" stroke="currentColor" strokeWidth="1.5" transform="rotate(40 16 16)" />
+        <circle cx="25" cy="7" r="3" fill="currentColor" />
+      </svg>
       <span className="inline-flex flex-col leading-none">
-        <span className="text-xl font-bold tracking-tight text-foreground">
-          Ajora
+        <span className="text-[23px] font-semibold tracking-[0.12em] text-foreground">
+          AJORA
         </span>
         {showTagline ? (
           <span className="mt-1 text-xs font-medium text-muted-foreground">
-            Your true cashflow
+            Save together
           </span>
         ) : null}
       </span>

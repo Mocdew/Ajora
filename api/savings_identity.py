@@ -16,10 +16,10 @@ from pydantic import Field
 
 from .savings import (
     COOKIE, SESSION_SECONDS, EmptyInput, Input, Session, current_user, database,
-    get_savings_path,
+    get_savings_path, require_identity_request,
 )
 
-router = APIRouter(prefix="/savings", tags=["savings"])
+router = APIRouter(prefix="/savings", tags=["savings"], dependencies=[Depends(require_identity_request)])
 
 
 class RecoverInput(Input):
@@ -45,8 +45,12 @@ def replace_recovery_key(
     body: EmptyInput, response: Response, user: dict = Depends(current_user),
     path: Path = Depends(get_savings_path),
 ) -> dict:
+    if user.get("email"):
+        raise HTTPException(403, "Use your email and password to access this account.")
     key = "ajora_" + secrets.token_urlsafe(32)
     with database(path, write=True) as conn:
+        if conn.execute("SELECT 1 FROM savings_credentials WHERE user_id=?", (user["user_id"],)).fetchone():
+            raise HTTPException(403, "Use your email and password to access this account.")
         ensure_recovery_table(conn)
         conn.execute(
             "INSERT INTO savings_recovery_keys (user_id, key_hash) VALUES (?, ?) "
@@ -67,7 +71,8 @@ def recover_identity(
         ensure_recovery_table(conn)
         row = conn.execute(
             "SELECT u.id AS user_id, u.display_name FROM savings_recovery_keys r "
-            "JOIN savings_users u ON u.id=r.user_id WHERE r.key_hash=?",
+            "JOIN savings_users u ON u.id=r.user_id "
+            "WHERE r.key_hash=? AND NOT EXISTS (SELECT 1 FROM savings_credentials c WHERE c.user_id=u.id)",
             (key_hash(body.recovery_key),),
         ).fetchone()
         if row is None:

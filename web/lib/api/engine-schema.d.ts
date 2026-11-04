@@ -637,6 +637,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register */
+        post: operations["register_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -717,6 +751,11 @@ export interface components {
             user_id: string;
             /** Entries */
             entries: components["schemas"]["AuditEntry"][];
+        };
+        /** AuthErrorResponse */
+        AuthErrorResponse: {
+            /** Detail */
+            detail: string;
         };
         /** BankFeed */
         BankFeed: {
@@ -1361,6 +1400,13 @@ export interface components {
             /** Invite Code */
             invite_code: string;
         };
+        /** LoginInput */
+        LoginInput: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+        };
         /** MatchCandidate */
         MatchCandidate: {
             /** Payment Id */
@@ -1505,6 +1551,15 @@ export interface components {
             /** Recovery Key */
             recovery_key: string;
         };
+        /** RegisterInput */
+        RegisterInput: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+            /** Display Name */
+            display_name: string;
+        };
         /** RejectInput */
         RejectInput: {
             /** Reason */
@@ -1527,6 +1582,8 @@ export interface components {
             user_id: string;
             /** Display Name */
             display_name: string;
+            /** Email */
+            email?: string | null;
         };
         /** SessionInput */
         SessionInput: {
@@ -2898,6 +2955,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthErrorResponse"];
+                };
+            };
+        };
+    };
+    login_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthErrorResponse"];
                 };
             };
         };

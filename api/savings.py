@@ -17,6 +17,7 @@ import secrets
 import sqlite3
 import time
 from typing import Literal, Optional
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -124,9 +125,12 @@ class EmptyInput(Input):
 class Session(BaseModel):
     user_id: str
     display_name: str
+    email: Optional[str] = None
 
 
-class Member(Session):
+class Member(BaseModel):
+    user_id: str
+    display_name: str
     position: int
 
 
@@ -214,6 +218,15 @@ def database(path: Path, *, write: bool = False):
             CREATE TABLE IF NOT EXISTS savings_sessions (
                 token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS savings_credentials (
+                user_id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS savings_recovery_keys (
+                user_id TEXT PRIMARY KEY, key_hash TEXT UNIQUE NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS auth_attempts (
+                scope TEXT PRIMARY KEY, attempts INTEGER NOT NULL, started_at INTEGER NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS savings_receipts (
                 source TEXT NOT NULL, account_id TEXT NOT NULL, receipt_id TEXT NOT NULL,
                 circle_id TEXT NOT NULL, payment_id TEXT NOT NULL,
@@ -244,26 +257,53 @@ def session_user(request: Request, path: Path):
         return None
     with database(path) as conn:
         row = conn.execute(
-            "SELECT u.id AS user_id, u.display_name FROM savings_sessions s JOIN savings_users u ON u.id=s.user_id "
+            "SELECT u.id AS user_id, u.display_name, c.email FROM savings_sessions s "
+            "JOIN savings_users u ON u.id=s.user_id LEFT JOIN savings_credentials c ON c.user_id=u.id "
             "WHERE s.token_hash=? AND s.expires_at>?",
             (hashlib.sha256(token.encode()).hexdigest(), int(time.time())),
         ).fetchone()
     return dict(row) if row else None
 
 
+def require_identity_request(request: Request) -> None:
+    """Identity changes accept JSON from the app's explicitly allowed origins."""
+    if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
+        raise HTTPException(415, "Use application/json for this request.")
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        raise HTTPException(403, "Cross-site account requests are not allowed.")
+    origin = request.headers.get("origin")
+    if origin:
+        allowed = {
+            "http://localhost:3000", "http://127.0.0.1:3000",
+            "http://localhost:3100", "http://127.0.0.1:3100",
+            "http://localhost:3200", "http://127.0.0.1:3200",
+            f"{request.url.scheme}://{request.url.netloc}",
+        }
+        allowed.update(value.strip().rstrip("/") for value in os.environ.get("AJORA_AUTH_ORIGINS", "").split(",") if value.strip())
+        if origin not in allowed:
+            raise HTTPException(403, "This origin cannot make account requests.")
+        try:
+            parsed = urlsplit(origin)
+        except ValueError:
+            raise HTTPException(403, "This origin cannot make account requests.") from None
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise HTTPException(403, "This origin cannot make account requests.")
+
+
 def current_user(request: Request, path: Path = Depends(get_savings_path)) -> dict:
     user = session_user(request, path)
     if user is None:
-        raise HTTPException(401, "Create a savings profile in this browser to continue.")
+        raise HTTPException(401, "Sign in to continue to your savings.")
     return user
 
 
 @router.get("/session", response_model=Session)
-def get_session(user: dict = Depends(current_user)) -> dict:
+def get_session(response: Response, user: dict = Depends(current_user)) -> dict:
+    response.headers["Cache-Control"] = "no-store"
     return user
 
 
-@router.post("/session", status_code=201, response_model=Session)
+@router.post("/session", status_code=201, response_model=Session, dependencies=[Depends(require_identity_request)])
 def create_session(body: SessionInput, request: Request, response: Response, path: Path = Depends(get_savings_path)) -> dict:
     if session_user(request, path):
         raise HTTPException(409, "This browser already has a savings profile.")
@@ -276,6 +316,7 @@ def create_session(body: SessionInput, request: Request, response: Response, pat
         ))
     response.set_cookie(COOKIE, token, httponly=True, samesite="lax", max_age=SESSION_SECONDS,
                         secure=request.url.scheme == "https" or os.environ.get("AJORA_COOKIE_SECURE") == "true")
+    response.headers["Cache-Control"] = "no-store"
     return user
 
 
@@ -330,7 +371,7 @@ def create_circle(body: CreateCircle, user: dict = Depends(current_user), path: 
         "contribution_kobo": body.contribution_kobo, "frequency": body.frequency,
         "member_limit": body.member_limit, "start_date": body.start_date.isoformat(), "rules": body.rules,
         "invite_code": secrets.token_hex(6).upper(), "status": "draft", "current_round": 1,
-        "members": [{**user, "position": 1}], "contributions": [], "payouts": [],
+        "members": [{"user_id": user["user_id"], "display_name": user["display_name"], "position": 1}], "contributions": [], "payouts": [],
         "due_dates": due_dates(body.start_date, body.frequency, body.member_limit), "created_at": now(),
         "collection_account": None, "agreement_version": 1, "acceptances": [], "events": [],
     }
@@ -352,7 +393,7 @@ def join_circle(body: JoinCircle, user: dict = Depends(current_user), path: Path
         require_status(circle, "draft")
         if len(circle["members"]) >= circle["member_limit"]:
             raise HTTPException(409, "This circle is full.")
-        circle["members"].append({**user, "position": len(circle["members"]) + 1})
+        circle["members"].append({"user_id": user["user_id"], "display_name": user["display_name"], "position": len(circle["members"]) + 1})
         revise_agreement(circle, user, "Member joined; review the updated agreement.")
         return save_circle(conn, circle)
 

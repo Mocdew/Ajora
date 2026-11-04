@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3100",
+    "dev": "next dev -p 3200",
     "build": "next build",
-    "start": "next start -p 3100",
+    "start": "next start -p 3200",
     "lint": "eslint app components lib tests playwright.config.ts",
     "test:e2e": "playwright test",
     "gen:api": "openapi-typescript http://localhost:8000/openapi.json -o lib/api/engine-schema.d.ts"
