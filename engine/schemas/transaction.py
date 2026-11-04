@@ -31,7 +31,7 @@ class Transaction(BaseModel):
     `direction`. This keeps the sign convention explicit and bank-agnostic.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, allow_inf_nan=False)
 
     id: str = Field(..., description="Stable unique id (bank-provided or synthesized).")
     account_id: str = Field(..., description="Which of the user's accounts this belongs to.")

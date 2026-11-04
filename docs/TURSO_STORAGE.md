@@ -17,21 +17,26 @@ in AWS US West (Oregon). Use the remote libSQL driver described in
 [Turso's Python quickstart](https://docs.turso.tech/sdk/python/quickstart), rather
 than a local file with periodic synchronization.
 
-Set both values in the Render API service's environment settings:
+Set these values in the Render API service's environment settings:
 
 | Variable | Value |
 | --- | --- |
 | `TURSO_DATABASE_URL` | `libsql://ajora-savings-olumide.aws-us-west-2.turso.io` |
 | `TURSO_AUTH_TOKEN` | A database-scoped read/write token for `ajora-savings` |
+| `AJORA_REQUIRE_REMOTE_SAVINGS` | `true`, as set by the Render Blueprint |
 
 Keep the token out of Git, application responses, screenshots, and logs. Do not
 put it in Vercel or any `NEXT_PUBLIC_` variable. The browser continues using the
 existing same-origin `/api/engine/...` proxy; only FastAPI connects to Turso.
 
-Both variables unset selects the local SQLite development mode at
-`AJORA_STATE_DIR/savings.sqlite3`. Partial or invalid configuration must fail
-clearly. Keep both variables configured on Render so the hosted API uses Turso.
-An unavailable configured remote store must never trigger local fallback.
+With both Turso variables and `AJORA_REQUIRE_REMOTE_SAVINGS` unset, the API selects
+the local SQLite development mode at `AJORA_STATE_DIR/savings.sqlite3`. The
+Blueprint sets the remote requirement to `true`, so missing Turso configuration
+fails instead of accepting savings writes to Render's temporary filesystem. Keep
+the guard enabled and both Turso variables configured on Render. Partial or
+invalid configuration must fail clearly. An unavailable configured remote store
+must never trigger local fallback. For isolated local rehearsals or browser
+tests, unset all three variables and use a fresh `AJORA_STATE_DIR`.
 
 The existing `AJORA_DEMO_EMAIL` and `AJORA_DEMO_PASSWORD` settings can remain on
 Render. Once Turso is active, startup creates the normal demo account only if it

@@ -75,3 +75,22 @@ def test_recovery_key_generation_requires_session_and_does_not_create_identities
     assert fresh.post("/savings/recover", json={"recovery_key": "ajora_" + "x" * 43}).status_code == 401
     with sqlite3.connect(path) as conn:
         assert conn.execute("SELECT count(*) FROM savings_users").fetchone()[0] == 1
+
+
+@pytest.mark.parametrize("payload", [
+    {"recovery_key": "ajora_private_short_key"},
+    {"recovery_key": "ajora_" + "private" * 20},
+    {"recovery_key": "ajora_" + "x" * 43, "unexpected": "value"},
+])
+def test_recovery_validation_never_echoes_secret_keys(identity, payload):
+    _, fresh, _, _ = identity
+    response = fresh.post("/savings/recover", json=payload)
+    assert response.status_code == 422
+    assert payload["recovery_key"] not in response.text
+    assert "input" not in response.json()
+    assert response.headers["Cache-Control"] == "no-store"
+
+
+def test_recovery_validation_schema_matches_redacted_error_response():
+    response = app.openapi()["paths"]["/savings/recover"]["post"]["responses"]["422"]
+    assert response["content"]["application/json"]["schema"]["$ref"].endswith("/RecoveryErrorResponse")

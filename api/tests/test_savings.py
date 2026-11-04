@@ -1,6 +1,7 @@
 """Savings agreements, permissions, money and lifecycle regressions."""
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
+import json
 import sqlite3
 
 from fastapi.testclient import TestClient
@@ -98,6 +99,19 @@ def test_browser_identity_is_secret_and_not_replaceable(savings):
     response = unknown.post("/savings/session", json={"display_name": "New Member"})
     assert "HttpOnly" in response.headers["set-cookie"]
     assert "SameSite=lax" in response.headers["set-cookie"]
+
+
+def test_circle_mutations_require_json_and_an_allowed_origin(savings):
+    clients, _ = savings
+    owner, member, *_ = clients
+    circle = create(owner).json()
+    base = f"/savings/circles/{circle['id']}"
+    hostile = {"Origin": "https://evil.example"}
+    assert owner.post(f"{base}/agreement/accept", json={"version": 1}, headers=hostile).status_code == 403
+    assert member.post("/savings/join", json={"invite_code": circle["invite_code"]}, headers={"Sec-Fetch-Site": "cross-site"}).status_code == 403
+    assert owner.post(f"{base}/agreement/accept", content=json.dumps({"version": 1})).status_code == 415
+    assert owner.get(base).json()["acceptances"] == []
+    assert owner.post(f"{base}/agreement/accept", json={"version": 1}, headers={"Origin": "http://localhost:3200"}).status_code == 200
 
 
 def test_private_membership_and_organiser_permissions(savings):

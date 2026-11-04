@@ -23,8 +23,13 @@ def seed_demo_account(path: Path) -> None:
 
     with database(path, write=True) as conn:
         existing = conn.execute(
-            "SELECT password_hash FROM savings_credentials WHERE email=?", (account.email,),
+            "SELECT user_id, password_hash FROM savings_credentials WHERE email=?", (account.email,),
         ).fetchone()
+        google = conn.execute(
+            "SELECT user_id FROM savings_google_accounts WHERE email=?", (account.email,),
+        ).fetchone()
+        if google and (not existing or google["user_id"] != existing["user_id"]):
+            raise RuntimeError("Configured demo credentials conflict with an existing Google account.")
         if existing:
             if not verify_password(account.password, existing["password_hash"]):
                 raise RuntimeError("Configured demo credentials conflict with an existing account.")

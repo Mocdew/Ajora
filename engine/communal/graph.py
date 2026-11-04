@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Dict, List, Optional, Set, Tuple
 
 import networkx as nx
@@ -62,7 +63,7 @@ class CounterpartyStats:
     out_amounts_ngn: List[float] = field(default_factory=list)
     in_amounts_ngn: List[float] = field(default_factory=list)
     _months: Set[Tuple[int, int]] = field(default_factory=set)
-    first_out_ts: Optional[object] = None
+    first_out_ts: Optional[datetime] = None
 
     @property
     def months_active(self) -> int:

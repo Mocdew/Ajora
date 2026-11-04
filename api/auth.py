@@ -132,6 +132,8 @@ def register(body: RegisterInput, request: Request, response: Response, path: Pa
     encoded = hash_password(body.password)
     try:
         with database(path, write=True) as conn:
+            if conn.execute("SELECT 1 FROM savings_google_accounts WHERE email=?", (body.email,)).fetchone():
+                raise HTTPException(409, "An account already uses these details. Sign in with Google instead.")
             if existing:
                 # Recovery may revoke the guest session while hashing runs. Check
                 # its authority again under the same lock that attaches credentials.
@@ -141,7 +143,11 @@ def register(body: RegisterInput, request: Request, response: Response, path: Pa
                 ).fetchone()
                 if active is None:
                     raise HTTPException(401, "Your session changed. Restore your profile before registering.")
-                if conn.execute("SELECT 1 FROM savings_credentials WHERE user_id=?", (existing["user_id"],)).fetchone():
+                if conn.execute(
+                    "SELECT 1 FROM savings_credentials WHERE user_id=? UNION ALL "
+                    "SELECT 1 FROM savings_google_accounts WHERE user_id=?",
+                    (existing["user_id"], existing["user_id"]),
+                ).fetchone():
                     raise HTTPException(409, "This profile already has an account. Sign in instead.")
             # Preserve the original identity/name referenced by existing circles.
             user = existing or {"user_id": secrets.token_hex(16), "display_name": body.display_name}
@@ -164,8 +170,10 @@ def login(body: LoginInput, request: Request, response: Response, path: Path = D
     check_attempts(request, body.email, path, "login")
     with database(path) as conn:
         row = conn.execute(
-            "SELECT u.id AS user_id, u.display_name, c.email, c.password_hash FROM savings_credentials c "
-            "JOIN savings_users u ON u.id=c.user_id WHERE c.email=?", (body.email,),
+            "SELECT u.id AS user_id, u.display_name, c.email, c.password_hash, "
+            "g.sub IS NOT NULL AS google_linked FROM savings_credentials c "
+            "JOIN savings_users u ON u.id=c.user_id LEFT JOIN savings_google_accounts g ON g.user_id=u.id "
+            "WHERE c.email=?", (body.email,),
         ).fetchone()
     valid = verify_password(body.password, row["password_hash"] if row else _DUMMY_PASSWORD_HASH)
     if row is None or not valid:
@@ -174,4 +182,5 @@ def login(body: LoginInput, request: Request, response: Response, path: Path = D
         token = issue_session(conn, row["user_id"])
         conn.execute("DELETE FROM auth_attempts WHERE scope=?", (email_scope("login", body.email),))
     set_session_cookie(request, response, token)
-    return {"user_id": row["user_id"], "display_name": row["display_name"], "email": row["email"]}
+    return {"user_id": row["user_id"], "display_name": row["display_name"], "email": row["email"],
+            "google_linked": bool(row["google_linked"])}

@@ -195,9 +195,12 @@ def _graph_elements(
     edges: List[GraphEdge] = []
 
     for ins in insights.insights:
+        # One person can have several relationship types. Cytoscape requires
+        # globally unique element IDs, so keep their identity separate from labels.
+        node_id = f"counterparty:{ins.relationship_type}:{ins.counterparty}"
         nodes.append(
             GraphNode(
-                id=ins.counterparty,
+                id=node_id,
                 label=ins.counterparty,
                 kind="counterparty",
                 relationship_type=ins.relationship_type,
@@ -212,11 +215,11 @@ def _graph_elements(
         )
         net_outflow = ins.net_position_ngn >= 0
         source, target = (
-            (USER_NODE_ID, ins.counterparty) if net_outflow else (ins.counterparty, USER_NODE_ID)
+            (USER_NODE_ID, node_id) if net_outflow else (node_id, USER_NODE_ID)
         )
         edges.append(
             GraphEdge(
-                id=f"{source}->{target}",
+                id=f"relationship:{ins.relationship_type}:{ins.counterparty}",
                 source=source,
                 target=target,
                 relationship_type=ins.relationship_type,

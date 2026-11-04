@@ -14,6 +14,7 @@ htmlcov
 # Frontend tree (the web image builds from ./web with its own context)
 web/node_modules
 web/.next
+web/.next-dev
 web/out
 
 # Runtime / durable state (never bake into the image)

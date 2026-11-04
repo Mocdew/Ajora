@@ -165,16 +165,16 @@ function buildElements(graph: GraphResponse): Built {
   });
 
   const edges: cytoscape.ElementDefinition[] = graph.edges.map((e) => {
-    // The engine emits source = __user__. For flows that arrive at the user
-    // (money owed/received), flip so the arrow points back at the hub.
+    // Orient the arrow relative to the hub, including engine edges whose
+    // source is already the counterparty (incoming remittances).
     const other = byId.get(e.target === "__user__" ? e.source : e.target);
     const flow = other ? nodeFlow(other) : "neutral";
     const pointsAtUser = flow === "in";
     return {
       data: {
         id: e.id,
-        source: pointsAtUser ? e.target : e.source,
-        target: pointsAtUser ? e.source : e.target,
+        source: other ? pointsAtUser ? other.id : "__user__" : e.source,
+        target: other ? pointsAtUser ? "__user__" : other.id : e.target,
         label: other ? edgeLabel(other) : e.label,
         direction: flow,
         volume: other ? nodeVolume(other) : e.total_ngn,
@@ -544,7 +544,7 @@ export function RelationshipGraph() {
   const selectedInsight = selectedNode
     ? insightsData?.insights.insights?.find(
         (i) =>
-          i.counterparty === selectedNode.id &&
+          i.counterparty === selectedNode.label &&
           i.relationship_type === selectedNode.relationship_type,
       )
     : undefined;

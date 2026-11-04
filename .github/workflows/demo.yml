@@ -15,6 +15,9 @@ jobs:
       - run: python -m scripts.run_explainer_eval
   web:
     runs-on: ubuntu-latest
+    env:
+      # Google browser tests mock GIS and the login API; this is not a credential.
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ajora-test.apps.googleusercontent.com
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

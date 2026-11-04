@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { engineGet, enginePost } from "./engine";
+import { EngineError, engineGet, enginePost } from "./engine";
 
 import type { components } from "./engine-schema";
 
@@ -13,8 +13,15 @@ export type InvitationPreview = components["schemas"]["InvitationPreview"];
 export function useSavingsSession() {
   return useQuery({
     queryKey: ["savings-session"],
-    queryFn: ({ signal }) =>
-      engineGet<SavingsSession>("/savings/session", signal),
+    queryFn: async ({ signal }) => {
+      try {
+        return await engineGet<SavingsSession>("/savings/session", signal);
+      } catch (error) {
+        // A checked, signed-out session is data so refreshes keep the form mounted.
+        if (error instanceof EngineError && error.status === 401) return null;
+        throw error;
+      }
+    },
     retry: false,
     refetchInterval: 10_000,
     refetchOnWindowFocus: "always",

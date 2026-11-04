@@ -43,6 +43,108 @@ async function circle(page: Page, name: string) {
   return response.json() as Promise<Circle>;
 }
 
+for (const mode of ["Create account", "Log in"] as const) {
+  test(`${mode} preserves entered values and focus after a background session failure`, async ({ page }) => {
+    await page.clock.install();
+    let checks = 0;
+    await page.route("**/api/engine/savings/session", (route) => route.fulfill(++checks === 1
+      ? { status: 401, json: { detail: "Sign in to continue." } }
+      : { status: 503, json: { detail: "Service temporarily unavailable." } }));
+    await page.goto("/dashboard");
+    await expect(page.getByRole("form", { name: "Create account", exact: true })).toBeVisible();
+    if (mode === "Log in") await page.getByRole("button", { name: mode, exact: true }).click();
+    const form = page.getByRole("form", { name: mode, exact: true });
+    const email = form.getByLabel("Email address", { exact: true });
+    const secret = form.getByLabel("Password", { exact: true });
+    await email.fill("ada-form@example.com");
+    await secret.fill(password);
+    const response = page.waitForResponse("**/api/engine/savings/session");
+    await page.clock.runFor(10_000);
+    expect((await response).status()).toBe(503);
+    await expect(form).toBeVisible();
+    await expect(email).toHaveValue("ada-form@example.com");
+    await expect(secret).toHaveValue(password);
+    await expect(secret).toBeFocused();
+  });
+
+  for (const refresh of ["polling", "window focus"] as const) {
+    test(`${mode} preserves the form during session ${refresh}`, async ({ page }) => {
+      await page.clock.install();
+      let checks = 0;
+      let releaseRefresh!: () => void;
+      const refreshReleased = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+      await page.route("**/api/engine/savings/session", async (route) => {
+        if (++checks > 1) await refreshReleased;
+        await route.fulfill({ status: 401, json: { detail: "Sign in to continue." } });
+      });
+      await page.goto("/dashboard");
+      await expect(page.getByRole("form", { name: "Create account", exact: true })).toBeVisible();
+      if (mode === "Log in") await page.getByRole("button", { name: mode, exact: true }).click();
+      const form = page.getByRole("form", { name: mode, exact: true });
+      const email = form.getByLabel("Email address", { exact: true });
+      const secret = form.getByLabel("Password", { exact: true });
+      if (mode === "Create account") {
+        await form.getByLabel("What should your circle call you?").fill("Ada Form");
+        await form.getByLabel("Confirm password", { exact: true }).fill(password);
+      }
+      await email.fill("ada-form@example.com");
+      await secret.fill(password);
+      const request = page.waitForRequest("**/api/engine/savings/session");
+      const response = page.waitForResponse("**/api/engine/savings/session");
+      if (refresh === "polling") await page.clock.runFor(10_000);
+      else await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+      await request;
+      try {
+        await expect(form).toBeVisible();
+        await expect(secret).toBeFocused();
+        await expect(email).toHaveValue("ada-form@example.com");
+        await expect(secret).toHaveValue(password);
+      } finally {
+        releaseRefresh();
+      }
+      await response;
+      expect(checks).toBe(2);
+      await expect(form).toBeVisible();
+      await expect(email).toHaveValue("ada-form@example.com");
+      await expect(secret).toHaveValue(password);
+      await expect(secret).toBeFocused();
+      if (mode === "Create account") {
+        await expect(form.getByLabel("What should your circle call you?")).toHaveValue("Ada Form");
+        await expect(form.getByLabel("Confirm password", { exact: true })).toHaveValue(password);
+      }
+    });
+  }
+}
+
+test("an initial session failure offers a retry before showing the authentication form", async ({ page }) => {
+  let checks = 0;
+  await page.route("**/api/engine/savings/session", (route) => route.fulfill(++checks === 1
+    ? { status: 503, json: { detail: "Service temporarily unavailable." } }
+    : { status: 401, json: { detail: "Sign in to continue." } }));
+  await page.goto("/dashboard");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Service temporarily unavailable.");
+  await expect(page.getByRole("form", { name: "Create account", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByRole("form", { name: "Create account", exact: true })).toBeVisible();
+});
+
+test("session expiry removes private account content", async ({ page }) => {
+  await page.clock.install();
+  let expired = false;
+  await page.route("**/api/engine/savings/session", (route) => route.fulfill(expired
+    ? { status: 401, json: { detail: "Your session has expired." } }
+    : { json: { user_id: "ada-private", display_name: "Ada Private", email: "ada-private@example.com" } }));
+  await page.route("**/api/engine/savings/circles", (route) => route.fulfill({ json: [] }));
+  await page.goto("/dashboard");
+  await expect(page.getByText("Account access · Ada Private", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Save together. Grow together." })).toBeVisible();
+  expired = true;
+  await page.clock.runFor(10_000);
+  await expect(page.getByRole("form", { name: "Create account", exact: true })).toBeVisible();
+  await expect(page.getByText("Account access · Ada Private", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Save together. Grow together." })).toHaveCount(0);
+});
+
 test("registration validates confirmation, login returns the same circles, and signout clears private data", async ({ page }, testInfo) => {
   const email = emailAddress();
   await page.goto("/dashboard");

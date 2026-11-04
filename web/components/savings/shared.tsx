@@ -18,6 +18,7 @@ import {
 } from "@/lib/api/savings";
 import { formatNaira } from "@/lib/utils";
 import { CircleMotif } from "./circle-motif";
+import { GoogleSignIn } from "./google-sign-in";
 
 export const inputClass =
   "mt-2 w-full rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground transition-colors placeholder:text-muted-foreground/70 hover:border-foreground/30";
@@ -102,6 +103,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
   const [confirmation, setConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [googlePending, setGooglePending] = useState(false);
   const registering = mode === "register";
   const mismatch = registering && password !== confirmation;
   const auth = useMutation({
@@ -117,6 +119,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
       await replaceSavingsSession(client, identity);
     },
   });
+  const pending = auth.isPending || googlePending;
 
   return (
     <div
@@ -130,7 +133,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
               type="button"
               className={`flex-1 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${mode === option ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               aria-pressed={mode === option}
-              disabled={auth.isPending}
+              disabled={pending}
               onClick={() => {
                 setMode(option);
                 setPassword("");
@@ -145,13 +148,22 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
           ))}
         </div>
       )}
+      <GoogleSignIn
+        disabled={pending}
+        onPendingChange={setGooglePending}
+        onSuccess={async (identity) => {
+          setPassword("");
+          setConfirmation("");
+          await replaceSavingsSession(client, identity);
+        }}
+      />
       <form
         className="space-y-5"
         aria-label={guest ? "Upgrade your profile" : registering ? "Create account" : "Log in"}
         onSubmit={(event) => {
           event.preventDefault();
           setSubmitted(true);
-          if (!mismatch) auth.mutate();
+          if (!mismatch && !pending) auth.mutate();
         }}
       >
       <div className="border-b border-border pb-5">
@@ -160,7 +172,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
           <span className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary/60"><Fingerprint className="h-5 w-5" aria-hidden /></span>
         </div>
         <h2 className="text-2xl font-medium tracking-tight">{guest ? "Add a login to your profile." : registering ? "Make room for your goals." : "Return to your circles."}</h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">{guest ? "Keep your existing circles and history. Your old recovery key will stop working once you create your account." : registering ? "Create an account to save with your people and return on any device." : "Sign in with the email and password you used to create your account."}</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">{guest ? "Keep your existing circles and history. Your old recovery key will stop working once you create your account." : registering ? "Create an account to save with your people and return on any device." : "Use the same sign-in method you used to create your account."}</p>
       </div>
       {registering && (
         <label className="block text-sm font-medium" htmlFor={`${id}-name`}>
@@ -176,7 +188,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
             maxLength={80}
             autoComplete="name"
             placeholder="Your name"
-            disabled={auth.isPending}
+            disabled={pending}
           />
         </label>
       )}
@@ -194,7 +206,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
           autoCapitalize="none"
           spellCheck={false}
           placeholder="you@example.com"
-          disabled={auth.isPending}
+          disabled={pending}
         />
       </label>
       <label className="block text-sm font-medium" htmlFor={`${id}-password`}>
@@ -210,7 +222,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
           maxLength={128}
           autoComplete={registering ? "new-password" : "current-password"}
           aria-describedby={registering ? `${id}-password-hint` : undefined}
-          disabled={auth.isPending}
+          disabled={pending}
         />
       </label>
       {registering && <p id={`${id}-password-hint`} className="!mt-2 text-xs leading-5 text-muted-foreground">Use 15–128 characters. A few memorable words work well.</p>}
@@ -228,7 +240,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
             autoComplete="new-password"
             aria-invalid={submitted && mismatch || undefined}
             aria-describedby={submitted && mismatch ? `${id}-mismatch` : undefined}
-            disabled={auth.isPending}
+            disabled={pending}
           />
         </label>
       )}
@@ -241,7 +253,7 @@ function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
       <button
         type="submit"
         className="btn-primary w-full"
-        disabled={auth.isPending}
+        disabled={pending}
       >
         {auth.isPending ? registering ? "Creating account…" : "Signing in…" : registering ? "Create account" : "Log in"}
         <ArrowRight className="h-4 w-4" aria-hidden />
@@ -271,16 +283,14 @@ export function SavingsGate({
     },
   });
   if (session.isPending) return <Loading />;
-  const unauthorized =
-    session.error instanceof EngineError && session.error.status === 401;
-  if (session.data && !unauthorized)
+  if (session.data)
     return (
       <>
         <AccountAccess key={`${session.data.user_id}:${session.data.email ?? ""}`} session={session.data} />
         {children(session.data)}
       </>
     );
-  if (!unauthorized)
+  if (session.error && session.data === undefined)
     return (
       <ErrorNotice error={session.error} retry={() => session.refetch()} />
     );
@@ -368,6 +378,7 @@ export function SavingsGate({
 function AccountAccess({ session }: { session: SavingsSession }) {
   const client = useQueryClient();
   const [key, setKey] = useState("");
+  const [googlePending, setGooglePending] = useState(false);
   const recovery = useMutation({
     mutationFn: () =>
       enginePost<{ recovery_key: string }>("/savings/recovery-key", {}),
@@ -391,7 +402,13 @@ function AccountAccess({ session }: { session: SavingsSession }) {
         </summary>
         <div className="mt-4 space-y-4">
           {session.email ? (
-            <p className="break-all text-sm text-muted-foreground">Signed in as {session.email}</p>
+            <div className="space-y-3">
+              <p className="break-all text-sm text-muted-foreground">Signed in as {session.email}</p>
+              {session.google_linked ? <p className="text-xs text-muted-foreground">Google is connected to your account.</p> : <>
+                {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() && <p className="text-xs text-muted-foreground">Connect Google using this email to sign in to your existing account.</p>}
+                <GoogleSignIn disabled={logout.isPending} onPendingChange={setGooglePending} onSuccess={(identity) => replaceSavingsSession(client, identity)} />
+              </>}
+            </div>
           ) : (
             <>
               <AuthenticationForm guest={session} />
@@ -405,7 +422,7 @@ function AccountAccess({ session }: { session: SavingsSession }) {
             {!session.email && <button
               type="button"
               className="btn-secondary"
-              disabled={recovery.isPending}
+              disabled={recovery.isPending || googlePending}
               onClick={() => {
                 if (
                   window.confirm(
@@ -420,7 +437,7 @@ function AccountAccess({ session }: { session: SavingsSession }) {
             <button
               type="button"
               className="btn-secondary"
-              disabled={logout.isPending}
+              disabled={logout.isPending || googlePending}
               onClick={() => {
                 if (session.email ||
                   window.confirm(

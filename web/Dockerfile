@@ -16,6 +16,9 @@ COPY . .
 # (AJORA_API_BASE) must be present now; a runtime-only env is ignored by `next start`.
 ARG AJORA_API_BASE=http://api:8000
 ENV AJORA_API_BASE=$AJORA_API_BASE
+# Public Google client ID is compiled into the browser bundle.
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 RUN npm run build
 
 EXPOSE 3000

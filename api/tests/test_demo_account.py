@@ -6,6 +6,7 @@ import pytest
 
 from api.demo_account import seed_demo_account
 from api.main import app
+from api.savings import database
 
 
 PASSWORD = "test demo passphrase only"
@@ -61,6 +62,17 @@ def test_unconfigured_startup_does_not_create_state(demo, monkeypatch):
     monkeypatch.delenv("AJORA_DEMO_PASSWORD")
     seed_demo_account(demo)
     assert not demo.exists()
+
+
+def test_demo_bootstrap_cannot_claim_an_existing_google_email(demo):
+    with database(demo, write=True) as conn:
+        conn.execute("INSERT INTO savings_users VALUES ('google-user', 'Google member')")
+        conn.execute("INSERT INTO savings_google_accounts VALUES ('google-sub', 'google-user', 'demo@example.com')")
+    with pytest.raises(RuntimeError, match="conflict"):
+        seed_demo_account(demo)
+    with sqlite3.connect(demo) as conn:
+        assert conn.execute("SELECT count(*) FROM savings_users").fetchone()[0] == 1
+        assert conn.execute("SELECT count(*) FROM savings_credentials").fetchone()[0] == 0
 
 
 @pytest.mark.parametrize("email,password", [(None, PASSWORD), ("demo@example.com", None), ("invalid", PASSWORD), ("demo@example.com", "short")])

@@ -30,6 +30,10 @@ class RecoveryKeyResponse(Input):
     recovery_key: str
 
 
+class RecoveryErrorResponse(Input):
+    detail: str
+
+
 def key_hash(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
@@ -46,11 +50,15 @@ def replace_recovery_key(
     path: Path = Depends(get_savings_path),
 ) -> dict:
     if user.get("email"):
-        raise HTTPException(403, "Use your email and password to access this account.")
+        raise HTTPException(403, "Use your account sign-in method to access this account.")
     key = "ajora_" + secrets.token_urlsafe(32)
     with database(path, write=True) as conn:
-        if conn.execute("SELECT 1 FROM savings_credentials WHERE user_id=?", (user["user_id"],)).fetchone():
-            raise HTTPException(403, "Use your email and password to access this account.")
+        if conn.execute(
+            "SELECT 1 FROM savings_credentials WHERE user_id=? UNION ALL "
+            "SELECT 1 FROM savings_google_accounts WHERE user_id=?",
+            (user["user_id"], user["user_id"]),
+        ).fetchone():
+            raise HTTPException(403, "Use your account sign-in method to access this account.")
         ensure_recovery_table(conn)
         conn.execute(
             "INSERT INTO savings_recovery_keys (user_id, key_hash) VALUES (?, ?) "
@@ -61,7 +69,7 @@ def replace_recovery_key(
     return {"recovery_key": key}
 
 
-@router.post("/recover", response_model=Session)
+@router.post("/recover", response_model=Session, responses={422: {"model": RecoveryErrorResponse}})
 def recover_identity(
     body: RecoverInput, request: Request, response: Response,
     path: Path = Depends(get_savings_path),
@@ -72,7 +80,8 @@ def recover_identity(
         row = conn.execute(
             "SELECT u.id AS user_id, u.display_name FROM savings_recovery_keys r "
             "JOIN savings_users u ON u.id=r.user_id "
-            "WHERE r.key_hash=? AND NOT EXISTS (SELECT 1 FROM savings_credentials c WHERE c.user_id=u.id)",
+            "WHERE r.key_hash=? AND NOT EXISTS (SELECT 1 FROM savings_credentials c WHERE c.user_id=u.id) "
+            "AND NOT EXISTS (SELECT 1 FROM savings_google_accounts g WHERE g.user_id=u.id)",
             (key_hash(body.recovery_key),),
         ).fetchone()
         if row is None:

@@ -3,21 +3,24 @@
 HTTP API for **Ajora** — ajo/esusu savings circles, contribution records, and
 payout turns, with supporting financial insights.
 
-- **Stack:** FastAPI + Pydantic v2, with standard-library SQLite for savings state.
+- **Stack:** FastAPI + Pydantic v2, with local SQLite or Turso managed SQLite for savings state.
 - **Durable circles:** membership, versioned agreements, instalments, receipt
   allocations, correction events and payout records live in
   `AJORA_STATE_DIR/savings.sqlite3` (repository root by default). No database server
-  is required.
+  is required locally. Hosted savings uses Turso when `TURSO_DATABASE_URL` and
+  `TURSO_AUTH_TOKEN` are both configured; remote commit is required before a write
+  succeeds, with no local fallback on failure. See
+  [Durable savings on free hosting](../docs/TURSO_STORAGE.md).
 - **Ephemeral bank analytics:** the separate engine processes imported transactions
   in memory. Its existing access, consent, and correction logs are append-only files.
 - **External payments:** contribution submission records a member's claim. Organisers
   manually confirm receipt or approve a match against a labelled demo feed. Demo
   matches do not verify real bank payments. Payout recording does not initiate a
   bank transfer; the recipient separately confirms receipt.
-- **Account access:** email/password registration and login establish an HttpOnly
+- **Account access:** email/password or configured Google sign-in establish an HttpOnly
   cookie session. Existing browser-only profiles can add credentials while keeping
   their identity and membership; legacy recovery keys work only before this upgrade.
-  Email ownership verification and password-reset emails are not implemented yet.
+  Email verification for password accounts and password-reset emails are not implemented yet.
   Savings identities remain independent of legacy analytics personas.
 
 > **Interactive docs are built in:** run the server and open
@@ -62,6 +65,12 @@ salted PBKDF2-HMAC-SHA256 hashes with 600,000 iterations; passwords are not trim
 Save the password privately: email verification and password-reset emails are not
 implemented yet.
 
+For Google sign-in, follow [Google Cloud setup](../docs/GOOGLE_SIGN_IN.md). Set
+`AJORA_GOOGLE_CLIENT_ID` on this API and the matching
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID` on the frontend. Google accounts use the same
+SQLite store and session cookie. Password users can connect their matching Google
+account after signing in; accounts are not automatically merged by email.
+
 Registering while signed in to a browser-only profile attaches credentials to the
 same user ID, preserving circles and history. This upgrade revokes prior sessions
 and removes its legacy recovery key. Registering an already registered profile,
@@ -77,8 +86,12 @@ non-default frontend port. Local `localhost` and `127.0.0.1` origins on ports 30
 Next.js `AJORA_API_BASE` proxy target.
 
 For Vercel frontend hosting, run this API on a separate service. The included
-Render configuration uses the free plan and temporary storage: accounts and
-circle records can reset on restart or deployment. See
+Render configuration uses the free plan with Turso settings supplied separately.
+Configure both Turso variables to retain savings. The Blueprint sets
+`AJORA_REQUIRE_REMOTE_SAVINGS=true`, so missing remote configuration fails instead
+of accepting temporary savings writes. With both Turso variables and the guard
+unset, the API uses local SQLite for development. Separate local
+analytics logs remain temporary. See
 [Deploying Ajora](../docs/DEPLOYMENT.md) for the configuration, frontend origins,
 and GitHub deployment setup.
 
@@ -90,8 +103,10 @@ login credentials return the same 401 message for unknown emails and wrong passw
 |---|---|
 | `POST /auth/register` | Register or upgrade a browser-only profile with `{display_name, email, password}`; returns `{user_id, display_name, email}` and a session cookie |
 | `POST /auth/login` | Sign in with `{email, password}`; returns `{user_id, display_name, email}` and a session cookie |
+| `POST /auth/google/challenge` | With `{}`, start a single-use Google sign-in challenge; returns `{client_id, nonce}` and a short-lived challenge cookie |
+| `POST /auth/google` | Verify `{credential}` from Google's popup, create/sign in/link an account, and issue the existing session cookie |
 | `POST /savings/session` | Legacy compatibility: create a browser-only identity with `{ "display_name": "Ada" }`; new app onboarding uses registration |
-| `GET /savings/session` | Read the current `{user_id, display_name, email}`; `email` is null for a browser-only profile; 401 without a session |
+| `GET /savings/session` | Read the current `{user_id, display_name, email, google_linked}`; `email` is null for a browser-only profile; 401 without a session |
 | `POST /savings/recovery-key` | Browser-only profiles: with `{}`, generate or replace a key; returns `{recovery_key}` once and invalidates the previous key |
 | `POST /savings/recover` | Restore a browser-only identity using `{recovery_key}` and set a new session cookie; revoke its previous sessions |
 | `POST /savings/logout` | With `{}`, revoke the current session and clear its cookie; returns 204 |
@@ -172,9 +187,12 @@ matches return 409. Invalid recovery keys return 401; malformed keys return 422.
 Reason fields accept 3–500 characters.
 
 For local or Docker records you intend to retain, keep SQLite state on a
-persistent volume and retain a backup. The free Render demo uses temporary
-storage and can lose its records on restart or deployment. Existing savings
-records remain readable; add email/password access while their browser sessions are
+persistent volume and retain a backup. Hosted savings can use Turso managed
+SQLite; follow the backup and cutover steps in
+[Durable savings on free hosting](../docs/TURSO_STORAGE.md) before switching an
+existing service. Updating code does not migrate records or change live storage.
+Do not disable the remote requirement on Render Free: its local SQLite can lose
+records. Existing savings records remain readable; add email/password access while their browser sessions are
 still accessible, or restore a legacy profile with its saved key first. The demo collection account is for rehearsal. Live bank
 connections and payment processing are not implemented.
 
@@ -585,8 +603,9 @@ subsequent reads apply the latest verdict: confirm includes the pair in deduplic
 
 ### Analytics durable state
 
-The analytics service uses append-only files. Savings-circle records use SQLite
-as described above:
+The analytics service uses append-only files. Savings-circle records use local
+SQLite or Turso as described above. Turso does not retain these separate files;
+they remain temporary on Render Free unless separately persisted:
 
 - **`consent.jsonl`** (repo root) — one grant/revoke **event** per line
   (`{ts, user_id, account_id, institution, action}`). Current consent is the fold of

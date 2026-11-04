@@ -142,6 +142,8 @@ def _connect_remote(url: str, token: str):
 def connect_savings(path: Path):
     url = os.environ.get("TURSO_DATABASE_URL")
     token = os.environ.get("TURSO_AUTH_TOKEN")
+    if os.environ.get("AJORA_REQUIRE_REMOTE_SAVINGS") == "true" and not (url and token):
+        raise RuntimeError("Remote savings storage is required. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together.")
     if url is None and token is None:
         path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(path, timeout=15)

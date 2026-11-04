@@ -30,6 +30,8 @@ if (onVercel && (apiUrl.protocol !== "https:" || ["localhost", "127.0.0.1", "0.0
 const AJORA_API_BASE = apiUrl.origin;
 
 const nextConfig: NextConfig = {
+  // A production build must not delete chunks used by the running dev server.
+  distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   async rewrites() {
     return [
       {

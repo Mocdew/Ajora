@@ -29,7 +29,7 @@ already know each other.
 | Reconcile contributions | Organisers confirm external receipts manually or approve exact reference-and-amount matches from the demo feed. A matched receipt cannot fund two payments. |
 | Confirm payouts | An organiser reports a payout as sent. Its recipient confirms receipt or reports a problem; only receipt confirmation advances the round. |
 | Keep the shared history | Agreement snapshots, payment decisions, corrections, and payout discrepancies remain visible. |
-| Return and stay informed | Email/password login restores access to your circles; polling and refresh show updates. WhatsApp actions prepare invitations, reminders, and summaries for you to send. |
+| Return and stay informed | Email/password or configured Google sign-in restores access to your circles; polling and refresh show updates. WhatsApp actions prepare invitations, reminders, and summaries for you to send. |
 
 **Current status:** Ajora is a working MVP with a simulated bank feed. Demo matches
 exercise reconciliation; they do not verify real bank payments. Live Mono
@@ -67,6 +67,9 @@ Open [Ajora at localhost:3200](http://localhost:3200). The API runs on port 8000
 its [interactive reference](http://localhost:8000/docs) documents the endpoints.
 The frontend proxies API calls through the same origin.
 
+To enable Google sign-in using the same SQLite accounts, follow
+[Google Cloud setup](docs/GOOGLE_SIGN_IN.md).
+
 With Docker Compose, you can instead run:
 
 ```bash
@@ -77,9 +80,13 @@ The containerised app opens at [localhost:3000](http://localhost:3000). Compose
 retains savings state in the `api-state` volume.
 
 For GitHub deployments, follow [Deploying Ajora](docs/DEPLOYMENT.md): Vercel hosts
-the frontend, and Render's free plan runs the demo API. Accounts and circle
-records on that free API can reset on restart or deployment. Pushing to the
-configured production branch triggers a fresh deployment.
+the frontend, and Render's free plan runs the API. The included Blueprint requires
+Turso managed SQLite for hosted accounts and circle records; missing credentials
+fail instead of accepting writes to temporary local storage. Follow the backup
+and cutover steps in
+[Durable savings on free hosting](docs/TURSO_STORAGE.md) before switching an
+existing service. Pushing to the configured production branch triggers a fresh
+deployment; it does not migrate saved records.
 
 ### Try a complete circle
 
@@ -97,16 +104,20 @@ configuration, and browser tests.
 
 Local circle records live in `AJORA_STATE_DIR/savings.sqlite3`. SQLite stores
 membership, agreements, contributions, receipt allocations, payout records,
-account emails, salted password hashes, session and legacy recovery-key hashes,
+account emails, Google account identifiers, salted password hashes, session and legacy recovery-key hashes,
 and the shared event history. No database server is required.
 The state directory defaults to the repository root; use a persistent volume and
 back it up when retaining records. Removing the Compose volume removes its saved
-records. The free Render demo uses temporary storage instead, so its accounts and
-circles can reset when the service restarts or deploys.
+records. Hosted savings can use the approved Turso managed SQLite service: set
+`TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` together on the API. Turso becomes the
+authoritative savings store, and writes succeed only after remote commit; a
+remote failure never falls back to a local file. With both variables unset and
+`AJORA_REQUIRE_REMOTE_SAVINGS` unset or `false`, the API uses local SQLite. The
+Render Blueprint sets this guard to `true`, requiring remote configuration.
 
-Accounts use email/password login and a 30-day HttpOnly session cookie. Passwords
+Accounts use email/password or configured Google sign-in with a 30-day HttpOnly session cookie. Passwords
 are stored as salted PBKDF2-HMAC-SHA256 hashes with 600,000 iterations. Email
-ownership verification and password-reset emails are not implemented yet; save
+ownership verification for password accounts and password-reset emails are not implemented yet; save
 your password privately. Login does not verify a member's bank or legal identity.
 
 Existing browser-only profiles can add email/password access under **Account
@@ -117,13 +128,15 @@ legacy recovery key can still restore that profile; anyone with the key can use 
 Raw bank feeds are processed in memory and are not retained as transaction
 histories. The circle ledger retains the payment evidence needed for its records.
 Analytics consent, access, and correction events use append-only JSONL files.
+These local analytics files remain temporary on Render Free even when savings
+uses Turso.
 Circle event history is append-only through the application; these records are not
 cryptographic proof against tampering.
 
 ## For developers
 
 - **Web:** Next.js App Router, React, TypeScript, Tailwind, shadcn/ui, and TanStack Query over OpenAPI-generated types.
-- **API:** FastAPI and Pydantic v2, with standard-library SQLite for savings state.
+- **API:** FastAPI and Pydantic v2, with local SQLite or Turso managed SQLite for savings state.
 - **Analytics:** SciPy, RapidFuzz, scikit-learn, and NetworkX; file-backed persona fixtures keep the demo independent of live banks.
 
 ```text

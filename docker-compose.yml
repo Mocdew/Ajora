@@ -15,6 +15,7 @@ services:
       AJORA_STATE_DIR: /data
       AJORA_AUTH_ORIGINS: "${AJORA_AUTH_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}"
       AJORA_COOKIE_SECURE: "${AJORA_COOKIE_SECURE:-false}"
+      AJORA_GOOGLE_CLIENT_ID: "${AJORA_GOOGLE_CLIENT_ID:-}"
     volumes:
       - api-state:/data
     healthcheck:
@@ -31,6 +32,7 @@ services:
       args:
         # Next freezes rewrites at build time, so the proxy target must be a build arg.
         AJORA_API_BASE: "http://api:8000"
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: "${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}"
     image: ajora-web
     ports:
       - "3000:3000"

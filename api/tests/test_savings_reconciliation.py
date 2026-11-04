@@ -72,6 +72,21 @@ def test_references_amounts_and_limits_are_conservative(savings):
     assert owner.post(f"{base}/contributions", json={"round_number": 1, "reference": "not-an-integer", "amount_kobo": True}).status_code == 422
 
 
+def test_bulk_actions_cannot_confirm_or_reject_a_partial_claim_without_pending_payments(savings):
+    clients, _ = savings
+    owner = clients[0]
+    _, base = configured(clients)
+    payment = submit(owner, base, "partially-funded", 250_000)
+    result = owner.post(f"{base}/payments/{payment['id']}/confirm", json={})
+    assert result.status_code == 200
+    claim = result.json()["contributions"][0]
+    assert claim["status"] == "submitted" and claim["confirmed_kobo"] == 250_000
+    claim_base = f"{base}/contributions/{claim['member_id']}/1"
+    assert owner.post(f"{claim_base}/confirm", json={}).status_code == 409
+    assert owner.post(f"{claim_base}/reject", json={"reason": "No pending payment"}).status_code == 409
+    assert owner.get(base).json() == result.json()
+
+
 def test_ambiguous_feed_never_matches_and_receipt_cannot_be_reused_across_circles(savings):
     clients, _ = savings
     owner = clients[0]

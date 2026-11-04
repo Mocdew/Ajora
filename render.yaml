@@ -1,5 +1,5 @@
-# Free demo API for the Vercel frontend. Files are temporary on this plan:
-# accounts and circle records can reset on restart or deployment.
+# Free API host for the Vercel frontend; savings use authoritative Turso SQLite.
+# Configure both Turso values before accepting hosted account or circle writes.
 services:
   - type: web
     name: ajora-api
@@ -15,9 +15,15 @@ services:
         value: "8000"
       - key: AJORA_STATE_DIR
         value: /tmp/ajora-state
+      - key: AJORA_REQUIRE_REMOTE_SAVINGS
+        value: "true"
       - key: AJORA_COOKIE_SECURE
         value: "true"
       - key: AJORA_EXPLAINER
         value: offline
       - key: AJORA_AUTH_ORIGINS
+        sync: false
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
         sync: false

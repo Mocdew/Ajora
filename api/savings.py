@@ -126,6 +126,7 @@ class Session(BaseModel):
     user_id: str
     display_name: str
     email: Optional[str] = None
+    google_linked: bool = False
 
 
 class Member(BaseModel):
@@ -220,6 +221,13 @@ def database(path: Path, *, write: bool = False):
             CREATE TABLE IF NOT EXISTS savings_credentials (
                 user_id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS savings_google_accounts (
+                sub TEXT PRIMARY KEY, user_id TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS savings_google_challenges (
+                nonce_hash TEXT PRIMARY KEY, session_hash TEXT, expires_at INTEGER NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS savings_recovery_keys (
                 user_id TEXT PRIMARY KEY, key_hash TEXT UNIQUE NOT NULL
             );
@@ -256,12 +264,14 @@ def session_user(request: Request, path: Path):
         return None
     with database(path) as conn:
         row = conn.execute(
-            "SELECT u.id AS user_id, u.display_name, c.email FROM savings_sessions s "
+            "SELECT u.id AS user_id, u.display_name, COALESCE(c.email, g.email) AS email, "
+            "g.sub IS NOT NULL AS google_linked FROM savings_sessions s "
             "JOIN savings_users u ON u.id=s.user_id LEFT JOIN savings_credentials c ON c.user_id=u.id "
+            "LEFT JOIN savings_google_accounts g ON g.user_id=u.id "
             "WHERE s.token_hash=? AND s.expires_at>?",
             (hashlib.sha256(token.encode()).hexdigest(), int(time.time())),
         ).fetchone()
-    return dict(row) if row else None
+    return {**dict(row), "google_linked": bool(row["google_linked"])} if row else None
 
 
 def require_identity_request(request: Request) -> None:
@@ -290,6 +300,8 @@ def require_identity_request(request: Request) -> None:
 
 
 def current_user(request: Request, path: Path = Depends(get_savings_path)) -> dict:
+    if request.method not in {"GET", "HEAD", "OPTIONS"}:
+        require_identity_request(request)
     user = session_user(request, path)
     if user is None:
         raise HTTPException(401, "Sign in to continue to your savings.")
@@ -472,8 +484,8 @@ def confirm_contribution(circle_id: str, member_id: str, round_number: int, body
         contribution = next((c for c in circle["contributions"] if c["member_id"] == member_id and c["round_number"] == round_number), None)
         if not contribution:
             raise HTTPException(404, "This member has not submitted a contribution for this round.")
-        if contribution["status"] != "submitted":
-            raise HTTPException(409, "Only a submitted contribution can be confirmed.")
+        if not any(payment["status"] == "submitted" for payment in contribution["payments"]):
+            raise HTTPException(409, "There are no submitted payments to confirm.")
         require_unpaid_round(circle)
         for payment in contribution["payments"]:
             if payment["status"] == "submitted":
@@ -528,8 +540,8 @@ def reject_contribution(circle_id: str, member_id: str, round_number: int, body:
         contribution = next((c for c in circle["contributions"] if c["member_id"] == member_id and c["round_number"] == round_number), None)
         if not contribution:
             raise HTTPException(404, "This member has not submitted a contribution for this round.")
-        if contribution["status"] != "submitted":
-            raise HTTPException(409, "Only a submitted contribution can be rejected.")
+        if not any(payment["status"] == "submitted" for payment in contribution["payments"]):
+            raise HTTPException(409, "There are no submitted payments to reject.")
         require_unpaid_round(circle)
         for payment in contribution["payments"]:
             if payment["status"] == "submitted":

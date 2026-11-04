@@ -13,6 +13,7 @@ from api import savings_storage as storage
 def clean_storage(monkeypatch):
     monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
     monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("AJORA_REQUIRE_REMOTE_SAVINGS", raising=False)
     storage._initialized_schemas.clear()
 
 
@@ -65,6 +66,21 @@ def test_network_failure_is_not_local_success(monkeypatch, tmp_path):
     with pytest.raises(sqlite3.OperationalError):
         storage.connect_savings(tmp_path / "new" / "state.db")
     assert not (tmp_path / "new").exists()
+
+
+def test_required_remote_storage_rejects_missing_configuration_without_local_state(monkeypatch, tmp_path):
+    monkeypatch.setenv("AJORA_REQUIRE_REMOTE_SAVINGS", "true")
+    with pytest.raises(RuntimeError, match="TURSO_DATABASE_URL and TURSO_AUTH_TOKEN"):
+        storage.connect_savings(tmp_path / "must-not-exist" / "savings.sqlite3")
+    assert not (tmp_path / "must-not-exist").exists()
+
+
+def test_required_remote_storage_accepts_configured_authoritative_connection(monkeypatch, tmp_path):
+    monkeypatch.setenv("AJORA_REQUIRE_REMOTE_SAVINGS", "true")
+    connection = remote(monkeypatch, tmp_path / "remote.sqlite3")
+    assert isinstance(connection, storage.RemoteConnection)
+    connection.close()
+    assert not (tmp_path / "must-not-exist").exists()
 
 
 def test_driver_constraint_and_commit_errors_are_safe():

@@ -56,11 +56,19 @@ concerns regardless of the frontend port.
 
 Open **http://localhost:3200**.
 
+To enable **Continue with Google**, follow [Google sign-in setup](docs/GOOGLE_SIGN_IN.md).
+It uses the existing SQLite accounts and sessions; configure the same Google web
+client ID on both the API and frontend before starting them.
+
 For public hosting and automatic updates from GitHub, see
 [Deploying Ajora](docs/DEPLOYMENT.md). Local port 3200 applies only to local runs;
 Vercel serves the deployed app at its HTTPS domain. The included Render setup is
-a free demo API with temporary storage: its accounts and circle records can reset
-on restart or deployment.
+a free API that can retain savings in Turso managed SQLite. Set both
+`TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` on the API, following the backup and
+cutover steps in [Durable savings on free hosting](docs/TURSO_STORAGE.md).
+The Blueprint sets `AJORA_REQUIRE_REMOTE_SAVINGS=true`, so missing remote settings
+fail instead of accepting savings writes in Render's temporary filesystem.
+Repository changes alone do not migrate records or switch an existing service.
 
 ## 3. Savings-circle walkthrough
 
@@ -91,10 +99,10 @@ on restart or deployment.
    existing circles and membership remain available.
 
 For an existing browser-only profile, open **Account access** and add email/password
-access. The upgrade preserves the profile's ID, circles, and history, signs out
+or configured Google access. The upgrade preserves the profile's ID, circles, and history, signs out
 earlier sessions, and retires its old recovery key. If that profile is no longer
 signed in, use its saved key in the legacy recovery form before upgrading. Legacy
-recovery remains available only for profiles that have not added email/password
+recovery remains available only for profiles that have not added email/password or Google
 access. Sign out before logging into a different account; profiles are not merged.
 
 The demo feed simulates receipts; **a demo match does not verify a real bank
@@ -116,12 +124,21 @@ original analytics walkthrough.
   session and legacy recovery-key hashes, circle identities, agreements,
   contributions, receipt allocations, event history and payout records at `AJORA_STATE_DIR/savings.sqlite3`. The default directory is
   the repository root. Set a persistent directory before starting the API; do not
-  delete it to reset a demonstration that contains records you need.
+  delete it to reset a demonstration that contains records you need. With both
+  `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` configured, Turso is the authoritative
+  savings store instead. Remote writes must commit before success; failures do
+  not fall back to local storage. Partial configuration fails clearly. The Render
+  Blueprint sets `AJORA_REQUIRE_REMOTE_SAVINGS=true` to reject missing remote
+  settings; leave this flag unset for default local SQLite development.
 - **Analytics state:** `consent.jsonl`, `audit.jsonl`, and `corrections.jsonl` share the
-  state directory. Raw imported bank transactions are processed ephemerally.
+  state directory. These local files remain temporary on Render Free even with
+  Turso configured. Raw imported bank transactions are processed ephemerally.
 - **Isolated rehearsal:** set `AJORA_STATE_DIR` to a fresh temporary directory before
-  starting the API. This preserves existing records. A new state directory requires
-  a new account; use a fresh browser profile alongside it.
+  starting the API, with both Turso variables and `AJORA_REQUIRE_REMOTE_SAVINGS`
+  unset. This preserves existing records; a different state directory does not
+  isolate a configured Turso
+  database. A new local state directory requires a new account; use a fresh
+  browser profile alongside it.
 
 ## Verification
 
@@ -132,7 +149,10 @@ The hackathon demo uses deterministic offline narration when `ANTHROPIC_API_KEY`
 
 ### Browser walkthrough
 
-Start a dedicated API against temporary state, with `AJORA_EXPLAINER=offline`, and build/start the web app pointing `AJORA_API_BASE` at that API. Then run:
+Start a dedicated API against temporary state, with both Turso variables and
+`AJORA_REQUIRE_REMOTE_SAVINGS` unset and `AJORA_EXPLAINER=offline`, and build/start
+the web app pointing
+`AJORA_API_BASE` at that API. Then run:
 
 ```bash
 npm --prefix web exec playwright install chromium

@@ -671,6 +671,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/google/challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Challenge */
+        post: operations["challenge_auth_google_challenge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Google Login */
+        post: operations["google_login_auth_google_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1259,6 +1293,18 @@ export interface components {
                 [key: string]: components["schemas"]["ExplanationItem"];
             };
         };
+        /** GoogleChallenge */
+        GoogleChallenge: {
+            /** Client Id */
+            client_id: string;
+            /** Nonce */
+            nonce: string;
+        };
+        /** GoogleCredential */
+        GoogleCredential: {
+            /** Credential */
+            credential: string;
+        };
         /** GraphEdge */
         GraphEdge: {
             /** Id */
@@ -1546,6 +1592,11 @@ export interface components {
             /** Recovery Key */
             recovery_key: string;
         };
+        /** RecoveryErrorResponse */
+        RecoveryErrorResponse: {
+            /** Detail */
+            detail: string;
+        };
         /** RecoveryKeyResponse */
         RecoveryKeyResponse: {
             /** Recovery Key */
@@ -1584,6 +1635,11 @@ export interface components {
             display_name: string;
             /** Email */
             email?: string | null;
+            /**
+             * Google Linked
+             * @default false
+             */
+            google_linked: boolean;
         };
         /** SessionInput */
         SessionInput: {
@@ -2917,13 +2973,13 @@ export interface operations {
                     "application/json": components["schemas"]["Session"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["RecoveryErrorResponse"];
                 };
             };
         };
@@ -3002,6 +3058,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LoginInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthErrorResponse"];
+                };
+            };
+        };
+    };
+    challenge_auth_google_challenge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleChallenge"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthErrorResponse"];
+                };
+            };
+        };
+    };
+    google_login_auth_google_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleCredential"];
             };
         };
         responses: {

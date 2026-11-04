@@ -20,6 +20,14 @@ def tmp_trust_state(tmp_path, monkeypatch):
     """Point all trust stores at throwaway files for each test."""
     # All API tests run offline, including on machines configured for the live adapter.
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    # A temporary SQLite path must never be overridden by inherited hosted
+    # storage credentials, and lifespan startup must not seed the real state.
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("AJORA_REQUIRE_REMOTE_SAVINGS", raising=False)
+    monkeypatch.delenv("AJORA_DEMO_EMAIL", raising=False)
+    monkeypatch.delenv("AJORA_DEMO_PASSWORD", raising=False)
+    monkeypatch.setenv("AJORA_STATE_DIR", str(tmp_path))
     consent_store = FileConsentStore(tmp_path / "consent.jsonl")
     audit_log = FileAuditLog(tmp_path / "audit.jsonl")
     corrections_log = FileCorrectionsLog(tmp_path / "corrections.jsonl")

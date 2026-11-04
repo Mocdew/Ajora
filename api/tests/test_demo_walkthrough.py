@@ -18,8 +18,8 @@ def _view(user, expected_types):
     response = client.get(f"{base}/explanations").json()
     narrated = response["explanations"]
     assert {item["relationship_type"] for item in insights} == set(expected_types)
-    assert {node["id"] for node in graph["nodes"] if node["kind"] == "counterparty"} == {
-        item["counterparty"] for item in insights
+    assert {(node["label"], node["relationship_type"]) for node in graph["nodes"] if node["kind"] == "counterparty"} == {
+        (item["counterparty"], item["relationship_type"]) for item in insights
     }
     assert set(narrated) == {"dedup"} | {
         f"{item['relationship_type']}:{item['counterparty']}" for item in insights

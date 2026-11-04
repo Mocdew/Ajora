@@ -34,7 +34,8 @@ def test_register_and_login_across_devices_persist_same_identity(auth):
     assert "SameSite=lax" in response.headers["set-cookie"]
     original = response.json()
     assert original["email"] == "ada@example.com"
-    assert set(original) == {"user_id", "display_name", "email"}
+    assert set(original) == {"user_id", "display_name", "email", "google_linked"}
+    assert original["google_linked"] is False
     cookie = owner.cookies.get(COOKIE)
     with sqlite3.connect(path) as conn:
         stored = conn.execute("SELECT password_hash FROM savings_credentials").fetchone()[0]

@@ -370,6 +370,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                     max={remainingClaim / 100}
                     value={amount}
                     onChange={(event) => setAmount(event.target.value)}
+                    disabled={action.isPending}
                     placeholder={String(remainingClaim / 100)}
                   />
                 </label>
@@ -379,6 +380,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                     className={inputClass}
                     value={reference}
                     onChange={(event) => setReference(event.target.value)}
+                    disabled={action.isPending}
                     required
                     minLength={3}
                     maxLength={200}

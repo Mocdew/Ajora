@@ -173,7 +173,7 @@ class CommunalClassifier:
                 if hits:
                     reasons.append(f"narration cue: {', '.join(sorted(set(hits)))}")
         elif tag == "loan_repayment":
-            if st and st.out_count >= 1 and st.reciprocal:
+            if st and st.first_out_ts is not None and st.first_out_ts <= t.timestamp:
                 score = 0.58 + (0.25 if hits else 0.0)
                 reasons.append("inflow from someone we previously sent money to")
                 if hits:
