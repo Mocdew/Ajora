@@ -207,9 +207,8 @@ def get_savings_path() -> Path:
 
 @contextmanager
 def database(path: Path, *, write: bool = False):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, timeout=15)
-    conn.row_factory = sqlite3.Row
+    from .savings_storage import connect_savings
+    conn = connect_savings(path)
     try:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS savings_users (

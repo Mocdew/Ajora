@@ -27,8 +27,11 @@ schema-matched mock layer so the demo runs without live bank credentials.
 
 ### Architecture: durable savings records, ephemeral bank analytics
 
-We deliberately run **without Postgres or any DB server**. Savings uses the
-sanctioned SQLite fallback at `AJORA_STATE_DIR/savings.sqlite3` for browser
+We deliberately run **without Postgres or a provisioned DB server**. Hosted
+savings may use **Turso managed SQLite**, explicitly authorized to retain records
+on free hosting. It is the authoritative store: acknowledge writes only after
+remote commit, and never silently fall back to temporary files on failure.
+Local development uses SQLite at `AJORA_STATE_DIR/savings.sqlite3` for browser
 identities, membership, agreed payout order, contribution claims/confirmations,
 and payout records. Bank analytics remains stateless.
 
@@ -41,12 +44,13 @@ and payout records. Bank analytics remains stateless.
   - `corrections.jsonl` — user confirm/reject feedback; retrain the scorer offline.
   - Encrypted consent token(s) — the one thing production must persist durably
     (move to a secrets store / object storage when deployed; never a database here).
-- **SQLite is the only allowed drop-in** if a feature genuinely needs queryable
-  persistence — a single file, no server. Do **not** reintroduce Postgres/a DB server
-  without updating this section first.
+- **SQLite is the only allowed drop-in** for queryable persistence: a local file
+  or the approved Turso managed SQLite service. Do **not** introduce Postgres or
+  another database service without updating this section first.
 
-**Infra:** containerised with Docker; deploy on a PaaS (Render/Railway/Fly). No
-database service to provision.
+**Infra:** containerised with Docker; deploy on a PaaS (Render/Railway/Fly).
+Free hosted savings uses the approved Turso managed SQLite service; local
+development requires no database service.
 
 ## Agent routing
 
@@ -99,6 +103,6 @@ rule matches, handle it directly or pick the closest agent.
 - The Senior Developer agent defaults to Laravel/Livewire/FluxUI idioms, which do **not**
   match this stack — steer it explicitly to React/Next.js + Python/FastAPI, or prefer
   the Frontend Developer (UI) and AI Engineer / Backend Architect (pipeline) agents.
-- **No database** is an architectural decision, not an omission (see Stack). Don't let
-  an agent add Postgres or an ORM-backed DB layer; persistence is append-only files, with
-  SQLite as the only sanctioned fallback.
+- **No Postgres or ORM-backed DB layer** is an architectural decision (see Stack).
+  Savings uses local SQLite or the approved Turso managed SQLite service; bank
+  analytics remains ephemeral with append-only feedback and audit files.
