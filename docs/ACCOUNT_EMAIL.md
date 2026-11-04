@@ -95,7 +95,7 @@ database service, raw bank history, or persisted outbound email body is added.
 | `POST /auth/email/request` | Authenticated session, `{}` | `202 {message}` |
 | `POST /auth/email/verify` | `{token}` | `200 {message}`; no automatic login |
 
-Requests are rate limited and use `Cache-Control: no-store`. Mutations retain the
+Account email mutations are rate limited; responses use `Cache-Control: no-store`. Mutations retain the
 existing JSON and allowed-origin checks. Invalid, expired, reused or superseded
 links return a generic error without echoing the token or password.
 
@@ -114,3 +114,24 @@ links return a generic error without echoing the token or password.
 Automated checks use a fake email transport and temporary account storage; they
 must never send email to real members. Real sender setup and inbox delivery are
 separate deployment acceptance checks.
+
+### Local delivery verification — 4 November 2026
+
+The implementation passed 267 Python tests (two environment-dependent checks
+skipped), the production build, lint, and TypeScript. All 22 browser checks passed
+across the full run and a targeted rerun after correcting a test selector. The
+browser run included the real API with a private test mailbox, preserving the
+same account and circle after verification and password reset.
+
+An additional approved local run used the actual Resend sending-only key and
+`Ajora <onboarding@resend.dev>`. Resend reported the verification, reset, and
+password-change notification emails as delivered to the account owner's address.
+Both token confirmations succeeded; the old password and session were rejected,
+and a new login restored the same identity and circle. All records belonged to
+isolated local test storage; no hosted member's password was changed.
+
+The sender configuration was saved in Render using **Save only**. The feature
+remains committed locally, without a GitHub push or production deployment, as
+requested. The initial sender supports restricted testing to the Resend account
+owner. Verify an owned sending domain and replace `AJORA_EMAIL_FROM` before
+enabling delivery for other members.
