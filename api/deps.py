@@ -1,10 +1,6 @@
 """FastAPI dependencies.
 
-The provider, consent store, and audit log are each a process-wide singleton. The
-provider is stateless aside from an in-memory ``user_id -> path`` index; the consent
-store and audit log own their append-only files (``consent.jsonl`` / ``audit.jsonl``
-at the repo root) and keep them open across requests. Swapping in a live provider or
-a real consent/audit sink later is a one-line change here.
+Public analytics uses reviewed synthetic fixtures and dedicated append-only state.
 """
 
 from __future__ import annotations
@@ -16,7 +12,7 @@ from pathlib import Path
 from .audit import AuditLog, FileAuditLog
 from .consent import ConsentStore, FileConsentStore
 from .corrections import CorrectionsLog, FileCorrectionsLog
-from .providers import DataProvider, FilePersonaProvider
+from .providers import DataProvider, PublicDemoProvider
 
 __all__ = [
     "get_provider",
@@ -27,7 +23,7 @@ __all__ = [
 
 # Durable append-only state lives at the repo root (git-ignored), per CLAUDE.md.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_STATE_ROOT = Path(os.environ.get("AJORA_STATE_DIR", str(_REPO_ROOT)))
+_STATE_ROOT = Path(os.environ.get("AJORA_STATE_DIR", str(_REPO_ROOT))) / "analytics-demo"
 _CONSENT_PATH = _STATE_ROOT / "consent.jsonl"
 _AUDIT_PATH = _STATE_ROOT / "audit.jsonl"
 _CORRECTIONS_PATH = _STATE_ROOT / "corrections.jsonl"
@@ -35,7 +31,7 @@ _CORRECTIONS_PATH = _STATE_ROOT / "corrections.jsonl"
 
 @lru_cache(maxsize=1)
 def get_provider() -> DataProvider:
-    return FilePersonaProvider()
+    return PublicDemoProvider()
 
 
 @lru_cache(maxsize=1)

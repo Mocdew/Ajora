@@ -30,7 +30,7 @@ From the repo root:
 Or launch **`ajora-api`** from the app's run UI (`.claude/launch.json`). Verify:
 
 ```bash
-curl -s http://localhost:8000/health        # {"status":"ok","users":[...]}
+curl -s http://localhost:8000/health        # {"status":"ok"}
 ```
 
 Interactive API docs: http://localhost:8000/docs

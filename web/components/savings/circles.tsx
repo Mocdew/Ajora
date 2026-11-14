@@ -7,27 +7,38 @@ import { useRouter } from "next/navigation";
 import { Plus, UsersThree } from "@phosphor-icons/react/dist/ssr";
 import { PageHeader } from "@/components/page-header";
 import {
+  isSavingsAccessError,
   useCircles,
   useSavingsAction,
   type SavingsSession,
+  type SavingsAction,
   type InvitationPreview,
 } from "@/lib/api/savings";
 import {
   CircleCard,
+  CircleMode,
   ErrorNotice,
   Loading,
+  SavingsActionNotice,
   SavingsGate,
   TrackingNote,
   inputClass,
   localToday,
 } from "./shared";
 
+const manualEnabled = process.env.NEXT_PUBLIC_AJORA_MANUAL_SAVINGS_ENABLED !== "false";
+
 function Circles({ session }: { session: SavingsSession }) {
   const circles = useCircles(session.user_id);
-  const action = useSavingsAction();
   const router = useRouter();
+  const resumeCircle = (circle: { id: string }) => router.push(`/circles/${circle.id}`);
+  const action = useSavingsAction(session.user_id, "create", resumeCircle);
+  const join = useSavingsAction(session.user_id, "join", resumeCircle);
   const [form, setForm] = useState<"create" | "join" | null>(null);
   const [localError, setLocalError] = useState("");
+  const [mode, setMode] = useState<"manual" | "demo">(manualEnabled ? "manual" : "demo");
+  const creating = action.isPending || action.uncertain;
+  const busy = creating || join.isPending || join.uncertain;
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("invite"))
       setForm("join");
@@ -42,6 +53,7 @@ function Circles({ session }: { session: SavingsSession }) {
           <>
             <button
               className="btn-secondary"
+              disabled={busy}
               onClick={() => {
                 setForm("join");
                 action.reset();
@@ -52,6 +64,7 @@ function Circles({ session }: { session: SavingsSession }) {
             </button>
             <button
               className="btn-primary"
+              disabled={busy}
               onClick={() => {
                 setForm("create");
                 action.reset();
@@ -78,60 +91,55 @@ function Circles({ session }: { session: SavingsSession }) {
             <button
               className="btn-secondary"
               onClick={() => setForm(null)}
-              disabled={action.isPending}
+              disabled={busy}
             >
               Cancel
             </button>
           </div>
           <>
             {form === "join" ? (
-              <JoinCircle onJoined={(id) => router.push(`/circles/${id}`)} />
+              <JoinCircle join={join} onJoined={(id) => router.push(`/circles/${id}`)} />
             ) : (
               <form
                 className="space-y-5"
-                onSubmit={async (e) => {
+                onSubmit={(e) => {
                   e.preventDefault();
                   const values = new FormData(e.currentTarget);
                   setLocalError("");
-                  try {
-                    let body: unknown;
-                    if (form === "create") {
-                      const amountText = String(values.get("amount"));
-                      if (!/^\d+(\.\d{1,2})?$/.test(amountText)) {
-                        setLocalError(
-                          "Enter a contribution amount with no more than two decimal places.",
-                        );
-                        return;
-                      }
-                      const amount = Math.round(Number(amountText) * 100);
-                      if (!Number.isSafeInteger(amount) || amount <= 0) {
-                        setLocalError("Enter a valid contribution amount.");
-                        return;
-                      }
-                      body = {
-                        name: values.get("name"),
-                        contribution_kobo: amount,
-                        frequency: values.get("frequency"),
-                        member_limit: Number(values.get("member_limit")),
-                        start_date: values.get("start_date"),
-                        rules: values.get("rules"),
-                      };
-                    } else
-                      body = {
-                        invite_code: String(values.get("invite_code")).trim(),
-                      };
-                    const circle = await action.mutateAsync({
-                      path: form === "create" ? "/circles" : "/join",
-                      body,
-                    });
-                    router.push(`/circles/${circle.id}`);
-                  } catch {
-                    /* shown below */
+                  const amountText = String(values.get("amount"));
+                  if (!/^\d+(\.\d{1,2})?$/.test(amountText)) {
+                    setLocalError("Enter a contribution amount with no more than two decimal places.");
+                    return;
                   }
+                  const amount = Math.round(Number(amountText) * 100);
+                  if (!Number.isSafeInteger(amount) || amount <= 0) {
+                    setLocalError("Enter a valid contribution amount.");
+                    return;
+                  }
+                  void action.submit({
+                    path: "/circles",
+                    body: {
+                      name: values.get("name"),
+                      contribution_kobo: amount,
+                      frequency: values.get("frequency"),
+                      member_limit: Number(values.get("member_limit")),
+                      start_date: values.get("start_date"),
+                      rules: values.get("rules"),
+                      mode,
+                    },
+                    onCommitted: (circle) => router.push(`/circles/${circle.id}`),
+                  });
                 }}
               >
-                {form === "create" ? (
-                  <>
+                <fieldset disabled={creating} className="min-w-0 space-y-5">
+                    {manualEnabled && <label className="block text-sm font-medium">
+                      Circle type
+                      <select className={inputClass} value={mode} onChange={(event) => setMode(event.target.value === "demo" ? "demo" : "manual")}>
+                        <option value="manual">Track external payments</option>
+                        <option value="demo">Try a demo circle</option>
+                      </select>
+                    </label>}
+                    {mode === "demo" && <p className="text-sm text-muted-foreground">Demo circles are for practice with simulated receipts.{manualEnabled && " Use the external-payment mode for real savings."}</p>}
                     <div className="grid gap-5 sm:grid-cols-2">
                       <label className="block text-sm font-medium">
                         Circle name
@@ -196,50 +204,29 @@ function Circles({ session }: { session: SavingsSession }) {
                         required
                         maxLength={2000}
                         rows={3}
-                        placeholder="Agree how to pay, when contributions are due, and what happens if someone is late."
+                        placeholder={mode === "demo" ? "Describe how members will try the demo." : "State the agreed payee, payment channel and reference format, how the organiser reviews payments, and what happens if a member is late."}
                       />
                     </label>
+                    {mode === "manual" && <p className="text-xs text-muted-foreground">Circle members can read these rules after joining. Have recipients share payout instructions privately with the organiser through the group’s agreed channel.</p>}
                     <p className="text-xs text-muted-foreground">
                       You will be the organiser and first member. Invite
                       everyone, agree the payout order, then start the circle.
                       Membership and payout order lock when it starts.
                     </p>
-                  </>
-                ) : (
-                  <label className="block max-w-lg text-sm font-medium">
-                    Invite code
-                    <input
-                      name="invite_code"
-                      className={inputClass}
-                      required
-                      maxLength={100}
-                      autoComplete="off"
-                      placeholder="Paste your circle’s invite code"
-                    />
-                    <span className="mt-2 block text-xs text-muted-foreground">
-                      Ask the organiser for the private code. You can review the
-                      rules and payout order inside the circle before it starts.
-                    </span>
-                  </label>
-                )}
-                <ErrorNotice
-                  error={localError ? new Error(localError) : action.error}
-                />
-                <button className="btn-primary" disabled={action.isPending}>
-                  {action.isPending
-                    ? "Saving…"
-                    : form === "create"
-                      ? "Create circle"
-                      : "Join circle"}
-                </button>
+                    <button className="btn-primary">{action.isPending ? "Saving…" : "Create circle"}</button>
+                </fieldset>
+                <ErrorNotice error={localError ? new Error(localError) : null} />
+                <SavingsActionNotice action={action} />
               </form>
             )}
           </>
         </section>
       )}
+      {form !== "create" && (action.uncertain || action.retryOriginal) && <SavingsActionNotice action={action} />}
+      {form !== "join" && (join.uncertain || join.retryOriginal) && <SavingsActionNotice action={join} />}
       {circles.isPending ? (
         <Loading />
-      ) : circles.error ? (
+      ) : circles.error && (!circles.data || isSavingsAccessError(circles.error)) ? (
         <ErrorNotice error={circles.error} retry={() => circles.refetch()} />
       ) : circles.data?.length ? (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -267,7 +254,7 @@ export function SavingsCircles() {
   );
 }
 
-function JoinCircle({ onJoined }: { onJoined: (id: string) => void }) {
+function JoinCircle({ join, onJoined }: { join: SavingsAction; onJoined: (id: string) => void }) {
   const [code, setCode] = useState("");
   useEffect(() => {
     const invitation = new URLSearchParams(window.location.search).get(
@@ -287,7 +274,7 @@ function JoinCircle({ onJoined }: { onJoined: (id: string) => void }) {
       setAccepted(false);
     },
   });
-  const join = useSavingsAction();
+  const joining = join.isPending || join.uncertain;
   return (
     <div className="space-y-5">
       <form
@@ -302,7 +289,7 @@ function JoinCircle({ onJoined }: { onJoined: (id: string) => void }) {
           <input
             className={inputClass}
             value={code}
-            disabled={lookup.isPending || join.isPending}
+            disabled={lookup.isPending || joining}
             onChange={(e) => {
               setCode(e.target.value);
               setPreview(null);
@@ -318,29 +305,27 @@ function JoinCircle({ onJoined }: { onJoined: (id: string) => void }) {
         </label>
         <button
           className="btn-secondary"
-          disabled={lookup.isPending || !code.trim()}
+          disabled={lookup.isPending || joining || !code.trim()}
         >
           {lookup.isPending ? "Finding circle…" : "Review invitation"}
         </button>
       </form>
-      <ErrorNotice error={lookup.error ?? join.error} />
+      <ErrorNotice error={lookup.error} />
+      <SavingsActionNotice action={join} />
       {preview && (
         <form
           className="panel-inset space-y-4 p-5"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
-            try {
-              const circle = await join.mutateAsync({
-                path: "/join",
-                body: { invite_code: code.trim() },
-              });
-              onJoined(circle.id);
-            } catch {
-              /* shown above */
-            }
+            void join.submit({
+              path: "/join",
+              body: { invite_code: code.trim() },
+              onCommitted: (circle) => onJoined(circle.id),
+            });
           }}
         >
-          <h3 className="text-xl font-semibold">{preview.name}</h3>
+          <h3 className="break-words text-xl font-semibold">{preview.name}</h3>
+          <CircleMode mode={preview.mode} />
           <p className="text-sm text-muted-foreground">
             {new Intl.NumberFormat("en-NG", {
               style: "currency",
@@ -354,10 +339,7 @@ function JoinCircle({ onJoined }: { onJoined: (id: string) => void }) {
             First contribution: {preview.start_date}
           </p>
           <div>
-            <p className="text-sm font-semibold">Circle rules</p>
-            <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">
-              {preview.rules}
-            </p>
+            <p className="text-sm text-muted-foreground">After joining, review the private rules and payout order before accepting the agreement.</p>
           </div>
           {preview.status !== "draft" ||
           preview.member_count >= preview.member_limit ? (
@@ -371,17 +353,17 @@ function JoinCircle({ onJoined }: { onJoined: (id: string) => void }) {
                   className="mt-1 h-4 w-4 accent-accent"
                   type="checkbox"
                   checked={accepted}
+                  disabled={joining}
                   onChange={(e) => setAccepted(e.target.checked)}
                   required
                 />
                 <span>
-                  I have reviewed the contribution amount, schedule, and rules
-                  and agree to join this circle.
+                  I have reviewed the contribution amount and schedule and agree to join this circle.
                 </span>
               </label>
               <button
                 className="btn-primary"
-                disabled={!accepted || join.isPending}
+                disabled={!accepted || joining}
               >
                 {join.isPending ? "Joining…" : "Accept and join circle"}
               </button>

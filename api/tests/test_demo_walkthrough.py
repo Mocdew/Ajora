@@ -34,7 +34,6 @@ def _view(user, expected_types):
 @pytest.mark.parametrize(
     "user,account,before_types,revoked_types",
     [
-        ("u_demo_stephen", "gtb-001", [], []),
         ("u_persona_a", "gtb-a01", [], []),
         ("u_persona_b", "domv-b04", ["dependent", "remittance"], ["dependent"]),
         ("u_persona_c", "opay-c02", ["dependent", "informal_lending", "ajo_esusu"], ["ajo_esusu"]),

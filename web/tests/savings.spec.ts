@@ -31,13 +31,18 @@ async function saveRecoveryKey(page: Page) {
   return key;
 }
 
-test("a recoverable circle reconciles instalments and waits for recipient receipt", async ({
+for (const mode of ["manual", "demo"] as const) {
+test(`a recoverable ${mode} circle reconciles instalments and waits for recipient receipt`, async ({
   page,
   browser,
 }, testInfo) => {
   test.setTimeout(240_000);
   const memberContext = await browser.newContext({
     baseURL: testInfo.project.use.baseURL,
+    viewport: { width: 320, height: 720 },
+    isMobile: true,
+    hasTouch: true,
+    reducedMotion: "reduce",
   });
   const member = await memberContext.newPage();
   try {
@@ -51,6 +56,7 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
       exact: true,
     });
     await form.getByLabel("Circle name").fill("Friends savings circle");
+    await form.getByLabel("Circle type").selectOption(mode);
     await form.getByLabel("Contribution per person (₦)").fill("10000");
     await form.getByLabel("Number of members").fill("2");
     await form
@@ -68,16 +74,17 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
       return response.json() as Promise<Circle>;
     };
     const initial = await read();
-    await page
-      .getByRole("button", { name: "Set demo collection account" })
-      .click();
-    await expect(
-      page.getByText("Demo collection account", { exact: true }),
-    ).toBeVisible();
+    const setDemo = page.getByRole("button", { name: "Set demo collection account" });
+    if (mode === "demo") {
+      await setDemo.click();
+      await expect(page.getByText("Demo collection account", { exact: true })).toBeVisible();
+    } else {
+      await expect(setDemo).toHaveCount(0);
+    }
 
     await profile(member, "Bisi Member");
     const memberRecoveryKey = await saveRecoveryKey(member);
-    // A shared invitation prefills the code, while rules remain visible before joining.
+    // A shared invitation prefills the code. Rules become visible after joining.
     await member.goto(`/circles?invite=${initial.invite_code}`);
     await expect(member.getByLabel("Invite code", { exact: true })).toHaveValue(
       initial.invite_code,
@@ -85,14 +92,13 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
     await member
       .getByRole("button", { name: "Review invitation", exact: true })
       .click();
-    await expect(
-      member.getByText(initial.rules, { exact: true }),
-    ).toBeVisible();
+    await expect(member.getByText(initial.rules, { exact: true })).toHaveCount(0);
     await member.getByRole("checkbox").check();
     await member
       .getByRole("button", { name: "Accept and join circle", exact: true })
       .click();
     await expect(member).toHaveURL(new RegExp(`/circles/${id}$`));
+    await expect(member.getByText(initial.rules, { exact: true })).toBeVisible();
     // Polling updates the organiser's already-open page without a reload.
     await expect(
       page.getByRole("button", { name: "Move Bisi Member earlier" }),
@@ -152,10 +158,20 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
     ).toBeVisible();
 
     for (const round of [1, 2]) {
-      const feedResponse = await page.request.get(`${path}/bank-feed`);
-      expect(feedResponse.ok()).toBeTruthy();
-      const feed: BankFeed = await feedResponse.json();
-      expect(feed.source).toBe("demo");
+      let receipts: Pick<BankFeed["transactions"][number], "sender_name" | "reference" | "amount_kobo">[];
+      if (mode === "demo") {
+        const feedResponse = await page.request.get(`${path}/bank-feed`);
+        expect(feedResponse.ok()).toBeTruthy();
+        const feed: BankFeed = await feedResponse.json();
+        expect(feed.source).toBe("demo");
+        receipts = feed.transactions;
+      } else {
+        receipts = ["Ada Organiser", "Bisi Member"].flatMap((sender_name) =>
+          [400_000, 600_000].map((amount_kobo) => ({
+            sender_name, amount_kobo, reference: `test-${round}-${sender_name.slice(0, 3)}-${amount_kobo}`,
+          })),
+        );
+      }
       await member
         .getByRole("button", { name: "Refresh circle", exact: true })
         .click();
@@ -163,11 +179,11 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
         [page, "Ada Organiser"],
         [member, "Bisi Member"],
       ] as const) {
-        const receipts = feed.transactions.filter(
+        const transfers = receipts.filter(
           (receipt) => receipt.sender_name === name,
         );
-        expect(receipts).toHaveLength(2);
-        for (const receipt of receipts) {
+        expect(transfers).toHaveLength(2);
+        for (const receipt of transfers) {
           await actor
             .getByLabel("Amount paid (₦)", { exact: true })
             .fill(String(receipt.amount_kobo / 100));
@@ -189,10 +205,10 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
       await page
         .getByRole("button", { name: "Refresh circle", exact: true })
         .click();
-      for (const receipt of feed.transactions) {
+      for (const receipt of receipts) {
         await page
           .getByRole("button", {
-            name: `Approve demo match ${receipt.reference}`,
+            name: `${mode === "demo" ? "Approve demo match" : "Manually confirm"} ${receipt.reference}`,
             exact: true,
           })
           .click();
@@ -212,6 +228,22 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
           .filter((c) => c.round_number === round)
           .map((c) => c.confirmed_kobo),
       ).toEqual([1_000_000, 1_000_000]);
+      if (mode === "manual" && round === 1) {
+        await member.getByRole("button", { name: "Flag payment for organiser", exact: true }).first().click();
+        const reason = member.getByLabel("Reason", { exact: true });
+        await expect(reason).toBeFocused();
+        await reason.fill("Check this external receipt before payout.");
+        await member.getByRole("button", { name: "Save explanation", exact: true }).click();
+        await expect(member.getByRole("region", { name: "Payment cases" })).toContainText("Open");
+        await page.getByRole("button", { name: "Refresh circle", exact: true }).click();
+        await expect(page.getByRole("button", { name: "Record payout sent", exact: true })).toBeDisabled();
+        await expect(page.getByText(/Payout is on hold/)).toBeVisible();
+        await member.getByRole("button", { name: "Resolve my payment case" }).click();
+        await member.getByLabel("Reason", { exact: true }).fill("The organiser reconciled the payment with me.");
+        await member.getByRole("button", { name: "Save explanation", exact: true }).click();
+        await expect(member.getByRole("region", { name: "Payment cases" })).toContainText("Resolved");
+        await page.getByRole("button", { name: "Refresh circle", exact: true }).click();
+      }
       await page
         .getByLabel("External payout reference", { exact: true })
         .fill(`external-payout-${round}`);
@@ -306,6 +338,8 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
     await expect(
       member.getByText("Your received payouts", { exact: true }),
     ).toBeVisible();
+    await expect(member.getByText("Your received payouts", { exact: true })).toBeVisible();
+    expect(await member.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     await member.setViewportSize({ width: 390, height: 844 });
     await member.screenshot({
       path: testInfo.outputPath("savings-mobile.png"),
@@ -320,3 +354,4 @@ test("a recoverable circle reconciles instalments and waits for recipient receip
     await memberContext.close();
   }
 });
+}

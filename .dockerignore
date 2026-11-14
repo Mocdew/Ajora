@@ -21,6 +21,7 @@ web/out
 consent.jsonl
 audit.jsonl
 corrections.jsonl
+analytics-demo/
 *.consent-token
 savings.sqlite3
 savings.sqlite3-*

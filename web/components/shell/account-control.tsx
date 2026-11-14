@@ -7,7 +7,7 @@ import { useSavingsLogout, useSavingsSession } from "@/lib/api/savings";
 export function AccountControl({ onNavigate }: { onNavigate: () => void }) {
   const session = useSavingsSession();
   const identity = session.data;
-  const logout = useSavingsLogout();
+  const logout = useSavingsLogout(identity?.user_id);
   const router = useRouter();
 
   if (identity === null) {

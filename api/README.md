@@ -114,22 +114,28 @@ login credentials return the same 401 message for unknown emails and wrong passw
 | `POST /savings/logout` | With `{}`, revoke the current session and clear its cookie; returns 204 |
 | `GET /savings/circles` | List circles belonging to the current member |
 | `POST /savings/circles` | Create a circle and join as its organiser |
-| `GET /savings/invitations/{invite_code}` | Preview the rules and schedule before joining; requires a session and does not reveal member identities |
+| `GET /savings/invitations/{invite_code}` | Preview the schedule before joining; requires a session. External payment rules are visible after joining. |
 | `POST /savings/join` | Join a forming circle with `{invite_code}` |
 | `GET /savings/circles/{id}` | Read a circle; members only |
-| `POST /savings/circles/{id}/order` | Organiser sets the forming circle's exact member order with `{member_ids}`; a change creates a new agreement version |
+| `GET /savings/circles/{id}/export?format=json\|text\|csv` | Member downloads a statement with provenance labels and history. Keep JSON as the machine-readable original. |
+| `GET /savings/operations/{operation_id}` | Recover the current circle for a committed operation by the same member. |
+| `POST /savings/operations/{operation_id}/abandon` | Atomically disable an uncommitted operation key using `{}` and return null. If the original operation committed first, return its current circle. |
+| `POST /savings/circles/{id}/rotate-invite` | Organiser invalidates a leaked invitation to a draft. |
+| `POST /savings/circles/{id}/cancel-draft` | Organiser closes an unstarted draft without payment records. |
+| `POST /savings/circles/{id}/order` | Organiser sets the forming circle's exact member order with `{member_ids, agreement_version}`. A change creates a new agreement version. |
 | `POST /savings/circles/{id}/collection-account` | Organiser configures `{account_id: "demo-collection", label, source: "demo"}` while forming; a change creates a new agreement version |
 | `POST /savings/circles/{id}/agreement/accept` | Member accepts the current agreement using `{version}`; stale versions return 409 |
-| `POST /savings/circles/{id}/start` | Organiser starts a full circle after every member accepts the current agreement; locks membership and order |
+| `POST /savings/circles/{id}/start` | Organiser starts a full circle after every member accepts the current agreement. Include `{agreement_version}` from the reviewed agreement. Starting locks membership and order. |
 | `POST /savings/circles/{id}/contributions` | Member submits an instalment with `{round_number, reference, amount_kobo}`; omitting the amount claims one full scheduled contribution |
-| `POST /savings/circles/{id}/contributions/{member_id}/{round_number}/confirm` | Organiser confirms a submitted contribution |
-| `POST /savings/circles/{id}/contributions/{member_id}/{round_number}/reject` | Organiser rejects a submitted contribution with `{reason}` (3–500 characters), allowing the member to resubmit |
+| `POST /savings/circles/{id}/contributions/{member_id}/{round_number}/confirm` | Organiser confirms the instalments they reviewed. Manual circles require the pending ID-to-version `payment_versions` map, or exact `payment_ids` when every pending instalment is at version 1. |
+| `POST /savings/circles/{id}/contributions/{member_id}/{round_number}/reject` | Organiser rejects reviewed instalments with `reason` and the same review checks as bulk confirmation. |
 | `GET /savings/circles/{id}/bank-feed` | Organiser reads the current round's simulated receipts and unique unused reference-and-amount match candidates; active circle only |
 | `POST /savings/circles/{id}/payments/{payment_id}/match` | Organiser approves a suggested demo match using `{transaction_id}`; a receipt cannot fund two payments |
 | `POST /savings/circles/{id}/payments/{payment_id}/confirm` | Organiser manually confirms one submitted instalment using `{}` |
 | `POST /savings/circles/{id}/payments/{payment_id}/reject` | Organiser rejects one submitted instalment using `{reason}` |
 | `POST /savings/circles/{id}/payments/{payment_id}/revoke` | Organiser corrects a confirmed instalment using `{reason}` before payout; releases its receipt and retains the correction event |
-| `POST /savings/circles/{id}/payments/{payment_id}/dispute` | Member records a discrepancy using `{reason}` in the shared event history |
+| `POST /savings/circles/{id}/payments/{payment_id}/dispute` | Member opens a case with `{reason}`. A case on the current round blocks payout reporting and receipt confirmation until resolved. |
+| `POST /savings/circles/{id}/payment-disputes/{case_id}/resolve` | The reporting member records resolution using `{reason}`. The original complaint stays in the record. |
 | `POST /savings/circles/{id}/payouts` | Organiser records `{round_number, reference}` as `sent` after all full contributions are confirmed; does not advance the round |
 | `POST /savings/circles/{id}/payouts/{round_number}/receive` | Recipient confirms receipt using `{}`; advances the round or completes the circle |
 | `POST /savings/circles/{id}/payouts/{round_number}/dispute` | Recipient records non-receipt using `{reason}`; holds the round open |
@@ -153,6 +159,24 @@ Use a start date from today through the next five years (Africa/Lagos). Amounts 
 
 Circle mutations return the updated circle, including its agreement version,
 member acceptances, event history, contribution instalments and payout states.
+Set `Idempotency-Key` to a UUIDv4 for each intended mutation. After a lost
+response, check the actor-scoped operation endpoint before resending the same
+request with the original key. A different request with an already committed key
+returns 409. Clients can provide `X-Ajora-Actor` with their current user ID to
+reject actions created under a session that has since switched accounts.
+
+`mode` defaults to `manual` and is fixed at creation. `demo` circles support
+synthetic receipt matching. Existing circles with recorded demo evidence are
+labelled `demo`; the other existing circles are labelled `legacy`. The public
+Render Blueprint sets `AJORA_MANUAL_SAVINGS_ENABLED=false` to block new manual
+circles. Existing records remain available. Enable creation only in the approved
+invited pilot environment. Invitation previews keep agreement rules private to
+members. A participant can join a draft to review the rules before accepting.
+
+Send the displayed instalment's `review_version` with granular confirmation,
+rejection, correction, and matching actions. A stale review returns 409 even
+when a correction has returned the instalment to its previous status.
+
 Contributions retain the aggregate `submitted`, `confirmed` and `rejected` statuses.
 Their `payments` carry actual kobo amounts, references, individual statuses and
 provenance (`manual` or `demo`). `confirmed_kobo` is the accepted amount;
@@ -234,8 +258,8 @@ class DataProvider(Protocol):
     def get_batch(self, user_id: str) -> TransactionBatch: ...   # raises UserNotFound
 ```
 
-The only implementation today is `FilePersonaProvider`, which reads the labelled fixtures
-in `data/mock/persona_*.json` (+ `data/sample_transactions.json`). A live
+Public routes use `PublicDemoProvider`, which admits only the reviewed synthetic
+fixtures in `data/mock`. Offline tools may use `FilePersonaProvider`. A live
 `MonoProvider` / `OkraProvider` would implement the same two methods and drop in with **no
 route changes**.
 
@@ -296,15 +320,23 @@ browser → GET /api/engine/users/{id}/cashflow   (same-origin, no CORS)
 
 ### `GET /health`
 
-Liveness probe + the personas this instance can serve.
+Liveness probe for the API process.
 
 ```json
-{ "status": "ok", "users": ["u_demo_stephen","u_persona_a","u_persona_b","u_persona_c"] }
+{ "status": "ok" }
 ```
+
+### `GET /ready`
+
+Reads the configured savings store. Returns `{"status":"ready"}` on success and
+HTTP 503 with `{"status":"unavailable"}` when the store cannot be read. A new
+local installation becomes ready once the savings schema has been initialized.
 
 ### `GET /users`
 
-The demo roster.
+The public roster of reviewed, synthetic personas. The API checks the bytes of
+each approved fixture against its pinned SHA-256 before serving it. Replacing or
+regenerating fixtures requires reviewing their contents and updating the pins.
 
 | field | type | meaning |
 |---|---|---|
@@ -677,7 +709,6 @@ The normalized shape every bank feed maps to (source of truth:
 | `u_persona_a` | Adaeze Okonkwo | big dedup story (**28.3%** income inflation), **no** communal insights |
 | `u_persona_b` | Emeka Balogun | dependent + remittance (frontend default demo user) |
 | `u_persona_c` | Funmilayo Adeyemi | richest communal mix: ajo + dependent + lending — best for cards/graph |
-| `u_demo_stephen` | Stephen Vincent | small standalone sample |
 
 ---
 

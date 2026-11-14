@@ -297,7 +297,10 @@ def test_consumption_commit_failure_preserves_token_credentials_and_sessions(ema
     route = "/auth/password/reset" if purpose == "reset" else "/auth/email/verify"
     body = {"token": token, **({"password": NEW_PASSWORD} if purpose == "reset" else {})}
     with TestClient(app, raise_server_exceptions=False) as client:
-        assert client.post(route, json=body).status_code == 500
+        response = client.post(route, json=body)
+        assert response.status_code == 503
+        assert "commit failed" not in response.text
+        assert response.headers["cache-control"] == "no-store"
     monkeypatch.setattr(account_email, "database", real_database)
     assert state.owner.get("/savings/session").json() == original
     assert state.owner.get("/auth/email/status").json()["verified"] is False

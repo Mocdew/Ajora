@@ -17,6 +17,8 @@ services:
         value: /tmp/ajora-state
       - key: AJORA_REQUIRE_REMOTE_SAVINGS
         value: "true"
+      - key: AJORA_MANUAL_SAVINGS_ENABLED
+        value: "false"
       - key: AJORA_COOKIE_SECURE
         value: "true"
       - key: AJORA_EXPLAINER

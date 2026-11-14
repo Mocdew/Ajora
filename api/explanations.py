@@ -39,7 +39,7 @@ from . import service
 from .audit import AuditLog
 from .consent import ConsentStore, consented_batch
 from .corrections import CorrectionsLog
-from .providers import DataProvider
+from .providers import DataProvider, UserNotFound
 from .schemas import ExplanationItem, ExplanationsResponse, UserSummary
 
 
@@ -47,7 +47,10 @@ def list_user_profiles(provider: DataProvider) -> List[UserSummary]:
     """The demo roster: every user the provider can serve, with headline counts."""
     out: List[UserSummary] = []
     for user_id in provider.list_users():
-        batch = provider.get_batch(user_id)
+        try:
+            batch = provider.get_batch(user_id)
+        except UserNotFound:
+            continue
         out.append(
             UserSummary(
                 id=batch.user.user_id,

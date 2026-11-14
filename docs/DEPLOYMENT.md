@@ -38,6 +38,7 @@ settings:
 | State directory | `/tmp/ajora-state` |
 | Hosted savings database | Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` together on the API |
 | Require remote savings | `AJORA_REQUIRE_REMOTE_SAVINGS=true` |
+| New manual circles on the public demo | `AJORA_MANUAL_SAVINGS_ENABLED=false` |
 | Persistent disk | None |
 | Secure session cookies | `AJORA_COOKIE_SECURE=true` |
 | Allowed frontend origins | Set `AJORA_AUTH_ORIGINS` to the exact public frontend origin(s) |
@@ -52,6 +53,12 @@ enabled on the hosted service. A free service's local filesystem is temporary. S
 existing source records before any restart or storage cutover. See
 [Render's free service limitations](https://render.com/docs/free) and the
 [Blueprint reference](https://render.com/docs/blueprint-spec).
+
+Keep manual-circle creation disabled on the public demo and apply the setting in
+Render for any existing service. Remote storage disables manual creation by
+default. Use `AJORA_MANUAL_SAVINGS_ENABLED=true` in access-controlled staging
+for synthetic acceptance. Enable it for real users only in the isolated pilot
+environment after the release gate. Existing records stay accessible.
 
 To create a default demo login when it is missing,
 set `AJORA_DEMO_EMAIL` and `AJORA_DEMO_PASSWORD` together in the Render service's
@@ -74,6 +81,12 @@ the API has the matching origin configured.
 Check `https://YOUR-API-HOST/health` before connecting the frontend. Use the API
 host's actual assigned URL; `YOUR-API-HOST` is a placeholder.
 
+Keep the host health check on `/health` for process liveness. Monitor `/ready`
+separately for savings-store connectivity. An HTTP 503 from `/ready` means the
+store or schema could not be read. API logs include request IDs, route templates,
+status and timing. Use the [pilot operations runbook](PILOT_OPERATIONS.md) to
+assign alerts, verify proxy trust, and rehearse recovery before inviting members.
+
 ## 2. Connect Vercel to GitHub
 
 Import [Mocdew/Ajora](https://github.com/Mocdew/Ajora) into Vercel, then configure:
@@ -85,12 +98,14 @@ Import [Mocdew/Ajora](https://github.com/Mocdew/Ajora) into Vercel, then configu
 | Install Command | `npm ci` |
 | Build Command | `npm run build` |
 | Production Branch | `main` |
-| Production environment variable | `AJORA_API_BASE=https://YOUR-API-HOST` |
+| Production origin, available to Production and Preview builds | `AJORA_API_BASE=https://YOUR-API-HOST` |
+| Preview environment variable | `AJORA_STAGING_API_BASE=https://YOUR-STAGING-API-HOST` |
+| Public demo frontend setting | `NEXT_PUBLIC_AJORA_MANUAL_SAVINGS_ENABLED=false` |
 
-`AJORA_API_BASE` is the API's HTTPS root, without `/api/engine` or another path.
-It stays server-side. Set it before deployment because Next.js freezes rewrites at
-build time; redeploy after changing it. The build validates this setting on
-Vercel so a missing or local API address cannot silently reach production.
+`AJORA_API_BASE` is the production API's HTTPS root, without `/api/engine` or
+another path. It stays server-side. Use the same production origin value in
+Preview so the build can reject staging and production sharing an origin.
+Next.js freezes rewrites at build time. Redeploy after changing the target.
 
 Once Vercel assigns the frontend domain, add its exact HTTPS origin to the API's
 `AJORA_AUTH_ORIGINS` and apply that environment change. Browser requests continue
@@ -137,7 +152,11 @@ Other Git branches receive Vercel preview deployments. For previews that can
 register users or change circle records, use a separate API and savings database
 (or a separate state directory with both Turso variables and
 `AJORA_REQUIRE_REMOTE_SAVINGS` unset for local SQLite),
-and set Preview `AJORA_API_BASE` accordingly. Add only trusted, exact preview
+and set Preview `AJORA_STAGING_API_BASE` accordingly. Preview builds require this
+variable and do not fall back to the production target. Keep Vercel's system
+environment variables exposed, including `VERCEL_ENV`, so the build detects
+Preview. Match the frontend circle selector to the API policy in that environment.
+Add only trusted, exact preview
 origins to that API's allow-list; do not allow every `*.vercel.app` domain.
 
 ## Saved records and local development

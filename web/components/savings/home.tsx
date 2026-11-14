@@ -32,8 +32,11 @@ function Home({ session }: { session: SavingsSession }) {
       <ErrorNotice error={circles.error} retry={() => circles.refetch()} />
     );
   const all = circles.data ?? [];
+  const tracked = all.filter((c) => c.mode !== "demo");
+  const demoCircles = all.length - tracked.length;
   const active = all.filter((c) => c.status === "active");
-  const upcoming = active
+  const activeTracked = active.filter((c) => c.mode !== "demo");
+  const upcoming = activeTracked
     .filter(
       (c) =>
         !c.contributions.some(
@@ -48,20 +51,12 @@ function Home({ session }: { session: SavingsSession }) {
         b.due_dates[b.current_round - 1] ?? "",
       ),
     )[0];
-  const contributed = all.reduce(
+  const contributed = tracked.reduce(
     (total, c) =>
       total +
       c.contributions
         .filter((p) => p.member_id === session.user_id)
         .reduce((sum, p) => sum + p.confirmed_kobo, 0),
-    0,
-  );
-  const demoContributed = all.reduce(
-    (total, circle) =>
-      total +
-      circle.contributions
-        .filter((contribution) => contribution.member_id === session.user_id)
-        .reduce((sum, contribution) => sum + contribution.matched_kobo, 0),
     0,
   );
   const upcomingRemaining = upcoming
@@ -72,7 +67,7 @@ function Home({ session }: { session: SavingsSession }) {
           payment.round_number === upcoming.current_round,
       )?.confirmed_kobo ?? 0)
     : 0;
-  const received = all.reduce(
+  const received = tracked.reduce(
     (total, c) =>
       total +
       c.payouts
@@ -102,7 +97,7 @@ function Home({ session }: { session: SavingsSession }) {
         {[
           { label: "Your confirmed contributions", value: money(contributed), icon: Stack, detail: "Your savings, recorded" },
           { label: "Your received payouts", value: money(received), icon: HandCoins, detail: "Receipt confirmed by you" },
-          { label: "Active circles", value: String(active.length), icon: UsersThree, detail: "Growing together" },
+          { label: "Active tracking circles", value: String(activeTracked.length), icon: UsersThree, detail: "External payments" },
         ].map(({ label, value, icon: Icon, detail }) => (
           <div key={label} className="savings-stat min-w-0 border-b border-border p-6 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0 lg:p-7">
             <div className="flex items-start justify-between gap-3">
@@ -116,10 +111,9 @@ function Home({ session }: { session: SavingsSession }) {
           </div>
         ))}
       </section>
-      {demoContributed > 0 && (
+      {demoCircles > 0 && (
         <p className="mt-3 text-xs text-muted-foreground">
-          Recorded contributions include {money(demoContributed)} matched to
-          simulated demo receipts. Demo records do not verify real payments.
+          Overview totals exclude practice records from {demoCircles} {demoCircles === 1 ? "demo circle" : "demo circles"}.
         </p>
       )}
       <section
@@ -130,10 +124,10 @@ function Home({ session }: { session: SavingsSession }) {
         <div className="relative flex flex-col justify-between gap-7 sm:flex-row sm:items-end">
           <div className="max-w-xl">
             <span className="eyebrow">Your next step</span>
-            <h2 className="mt-4 max-w-lg text-2xl font-normal leading-snug tracking-tight sm:text-3xl">
+            <h2 className="mt-4 max-w-lg break-words text-2xl font-normal leading-snug tracking-tight sm:text-3xl">
               {upcoming
                 ? `${money(upcomingRemaining)} remaining for ${upcoming.name}`
-                : active.length
+                : activeTracked.length
                   ? "Your submissions are up to date"
                   : "Build a savings habit with your people"}
             </h2>
@@ -141,7 +135,7 @@ function Home({ session }: { session: SavingsSession }) {
               <CalendarBlank className="mt-1 h-4 w-4 shrink-0" aria-hidden />
               {upcoming
                 ? `Due ${dateLabel(upcoming.due_dates[upcoming.current_round - 1])} · Round ${upcoming.current_round}`
-                : active.length
+                : activeTracked.length
                   ? "Open a circle to check confirmations and payout turns."
                   : "Create a circle or join one with an invite code."}
             </p>

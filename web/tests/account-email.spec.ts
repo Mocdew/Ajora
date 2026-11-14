@@ -8,7 +8,7 @@ const token = "test-link-token-kept-out-of-request-urls";
 const account = { user_id: "email-test-user", display_name: "Ada Email", email: "ada@example.com", google_linked: false };
 
 async function sessionRoutes(page: Page, signedIn = false) {
-  await page.route("**/api/engine/health", (route) => route.fulfill({ json: { status: "ok", users: [] } }));
+  await page.route("**/api/engine/health", (route) => route.fulfill({ json: { status: "ok" } }));
   await page.route("**/api/engine/savings/session", (route) => route.fulfill(signedIn
     ? { json: account }
     : { status: 401, json: { detail: "Sign in to continue." } }));

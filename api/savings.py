@@ -19,14 +19,18 @@ import time
 from typing import Literal, Optional
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from pydantic import UUID4, BaseModel, ConfigDict, Field
 
+from .rate_limits import check_rate_limits, rate_limit_scope
 from .savings_feed import BankFeed, MatchCandidate, get_bank_feed_provider
 
 router = APIRouter(prefix="/savings", tags=["savings"])
 COOKIE = "ajora_savings_session"
+ABANDONED_OPERATION = "abandoned"
 SESSION_SECONDS = 60 * 60 * 24 * 30
+CircleMode = Literal["manual", "demo", "legacy"]
+CircleStatus = Literal["draft", "active", "completed", "cancelled"]
 
 
 class Input(BaseModel):
@@ -44,14 +48,7 @@ class CreateCircle(Input):
     member_limit: int = Field(strict=True, ge=2, le=50)
     start_date: date
     rules: str = Field(default="", max_length=4000)
-
-    @field_validator("start_date")
-    @classmethod
-    def future_date(cls, value: date) -> date:
-        today = datetime.now(timezone(timedelta(hours=1))).date()
-        if value < today or value > today + timedelta(days=366 * 5):
-            raise ValueError("Start date must be today or within the next five years (Africa/Lagos).")
-        return value
+    mode: Literal["manual", "demo"] = "manual"
 
 
 class JoinCircle(Input):
@@ -60,6 +57,11 @@ class JoinCircle(Input):
 
 class OrderInput(Input):
     member_ids: list[str] = Field(min_length=1, max_length=50)
+    agreement_version: Optional[int] = Field(default=None, strict=True, ge=1)
+
+
+class StartInput(Input):
+    agreement_version: Optional[int] = Field(default=None, strict=True, ge=1)
 
 
 class ContributionInput(Input):
@@ -83,7 +85,11 @@ class AgreementInput(Input):
     version: int = Field(strict=True, ge=1)
 
 
-class MatchInput(Input):
+class ReviewPaymentInput(Input):
+    review_version: Optional[int] = Field(default=None, strict=True, ge=1)
+
+
+class MatchInput(ReviewPaymentInput):
     transaction_id: str = Field(min_length=1, max_length=200)
 
 
@@ -112,9 +118,23 @@ class Payment(BaseModel):
     submitted_at: str
     confirmed_at: Optional[str] = None
     rejection_reason: Optional[str] = None
+    review_version: int = 1
 
 
 class RejectInput(Input):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class RejectPaymentInput(RejectInput, ReviewPaymentInput):
+    pass
+
+
+class ReviewContributionInput(Input):
+    payment_ids: Optional[list[str]] = Field(default=None, min_length=1)
+    payment_versions: Optional[dict[str, int]] = Field(default=None, min_length=1)
+
+
+class RejectContributionInput(ReviewContributionInput):
     reason: str = Field(min_length=3, max_length=500)
 
 
@@ -168,6 +188,17 @@ class Payout(BaseModel):
     dispute_reason: Optional[str] = None
 
 
+class PaymentDispute(BaseModel):
+    id: str
+    payment_id: str
+    round_number: int
+    opened_by: str
+    opened_at: str
+    reason: str
+    resolved_at: Optional[str] = None
+    resolution: Optional[str] = None
+
+
 class Circle(BaseModel):
     id: str
     name: str
@@ -178,7 +209,8 @@ class Circle(BaseModel):
     start_date: str
     rules: str
     invite_code: str
-    status: Literal["draft", "active", "completed"]
+    status: CircleStatus
+    mode: CircleMode
     current_round: int
     members: list[Member]
     contributions: list[Contribution]
@@ -189,6 +221,7 @@ class Circle(BaseModel):
     agreement_version: int = 1
     acceptances: list[Acceptance] = Field(default_factory=list)
     events: list[CircleEvent] = Field(default_factory=list)
+    payment_disputes: list[PaymentDispute] = Field(default_factory=list)
 
 
 class InvitationPreview(BaseModel):
@@ -198,7 +231,8 @@ class InvitationPreview(BaseModel):
     member_limit: int
     start_date: str
     rules: str
-    status: Literal["draft", "active", "completed"]
+    status: CircleStatus
+    mode: CircleMode
     member_count: int
 
 
@@ -249,6 +283,10 @@ def database(path: Path, *, write: bool = False):
             );
             CREATE TABLE IF NOT EXISTS savings_circles (
                 id TEXT PRIMARY KEY, invite_code TEXT UNIQUE NOT NULL, document TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS savings_operations (
+                user_id TEXT NOT NULL, operation_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                circle_id TEXT NOT NULL, PRIMARY KEY(user_id, operation_id)
             );
         """)
         if write:
@@ -307,13 +345,23 @@ def require_identity_request(request: Request) -> None:
             raise HTTPException(403, "This origin cannot make account requests.")
 
 
-def current_user(request: Request, path: Path = Depends(get_savings_path)) -> dict:
+def current_user(request: Request, path: Path = Depends(get_savings_path),
+                 expected_actor: Optional[str] = Header(default=None, alias="X-Ajora-Actor")) -> dict:
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         require_identity_request(request)
     user = session_user(request, path)
     if user is None:
         raise HTTPException(401, "Sign in to continue to your savings.")
+    if expected_actor is not None and expected_actor != user["user_id"]:
+        raise HTTPException(409, "Your active account changed. Reload and review before continuing.")
     return user
+
+
+def charge_savings_attempt(path: Path, action: str, subject: str, limit: int) -> None:
+    # Failed lookups and state conflicts still count. Commit the attempt before
+    # running the independently transactional ledger mutation.
+    with database(path, write=True) as conn:
+        check_rate_limits(conn, [(rate_limit_scope(action, subject), limit)])
 
 
 @router.get("/session", response_model=Session)
@@ -324,6 +372,7 @@ def get_session(response: Response, user: dict = Depends(current_user)) -> dict:
 
 @router.post("/session", status_code=201, response_model=Session, dependencies=[Depends(require_identity_request)])
 def create_session(body: SessionInput, request: Request, response: Response, path: Path = Depends(get_savings_path)) -> dict:
+    charge_savings_attempt(path, "savings-guest:ip", request.client.host if request.client else "unknown", 20)
     if session_user(request, path):
         raise HTTPException(409, "This browser already has a savings profile.")
     user = {"user_id": secrets.token_hex(16), "display_name": body.display_name}
@@ -353,8 +402,90 @@ def load_circle(conn, circle_id: str, user: dict, *, organizer: bool = False) ->
 
 def save_circle(conn, circle: dict) -> dict:
     hydrate_circle(circle)
-    conn.execute("UPDATE savings_circles SET document=? WHERE id=?", (json.dumps(circle), circle["id"]))
+    conn.execute("UPDATE savings_circles SET invite_code=?, document=? WHERE id=?",
+                 (circle["invite_code"], json.dumps(circle), circle["id"]))
     return circle
+
+
+def find_operation(conn, user_id: str, key: str):
+    return conn.execute("SELECT fingerprint, circle_id FROM savings_operations WHERE user_id=? AND operation_id=?",
+                        (user_id, key)).fetchone()
+
+
+def require_active_session(conn, user_id: str, session_hash: str):
+    if conn.execute("SELECT 1 FROM savings_sessions WHERE token_hash=? AND user_id=? AND expires_at>?",
+                    (session_hash, user_id, int(time.time()))).fetchone() is None:
+        raise HTTPException(401, "Sign in to continue to your savings.")
+
+
+class CircleOperation:
+    """Bind a client key to one actor, submitted request, and committed circle."""
+
+    def __init__(self, user: dict, session_hash: str, key: Optional[UUID4], fingerprint: str):
+        self.user = user
+        self.session_hash = session_hash
+        self.key = str(key) if key is not None else None
+        self.fingerprint = fingerprint
+
+    def replay(self, conn) -> Optional[dict]:
+        # Check inside the ledger transaction too. Reset or sign-out may have
+        # revoked this session while the mutation was waiting for the lock.
+        require_active_session(conn, self.user["user_id"], self.session_hash)
+        if self.key is None:
+            return None
+        row = find_operation(conn, self.user["user_id"], self.key)
+        if row is None:
+            return None
+        if row["fingerprint"] == ABANDONED_OPERATION:
+            raise HTTPException(409, "This savings operation was discarded. Review the latest record.")
+        if row["fingerprint"] != self.fingerprint:
+            raise HTTPException(409, "This operation key has already been used with a different request.")
+        return load_circle(conn, row["circle_id"], self.user)
+
+    def record(self, conn, circle: dict) -> dict:
+        if self.key is not None:
+            conn.execute("INSERT INTO savings_operations VALUES (?, ?, ?, ?)",
+                         (self.user["user_id"], self.key, self.fingerprint, circle["id"]))
+        return circle
+
+    def save(self, conn, circle: dict) -> dict:
+        return self.record(conn, save_circle(conn, circle))
+
+
+async def circle_operation(request: Request, user: dict = Depends(current_user),
+                           key: Optional[UUID4] = Header(default=None, alias="Idempotency-Key")) -> CircleOperation:
+    fingerprint = ""
+    if key is not None:
+        body = await request.json() if await request.body() else None
+        canonical = json.dumps([request.scope["path"], body], sort_keys=True, separators=(",", ":"))
+        fingerprint = hashlib.sha256(canonical.encode()).hexdigest()
+    return CircleOperation(user, hashlib.sha256(request.cookies[COOKIE].encode()).hexdigest(), key, fingerprint)
+
+
+@router.get("/operations/{operation_id}", response_model=Circle)
+def recover_operation(operation_id: UUID4, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+    with database(path) as conn:
+        row = find_operation(conn, user["user_id"], str(operation_id))
+        if not row or row["fingerprint"] == ABANDONED_OPERATION:
+            raise HTTPException(404, "No committed savings operation matches that key.")
+        return load_circle(conn, row["circle_id"], user)
+
+
+@router.post("/operations/{operation_id}/abandon", response_model=Optional[Circle])
+def abandon_operation(operation_id: UUID4, body: EmptyInput, request: Request,
+                      user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> Optional[dict]:
+    user_id = user["user_id"]
+    key = str(operation_id)
+    session_hash = hashlib.sha256(request.cookies[COOKIE].encode()).hexdigest()
+    with database(path, write=True) as conn:
+        require_active_session(conn, user_id, session_hash)
+        row = find_operation(conn, user_id, key)
+        if row is not None:
+            return None if row["fingerprint"] == ABANDONED_OPERATION else load_circle(conn, row["circle_id"], user)
+        # Serialize with a late original request. Whichever commits first
+        # determines whether the action is applied or prevented.
+        conn.execute("INSERT INTO savings_operations VALUES (?, ?, ?, '')", (user_id, key, ABANDONED_OPERATION))
+    return None
 
 
 def require_status(circle: dict, status: str):
@@ -379,30 +510,59 @@ def due_dates(start: date, frequency: str, count: int) -> list[str]:
 @router.get("/circles", response_model=list[Circle])
 def list_circles(user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> list[dict]:
     with database(path) as conn:
-        circles = [hydrate_circle(json.loads(row["document"])) for row in conn.execute("SELECT document FROM savings_circles ORDER BY rowid DESC")]
-    return [c for c in circles if any(m["user_id"] == user["user_id"] for m in c["members"])]
+        rows = conn.execute(
+            "SELECT document FROM savings_circles AS c WHERE EXISTS ("
+            "SELECT 1 FROM json_each(c.document, '$.members') AS m "
+            "WHERE json_extract(m.value, '$.user_id')=?"
+            ") ORDER BY c.rowid DESC", (user["user_id"],),
+        )
+        return [hydrate_circle(json.loads(row["document"])) for row in rows]
 
 
 @router.post("/circles", status_code=201, response_model=Circle)
-def create_circle(body: CreateCircle, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
-    circle = {
-        "id": secrets.token_hex(16), "name": body.name, "organizer_id": user["user_id"],
-        "contribution_kobo": body.contribution_kobo, "frequency": body.frequency,
-        "member_limit": body.member_limit, "start_date": body.start_date.isoformat(), "rules": body.rules,
-        "invite_code": secrets.token_hex(6).upper(), "status": "draft", "current_round": 1,
-        "members": [{"user_id": user["user_id"], "display_name": user["display_name"], "position": 1}], "contributions": [], "payouts": [],
-        "due_dates": due_dates(body.start_date, body.frequency, body.member_limit), "created_at": now(),
-        "collection_account": None, "agreement_version": 1, "acceptances": [], "events": [],
-    }
-    event(circle, user, "circle_created", "Circle created with provisional payout order.")
+def create_circle(body: CreateCircle, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
+    if operation.key is not None:
+        with database(path) as conn:
+            if (replayed := operation.replay(conn)) is not None:
+                return replayed
+    charge_savings_attempt(path, "savings-create:member", operation.user["user_id"], 10)
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        if body.mode == "manual":
+            hosted = os.environ.get("AJORA_REQUIRE_REMOTE_SAVINGS") == "true" or "TURSO_DATABASE_URL" in os.environ
+            default = "false" if hosted else "true"
+            if os.environ.get("AJORA_MANUAL_SAVINGS_ENABLED", default).strip().lower() != "true":
+                raise HTTPException(403, "Manual circle creation is available only in the invited pilot environment. Choose a demo circle here.")
+        today = datetime.now(timezone(timedelta(hours=1))).date()
+        if body.start_date < today or body.start_date > today + timedelta(days=366 * 5):
+            raise HTTPException(422, "Start date must be today or within the next five years (Africa/Lagos).")
+        user = operation.user
+        circle = {
+            "id": secrets.token_hex(16), "name": body.name, "organizer_id": user["user_id"],
+            "contribution_kobo": body.contribution_kobo, "frequency": body.frequency,
+            "member_limit": body.member_limit, "start_date": body.start_date.isoformat(), "rules": body.rules,
+            "invite_code": secrets.token_hex(6).upper(), "status": "draft", "current_round": 1, "mode": body.mode,
+            "members": [{"user_id": user["user_id"], "display_name": user["display_name"], "position": 1}], "contributions": [], "payouts": [],
+            "due_dates": due_dates(body.start_date, body.frequency, body.member_limit), "created_at": now(),
+            "collection_account": None, "agreement_version": 1, "acceptances": [], "events": [], "payment_disputes": [],
+        }
+        event(circle, user, "circle_created", "Circle created with provisional payout order.")
         conn.execute("INSERT INTO savings_circles VALUES (?, ?, ?)", (circle["id"], circle["invite_code"], json.dumps(circle)))
-    return circle
+        return operation.record(conn, circle)
 
 
 @router.post("/join", response_model=Circle)
-def join_circle(body: JoinCircle, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def join_circle(body: JoinCircle, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
+    if operation.key is not None:
+        with database(path) as conn:
+            if (replayed := operation.replay(conn)) is not None:
+                return replayed
+    charge_savings_attempt(path, "savings-invite:member", operation.user["user_id"], 30)
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         row = conn.execute("SELECT document FROM savings_circles WHERE invite_code=?", (body.invite_code.upper(),)).fetchone()
         if not row:
             raise HTTPException(404, "No circle matches that invite code.")
@@ -414,7 +574,7 @@ def join_circle(body: JoinCircle, user: dict = Depends(current_user), path: Path
             raise HTTPException(409, "This circle is full.")
         circle["members"].append({"user_id": user["user_id"], "display_name": user["display_name"], "position": len(circle["members"]) + 1})
         revise_agreement(circle, user, "Member joined; review the updated agreement.")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.get("/circles/{circle_id}", response_model=Circle)
@@ -424,24 +584,32 @@ def get_circle(circle_id: str, user: dict = Depends(current_user), path: Path = 
 
 
 @router.post("/circles/{circle_id}/order", response_model=Circle)
-def set_order(circle_id: str, body: OrderInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def set_order(circle_id: str, body: OrderInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "draft")
+        require_agreement_version(circle, body.agreement_version)
         members = {m["user_id"]: m for m in circle["members"]}
         if len(body.member_ids) != len(members) or set(body.member_ids) != set(members):
             raise HTTPException(422, "Payout order must contain each member exactly once.")
         if body.member_ids != [m["user_id"] for m in circle["members"]]:
             circle["members"] = [{**members[uid], "position": index + 1} for index, uid in enumerate(body.member_ids)]
             revise_agreement(circle, user, "Payout order changed; all members must accept again.")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/start", response_model=Circle)
-def start_circle(circle_id: str, body: EmptyInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def start_circle(circle_id: str, body: StartInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "draft")
+        require_agreement_version(circle, body.agreement_version)
         if len(circle["members"]) != circle["member_limit"]:
             raise HTTPException(409, "Fill every member place before starting the circle.")
         accepted = {a["member_id"] for a in circle["acceptances"] if a["version"] == circle["agreement_version"]}
@@ -449,12 +617,45 @@ def start_circle(circle_id: str, body: EmptyInput, user: dict = Depends(current_
             raise HTTPException(409, "Every member must accept the final agreement and payout order before starting.")
         circle["status"] = "active"
         event(circle, user, "circle_started", f"Agreement version {circle['agreement_version']} locked.")
-        return save_circle(conn, circle)
+        circle["events"][-1]["agreement"] = agreement_snapshot(circle)
+        return operation.save(conn, circle)
+
+
+@router.post("/circles/{circle_id}/rotate-invite", response_model=Circle)
+def rotate_invite(circle_id: str, body: EmptyInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
+    with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
+        circle = load_circle(conn, circle_id, user, organizer=True)
+        require_status(circle, "draft")
+        circle["invite_code"] = secrets.token_hex(6).upper()
+        event(circle, user, "invite_rotated", "Organiser replaced the invitation. The old code can no longer be used.")
+        return operation.save(conn, circle)
+
+
+@router.post("/circles/{circle_id}/cancel-draft", response_model=Circle)
+def cancel_draft(circle_id: str, body: EmptyInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
+    with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
+        circle = load_circle(conn, circle_id, user, organizer=True)
+        require_status(circle, "draft")
+        if circle["contributions"] or circle["payouts"]:
+            raise HTTPException(409, "A circle with payment records cannot be cancelled as a draft.")
+        circle["status"] = "cancelled"
+        circle["invite_code"] = secrets.token_hex(6).upper()
+        event(circle, user, "draft_cancelled", "Organiser cancelled this draft. Use only a newly shared invitation for a replacement.")
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/contributions", response_model=Circle)
-def submit_contribution(circle_id: str, body: ContributionInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def submit_contribution(circle_id: str, body: ContributionInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user)
         require_status(circle, "active")
         if body.round_number != circle["current_round"]:
@@ -478,13 +679,16 @@ def submit_contribution(circle_id: str, body: ContributionInput, user: dict = De
             "submitted_at": now(), "confirmed_at": None, "rejection_reason": None})
         existing.update(reference=body.reference, submitted_at=now(), rejection_reason=None, rejected_at=None)
         event(circle, user, "payment_submitted", f"Round {body.round_number}: contribution claim of {amount} kobo submitted ({body.reference}).")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/contributions/{member_id}/{round_number}/confirm", response_model=Circle)
-def confirm_contribution(circle_id: str, member_id: str, round_number: int, body: EmptyInput,
-                         user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def confirm_contribution(circle_id: str, member_id: str, round_number: int, body: ReviewContributionInput,
+                         operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "active")
         if round_number != circle["current_round"]:
@@ -492,19 +696,19 @@ def confirm_contribution(circle_id: str, member_id: str, round_number: int, body
         contribution = next((c for c in circle["contributions"] if c["member_id"] == member_id and c["round_number"] == round_number), None)
         if not contribution:
             raise HTTPException(404, "This member has not submitted a contribution for this round.")
-        if not any(payment["status"] == "submitted" for payment in contribution["payments"]):
-            raise HTTPException(409, "There are no submitted payments to confirm.")
         require_unpaid_round(circle)
-        for payment in contribution["payments"]:
-            if payment["status"] == "submitted":
-                payment.update(status="confirmed", confirmed_at=now(), source="manual")
+        for payment in pending_review(circle, contribution, body):
+            update_review(payment, status="confirmed", confirmed_at=now(), source="manual")
         event(circle, user, "payment_confirmed", f"Round {round_number}: organiser manually confirmed {member_id}'s submitted payments.")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/payouts", response_model=Circle)
-def record_payout(circle_id: str, body: PayoutInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def record_payout(circle_id: str, body: PayoutInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "active")
         number = circle["current_round"]
@@ -512,6 +716,7 @@ def record_payout(circle_id: str, body: PayoutInput, user: dict = Depends(curren
             raise HTTPException(409, "Record a payout for the current round only.")
         if any(p["round_number"] == number for p in circle["payouts"]):
             raise HTTPException(409, "A payout has already been reported for this round.")
+        require_clear_payout_round(circle)
         if any(normalize_reference(p["reference"]) == normalize_reference(body.reference) for p in circle["payouts"]):
             raise HTTPException(409, "This payout reference has already been recorded.")
         confirmed = [c for c in circle["contributions"] if c["round_number"] == number and c["confirmed_kobo"] == circle["contribution_kobo"]]
@@ -522,25 +727,33 @@ def record_payout(circle_id: str, body: PayoutInput, user: dict = Depends(curren
             "amount_kobo": circle["contribution_kobo"] * circle["member_limit"], "reference": body.reference,
             "recorded_at": now(), "status": "sent", "received_at": None, "dispute_reason": None})
         event(circle, user, "payout_sent", f"Round {number}: organiser reported payout sent to {recipient['display_name']}; receipt pending.")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.get("/invitations/{invite_code}", response_model=InvitationPreview)
 def preview_invitation(invite_code: str, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
     """Show the agreement before joining, without exposing member identities."""
+    charge_savings_attempt(path, "savings-invite:member", user["user_id"], 30)
     with database(path) as conn:
         row = conn.execute("SELECT document FROM savings_circles WHERE invite_code=?", (invite_code.strip().upper(),)).fetchone()
     if not row:
         raise HTTPException(404, "No circle matches that invite code.")
-    circle = json.loads(row["document"])
-    return {**{key: circle[key] for key in ("name", "contribution_kobo", "frequency", "member_limit", "start_date", "rules", "status")},
+    circle = hydrate_circle(json.loads(row["document"]))
+    if circle["status"] == "cancelled":
+        raise HTTPException(404, "No circle matches that invite code.")
+    is_member = any(m["user_id"] == user["user_id"] for m in circle["members"])
+    return {**{key: circle[key] for key in ("name", "contribution_kobo", "frequency", "member_limit", "start_date", "status", "mode")},
+            "rules": circle["rules"] if is_member else "",
             "member_count": len(circle["members"])}
 
 
 @router.post("/circles/{circle_id}/contributions/{member_id}/{round_number}/reject", response_model=Circle)
-def reject_contribution(circle_id: str, member_id: str, round_number: int, body: RejectInput,
-                        user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def reject_contribution(circle_id: str, member_id: str, round_number: int, body: RejectContributionInput,
+                        operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "active")
         if round_number != circle["current_round"]:
@@ -548,17 +761,31 @@ def reject_contribution(circle_id: str, member_id: str, round_number: int, body:
         contribution = next((c for c in circle["contributions"] if c["member_id"] == member_id and c["round_number"] == round_number), None)
         if not contribution:
             raise HTTPException(404, "This member has not submitted a contribution for this round.")
-        if not any(payment["status"] == "submitted" for payment in contribution["payments"]):
-            raise HTTPException(409, "There are no submitted payments to reject.")
         require_unpaid_round(circle)
-        for payment in contribution["payments"]:
-            if payment["status"] == "submitted":
-                payment.update(status="rejected", rejection_reason=body.reason)
+        for payment in pending_review(circle, contribution, body):
+            update_review(payment, status="rejected", rejection_reason=body.reason)
         contribution["history"].append({"reference": contribution["reference"], "submitted_at": contribution["submitted_at"],
             "rejected_at": now(), "rejection_reason": body.reason})
         contribution.update(rejected_at=now(), rejection_reason=body.reason)
         event(circle, user, "payment_rejected", f"Round {round_number}: claim from {member_id} rejected: {body.reason}")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
+
+
+def pending_review(circle: dict, contribution: dict, body: ReviewContributionInput) -> list[dict]:
+    pending = [payment for payment in contribution["payments"] if payment["status"] == "submitted"]
+    if not pending:
+        raise HTTPException(409, "There are no submitted payments to review.")
+    versions = {payment["id"]: payment["review_version"] for payment in pending}
+    if body.payment_versions is not None and body.payment_versions != versions:
+        raise HTTPException(409, "The submitted payments changed. Review them again before continuing.")
+    if circle["mode"] == "manual" and body.payment_versions is None and any(version > 1 for version in versions.values()):
+        raise HTTPException(409, "Review revised instalments with their current versions.")
+    expected = body.payment_ids
+    if expected is None and body.payment_versions is None and circle["mode"] == "manual":
+        raise HTTPException(409, "Identify the submitted payments you reviewed, or review one payment at a time.")
+    if expected is not None and (len(expected) != len(pending) or set(expected) != versions.keys()):
+        raise HTTPException(409, "The submitted payments changed. Review them again before continuing.")
+    return pending
 
 
 def normalize_reference(reference: str) -> str:
@@ -571,6 +798,15 @@ def hydrate_circle(circle: dict) -> dict:
     circle.setdefault("agreement_version", 1)
     circle.setdefault("acceptances", [])
     circle.setdefault("events", [])
+    circle.setdefault("payment_disputes", [])
+    if "mode" not in circle:
+        has_simulation = (
+            circle["collection_account"] is not None
+            or any(p.get("source") == "demo" for c in circle["contributions"] for p in c.get("payments", []))
+            or any(e["kind"] == "demo_match_approved" or (e.get("agreement") or {}).get("collection_account")
+                   for e in circle["events"])
+        )
+        circle["mode"] = "demo" if has_simulation else "legacy"
     for payout in circle["payouts"]:
         payout.setdefault("status", "legacy_recorded")
         payout.setdefault("received_at", None)
@@ -582,7 +818,10 @@ def hydrate_circle(circle: dict) -> dict:
                 "status": claim["status"], "source": "manual", "receipt_id": None,
                 "submitted_at": claim["submitted_at"], "confirmed_at": claim.get("confirmed_at"),
                 "rejection_reason": claim.get("rejection_reason")}]
-        confirmed = [p for p in claim["payments"] if p["status"] == "confirmed"]
+        for payment in claim["payments"]:
+            payment.setdefault("review_version", 1)
+        confirmed = [p for p in claim["payments"] if p["status"] == "confirmed"
+                     and (circle["mode"] == "demo" or p["source"] == "manual")]
         claim["confirmed_kobo"] = sum(p["amount_kobo"] for p in confirmed)
         claim["matched_kobo"] = sum(p["amount_kobo"] for p in confirmed if p["source"] == "demo")
         claim["status"] = ("confirmed" if claim["confirmed_kobo"] == circle["contribution_kobo"] else
@@ -603,9 +842,20 @@ def revise_agreement(circle: dict, user: dict, detail: str):
     circle["events"][-1]["agreement"] = agreement_snapshot(circle)
 
 
+def require_agreement_version(circle: dict, expected: Optional[int]):
+    if expected is not None and expected != circle["agreement_version"]:
+        raise HTTPException(409, "The agreement changed. Review the current version before continuing.")
+
+
 def require_unpaid_round(circle: dict):
     if any(p["round_number"] == circle["current_round"] for p in circle["payouts"]):
         raise HTTPException(409, "This round's payout has been reported; payment records are locked.")
+
+
+def require_clear_payout_round(circle: dict):
+    if any(case["round_number"] == circle["current_round"] and case["resolved_at"] is None
+           for case in circle["payment_disputes"]):
+        raise HTTPException(409, "This round has an open payment dispute. Review the case before continuing the payout.")
 
 
 def find_payment(circle: dict, payment_id: str, *, current_only: bool = True) -> tuple[dict, dict]:
@@ -618,21 +868,38 @@ def find_payment(circle: dict, payment_id: str, *, current_only: bool = True) ->
     raise HTTPException(404, "Payment not found.")
 
 
+def require_review_version(circle: dict, payment: dict, expected: Optional[int]):
+    required = circle["mode"] == "manual" and payment["review_version"] > 1
+    if (expected is not None or required) and payment["review_version"] != expected:
+        raise HTTPException(409, "This payment changed. Review the latest record before continuing.")
+
+
+def update_review(payment: dict, **changes):
+    payment.update(**changes, review_version=payment["review_version"] + 1)
+
+
 @router.post("/circles/{circle_id}/collection-account", response_model=Circle)
-def set_collection_account(circle_id: str, body: CollectionAccount, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def set_collection_account(circle_id: str, body: CollectionAccount, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "draft")
+        require_demo_circle(circle)
         account = body.model_dump()
         if circle["collection_account"] != account:
             circle["collection_account"] = account
             revise_agreement(circle, user, "Demo collection account changed; all members must accept again.")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/agreement/accept", response_model=Circle)
-def accept_agreement(circle_id: str, body: AgreementInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def accept_agreement(circle_id: str, body: AgreementInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user)
         require_status(circle, "draft")
         if body.version != circle["agreement_version"]:
@@ -642,7 +909,7 @@ def accept_agreement(circle_id: str, body: AgreementInput, user: dict = Depends(
             order = ", ".join(f"{m['position']}: {m['display_name']}" for m in circle["members"])
             event(circle, user, "agreement_accepted", f"Accepted version {body.version}; payout order {order}.")
             circle["events"][-1]["agreement"] = agreement_snapshot(circle)
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 def candidate_matches(circle: dict, feed: BankFeed, allocated: set[str]) -> list[dict]:
@@ -664,6 +931,7 @@ def candidate_matches(circle: dict, feed: BankFeed, allocated: set[str]) -> list
 
 
 def get_feed(circle: dict, provider, conn) -> BankFeed:
+    require_demo_circle(circle)
     if not circle["collection_account"]:
         raise HTTPException(409, "Configure a demo collection account before loading the feed.")
     feed = provider.get_feed(circle)
@@ -672,6 +940,11 @@ def get_feed(circle: dict, provider, conn) -> BankFeed:
     allocated = {r["receipt_id"] for r in conn.execute("SELECT receipt_id FROM savings_receipts WHERE source=? AND account_id=?", (feed.source, feed.account_id))}
     feed.matches = [MatchCandidate(**match) for match in candidate_matches(circle, feed, allocated)]
     return feed
+
+
+def require_demo_circle(circle: dict):
+    if circle["mode"] != "demo":
+        raise HTTPException(409, "Simulated receipts are available only in demo circles.")
 
 
 @router.get("/circles/{circle_id}/bank-feed", response_model=BankFeed)
@@ -684,13 +957,17 @@ def bank_feed(circle_id: str, user: dict = Depends(current_user), path: Path = D
 
 
 @router.post("/circles/{circle_id}/payments/{payment_id}/match", response_model=Circle)
-def match_payment(circle_id: str, payment_id: str, body: MatchInput, user: dict = Depends(current_user),
+def match_payment(circle_id: str, payment_id: str, body: MatchInput, operation: CircleOperation = Depends(circle_operation),
                   path: Path = Depends(get_savings_path), provider=Depends(get_bank_feed_provider)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "active")
         require_unpaid_round(circle)
         _, payment = find_payment(circle, payment_id)
+        require_review_version(circle, payment, body.review_version)
         if payment["status"] != "submitted":
             raise HTTPException(409, "Only a submitted payment can be matched.")
         feed = get_feed(circle, provider, conn)
@@ -701,69 +978,114 @@ def match_payment(circle_id: str, payment_id: str, body: MatchInput, user: dict 
                 (feed.source, feed.account_id, body.transaction_id, circle_id, payment_id))
         except sqlite3.IntegrityError:
             raise HTTPException(409, "This bank receipt is already allocated.")
-        payment.update(status="confirmed", source=feed.source, receipt_id=body.transaction_id, confirmed_at=now())
+        update_review(payment, status="confirmed", source=feed.source, receipt_id=body.transaction_id, confirmed_at=now())
         event(circle, user, "demo_match_approved", f"Approved simulated receipt for {payment['amount_kobo']} kobo ({payment['reference']}); not verification of a real payment.")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/payments/{payment_id}/confirm", response_model=Circle)
-def confirm_payment(circle_id: str, payment_id: str, body: EmptyInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def confirm_payment(circle_id: str, payment_id: str, body: ReviewPaymentInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "active")
         require_unpaid_round(circle)
         _, payment = find_payment(circle, payment_id)
+        require_review_version(circle, payment, body.review_version)
         if payment["status"] != "submitted":
             raise HTTPException(409, "Only a submitted payment can be manually confirmed.")
-        payment.update(status="confirmed", source="manual", confirmed_at=now())
+        update_review(payment, status="confirmed", source="manual", confirmed_at=now())
         event(circle, user, "payment_confirmed", f"Organiser manually confirmed {payment['amount_kobo']} kobo ({payment['reference']}).")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/payments/{payment_id}/reject", response_model=Circle)
-def reject_payment(circle_id: str, payment_id: str, body: RejectInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def reject_payment(circle_id: str, payment_id: str, body: RejectPaymentInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "active")
         require_unpaid_round(circle)
         claim, payment = find_payment(circle, payment_id)
+        require_review_version(circle, payment, body.review_version)
         if payment["status"] != "submitted":
             raise HTTPException(409, "Only submitted payments can be rejected.")
-        payment.update(status="rejected", rejection_reason=body.reason)
+        update_review(payment, status="rejected", rejection_reason=body.reason)
         claim["history"].append({"reference": payment["reference"], "submitted_at": payment["submitted_at"],
             "rejected_at": now(), "rejection_reason": body.reason})
         claim.update(rejected_at=now(), rejection_reason=body.reason)
         event(circle, user, "payment_rejected", f"Rejected {payment['reference']}: {body.reason}")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/payments/{payment_id}/revoke", response_model=Circle)
-def revoke_payment(circle_id: str, payment_id: str, body: RejectInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def revoke_payment(circle_id: str, payment_id: str, body: RejectPaymentInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user, organizer=True)
         require_status(circle, "active")
         require_unpaid_round(circle)
         _, payment = find_payment(circle, payment_id)
+        require_review_version(circle, payment, body.review_version)
         if payment["status"] != "confirmed":
             raise HTTPException(409, "Only confirmed payments can be corrected.")
         conn.execute("DELETE FROM savings_receipts WHERE circle_id=? AND payment_id=?", (circle_id, payment_id))
         event(circle, user, "payment_confirmation_revoked", f"Revoked {payment['source']} confirmation ({payment['reference']}, receipt {payment['receipt_id']}): {body.reason}")
-        payment.update(status="submitted", source="manual", receipt_id=None, confirmed_at=None)
-        return save_circle(conn, circle)
+        update_review(payment, status="submitted", source="manual", receipt_id=None, confirmed_at=None)
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/payments/{payment_id}/dispute", response_model=Circle)
-def dispute_payment(circle_id: str, payment_id: str, body: RejectInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def dispute_payment(circle_id: str, payment_id: str, body: RejectInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user)
-        _, payment = find_payment(circle, payment_id, current_only=False)
-        event(circle, user, "payment_disputed", f"Flagged {payment['reference']}: {body.reason}")
-        return save_circle(conn, circle)
+        claim, payment = find_payment(circle, payment_id, current_only=False)
+        if any(case["payment_id"] == payment_id and case["opened_by"] == user["user_id"] and case["resolved_at"] is None
+               for case in circle["payment_disputes"]):
+            raise HTTPException(409, "You already have an open dispute for this payment.")
+        case = {"id": secrets.token_hex(12), "payment_id": payment_id, "round_number": claim["round_number"],
+                "opened_by": user["user_id"], "opened_at": now(), "reason": body.reason,
+                "resolved_at": None, "resolution": None}
+        circle["payment_disputes"].append(case)
+        event(circle, user, "payment_disputed", f"Case {case['id']}: flagged {payment['reference']}: {body.reason}")
+        return operation.save(conn, circle)
+
+
+@router.post("/circles/{circle_id}/payment-disputes/{case_id}/resolve", response_model=Circle)
+def resolve_payment_dispute(circle_id: str, case_id: str, body: RejectInput, operation: CircleOperation = Depends(circle_operation),
+                            path: Path = Depends(get_savings_path)) -> dict:
+    with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
+        circle = load_circle(conn, circle_id, user)
+        case = next((item for item in circle["payment_disputes"] if item["id"] == case_id), None)
+        if case is None:
+            raise HTTPException(404, "Payment dispute not found.")
+        if case["opened_by"] != user["user_id"]:
+            raise HTTPException(403, "Only the member who raised this dispute can acknowledge its resolution.")
+        if case["resolved_at"] is not None:
+            raise HTTPException(409, "This dispute has already been resolved.")
+        case.update(resolved_at=now(), resolution=body.reason)
+        event(circle, user, "payment_dispute_resolved", f"Case {case_id}: member acknowledged the resolution: {body.reason}")
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/payouts/{round_number}/receive", response_model=Circle)
-def receive_payout(circle_id: str, round_number: int, body: EmptyInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def receive_payout(circle_id: str, round_number: int, body: EmptyInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user)
         payout = next((p for p in circle["payouts"] if p["round_number"] == round_number), None)
         if not payout:
@@ -771,23 +1093,27 @@ def receive_payout(circle_id: str, round_number: int, body: EmptyInput, user: di
         if payout["member_id"] != user["user_id"]:
             raise HTTPException(403, "Only the payout recipient can confirm receipt.")
         if payout["status"] == "received":
-            return circle
+            return operation.record(conn, circle)
         if payout["status"] == "legacy_recorded":
             raise HTTPException(409, "Historical payout records cannot advance this circle again.")
         if circle["status"] != "active" or round_number != circle["current_round"]:
             raise HTTPException(409, "Only the current payout can advance the circle.")
+        require_clear_payout_round(circle)
         payout.update(status="received", received_at=now())
         event(circle, user, "payout_received", f"Round {round_number}: recipient confirmed receiving {payout['amount_kobo']} kobo.")
         if round_number == circle["member_limit"]:
             circle["status"] = "completed"
         else:
             circle["current_round"] += 1
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 @router.post("/circles/{circle_id}/payouts/{round_number}/dispute", response_model=Circle)
-def dispute_payout(circle_id: str, round_number: int, body: RejectInput, user: dict = Depends(current_user), path: Path = Depends(get_savings_path)) -> dict:
+def dispute_payout(circle_id: str, round_number: int, body: RejectInput, operation: CircleOperation = Depends(circle_operation), path: Path = Depends(get_savings_path)) -> dict:
     with database(path, write=True) as conn:
+        if (replayed := operation.replay(conn)) is not None:
+            return replayed
+        user = operation.user
         circle = load_circle(conn, circle_id, user)
         payout = next((p for p in circle["payouts"] if p["round_number"] == round_number), None)
         if not payout:
@@ -798,9 +1124,9 @@ def dispute_payout(circle_id: str, round_number: int, body: RejectInput, user: d
             raise HTTPException(409, "Only a payout awaiting receipt can be disputed.")
         payout.update(status="disputed", dispute_reason=body.reason)
         event(circle, user, "payout_disputed", f"Round {round_number}: recipient reported a payout problem: {body.reason}")
-        return save_circle(conn, circle)
+        return operation.save(conn, circle)
 
 
 def agreement_snapshot(circle: dict) -> dict:
     return {key: json.loads(json.dumps(circle[key])) for key in (
-        "agreement_version", "contribution_kobo", "frequency", "start_date", "rules", "members", "collection_account")}
+        "agreement_version", "contribution_kobo", "frequency", "start_date", "rules", "members", "collection_account", "mode")}

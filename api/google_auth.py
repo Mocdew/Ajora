@@ -16,7 +16,8 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 from pydantic import BaseModel, ConfigDict, Field
 
-from .auth import ATTEMPT_WINDOW, AuthErrorResponse, LoginInput, issue_session, set_session_cookie
+from .auth import AuthErrorResponse, LoginInput, issue_session, set_session_cookie
+from .rate_limits import check_rate_limits, rate_limit_scope
 from .savings import COOKIE, EmptyInput, Session, database, get_savings_path, require_identity_request, session_user
 
 
@@ -55,21 +56,9 @@ def digest(value: str) -> str:
 
 def check_google_attempts(request: Request, path: Path, action: str) -> None:
     """Bound unauthenticated requests without recording IP addresses or tokens."""
-    stamp = int(time.time())
     address = request.client.host if request.client else "unknown"
-    scope = action + ":ip:" + digest(address)
     with database(path, write=True) as conn:
-        conn.execute("DELETE FROM auth_attempts WHERE started_at<=?", (stamp - ATTEMPT_WINDOW,))
-        row = conn.execute("SELECT attempts, started_at FROM auth_attempts WHERE scope=?", (scope,)).fetchone()
-        if row and row["attempts"] >= 50:
-            raise HTTPException(429, "Too many attempts. Please try again later.", headers={
-                "Retry-After": str(max(1, row["started_at"] + ATTEMPT_WINDOW - stamp)),
-                "Cache-Control": "no-store",
-            })
-        conn.execute(
-            "INSERT INTO auth_attempts VALUES (?, 1, ?) "
-            "ON CONFLICT(scope) DO UPDATE SET attempts=attempts+1", (scope, stamp),
-        )
+        check_rate_limits(conn, [(rate_limit_scope(action + ":ip", address), 50)])
 
 
 @router.post("/challenge", response_model=GoogleChallenge)

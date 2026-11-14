@@ -12,7 +12,7 @@ from api.tests.test_savings import create, fund, ready, savings  # noqa: F401
 
 def configured(clients):
     owner, member, *_ = clients
-    circle = create(owner).json()
+    circle = create(owner, mode="demo").json()
     base = f"/savings/circles/{circle['id']}"
     assert member.post("/savings/join", json={"invite_code": circle["invite_code"]}).status_code == 200
     circle = owner.post(f"{base}/collection-account", json={"account_id": "demo-collection", "label": "Friends collection (demo)"}).json()
@@ -118,7 +118,7 @@ def test_ambiguous_feed_never_matches_and_receipt_cannot_be_reused_across_circle
 def test_agreement_acceptance_invalidates_on_join_reorder_and_account_change(savings):
     clients, _ = savings
     owner, member, *_ = clients
-    circle = create(owner).json()
+    circle = create(owner, mode="demo").json()
     base = f"/savings/circles/{circle['id']}"
     assert owner.post(f"{base}/agreement/accept", json={"version": 1}).status_code == 200
     joined = member.post("/savings/join", json={"invite_code": circle["invite_code"]}).json()
@@ -193,11 +193,12 @@ def test_legacy_records_remain_manual_and_do_not_invent_receipt(savings):
     document["payouts"] = [{"round_number": 1, "member_id": circle["members"][0]["user_id"], "amount_kobo": 2_000_000,
         "reference": "old-payout", "recorded_at": "2026-11-04T10:00:00Z"}]
     document["current_round"] = 2
-    for key in ("collection_account", "agreement_version", "acceptances", "events"):
+    for key in ("mode", "collection_account", "agreement_version", "acceptances", "events"):
         document.pop(key)
     with database(path, write=True) as conn:
         conn.execute("UPDATE savings_circles SET document=? WHERE id=?", (json.dumps(document), circle["id"]))
     legacy = owner.get(base).json()
+    assert legacy["mode"] == "legacy"
     assert legacy["contributions"][0]["confirmed_kobo"] == circle["contribution_kobo"]
     assert legacy["contributions"][0]["matched_kobo"] == 0
     assert legacy["payouts"][0]["status"] == "legacy_recorded"

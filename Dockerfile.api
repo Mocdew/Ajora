@@ -22,4 +22,4 @@ COPY data/ ./data/
 EXPOSE 8000
 
 # No --reload in the container; bind all interfaces so the compose network can reach it.
-CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

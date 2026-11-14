@@ -27,6 +27,7 @@ function Activity({ session }: { session: SavingsSession }) {
             id: `${circle.id}-payment-${payment.id}`,
             circleId: circle.id,
             circleName: circle.name,
+            demo: circle.mode === "demo",
             round: c.round_number,
             at: payment.confirmed_at ?? payment.submitted_at,
             reference: payment.reference,
@@ -48,6 +49,7 @@ function Activity({ session }: { session: SavingsSession }) {
         id: `${circle.id}-payout-${p.round_number}`,
         circleId: circle.id,
         circleName: circle.name,
+        demo: circle.mode === "demo",
         round: p.round_number,
         at: p.received_at ?? p.recorded_at,
         reference: p.reference,
@@ -98,9 +100,9 @@ function Activity({ session }: { session: SavingsSession }) {
                   <p className="text-sm font-semibold">{event.title}</p>
                   <Link
                     href={`/circles/${event.circleId}`}
-                    className="mt-1 inline-block text-sm text-accent"
+                    className="mt-1 inline-block break-words text-sm text-accent"
                   >
-                    {event.circleName} · Round {event.round}
+                    {event.demo && "Demo circle · "}{event.circleName} · Round {event.round}
                   </Link>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {dateLabel(event.at)}
@@ -164,16 +166,17 @@ function Activity({ session }: { session: SavingsSession }) {
                 ...event,
                 circleId: circle.id,
                 circleName: circle.name,
+                demo: circle.mode === "demo",
               })),
             )
             .sort((a, b) => b.at.localeCompare(a.at))
             .map((event) => (
               <li key={event.id} className="py-4">
                 <Link
-                  className="text-sm font-semibold text-accent"
+                  className="break-words text-sm font-semibold text-accent"
                   href={`/circles/${event.circleId}`}
                 >
-                  {event.circleName}
+                  {event.demo && "Demo circle · "}{event.circleName}
                 </Link>
                 <p className="mt-1 text-sm">
                   {event.kind.replaceAll("_", " ")}

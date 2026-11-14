@@ -72,6 +72,28 @@ def test_missing_configured_secret_persona_file_fails_clearly(tmp_path, monkeypa
         FilePersonaProvider()
 
 
+def test_public_routes_exclude_private_files_and_replaced_fixtures(tmp_path, monkeypatch):
+    mock = tmp_path / "mock"
+    private = tmp_path / "private"
+    secret = tmp_path / "secret.json"
+    _write_batch(mock / "persona_a.json", user_id="u_persona_a")
+    _write_batch(mock / "persona_extra.json", user_id="u_extra")
+    _write_batch(private / "persona_private.json")
+    _write_batch(secret, user_id="u_secret")
+    monkeypatch.setattr(providers, "_MOCK_DIR", mock)
+    monkeypatch.setattr(providers, "_PRIVATE_DIR", private)
+    monkeypatch.setenv("AJORA_PERSONA_PATH", str(secret))
+    client = TestClient(app)
+    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/users").json() == []
+    for user_id in ("u_persona_a", "u_private", "u_secret", "u_extra", "u_demo_stephen"):
+        for endpoint in ("transactions", "cashflow", "insights", "graph", "explanations", "consents", "audit"):
+            response = client.get(f"/users/{user_id}/{endpoint}")
+            assert response.status_code == 404
+            assert "Test Account Holder" not in response.text
+        assert client.post(f"/users/{user_id}/accounts/ngn/revoke").status_code == 404
+
+
 def test_private_fx_is_consistent_across_cashflow_insights_and_consent(tmp_path, monkeypatch):
     path = tmp_path / "mock" / "persona_test.json"
     _write_batch(path)

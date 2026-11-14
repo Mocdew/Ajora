@@ -6,7 +6,7 @@ import {
   CaretDown,
   WarningCircle,
 } from "@phosphor-icons/react/dist/ssr";
-import { useHealth } from "@/lib/api/health";
+import { useDemoPersonas } from "@/lib/api/health";
 import { usePersona, DEFAULT_PERSONA } from "@/components/persona-context";
 import { cn } from "@/lib/utils";
 
@@ -19,15 +19,15 @@ function prettyPersona(id: string): string {
 }
 
 /**
- * Global persona selector (top bar). Populated from `/health`; flips the active
+ * Global persona selector (top bar). Populated from `/users`; flips the active
  * `userId` that every route's queries read. A native <select> keeps it keyboard-
  * and screen-reader-accessible for free.
  */
 export function PersonaSwitcher() {
   const { userId, setUserId } = usePersona();
-  const { data, isLoading, isError, refetch } = useHealth();
+  const { data, isLoading, isError, refetch } = useDemoPersonas();
 
-  const users = React.useMemo(() => data?.users ?? [], [data]);
+  const users = React.useMemo(() => data?.map(({ id }) => id) ?? [], [data]);
 
   // If the persisted/default persona isn't in the served list, snap to the first.
   React.useEffect(() => {

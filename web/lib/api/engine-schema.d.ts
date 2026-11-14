@@ -242,6 +242,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/savings/operations/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recover Operation */
+        get: operations["recover_operation_savings_operations__operation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/operations/{operation_id}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Abandon Operation */
+        post: operations["abandon_operation_savings_operations__operation_id__abandon_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/savings/circles": {
         parameters: {
             query?: never;
@@ -322,6 +356,40 @@ export interface paths {
         put?: never;
         /** Start Circle */
         post: operations["start_circle_savings_circles__circle_id__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/rotate-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate Invite */
+        post: operations["rotate_invite_savings_circles__circle_id__rotate_invite_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/cancel-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Draft */
+        post: operations["cancel_draft_savings_circles__circle_id__cancel_draft_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -552,6 +620,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/savings/circles/{circle_id}/payment-disputes/{case_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Payment Dispute */
+        post: operations["resolve_payment_dispute_savings_circles__circle_id__payment_disputes__case_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/savings/circles/{circle_id}/payouts/{round_number}/receive": {
         parameters: {
             query?: never;
@@ -580,6 +665,23 @@ export interface paths {
         put?: never;
         /** Dispute Payout */
         post: operations["dispute_payout_savings_circles__circle_id__payouts__round_number__dispute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/savings/circles/{circle_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Circle */
+        get: operations["export_circle_savings_circles__circle_id__export_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -799,9 +901,29 @@ export interface paths {
         };
         /**
          * Health
-         * @description Liveness probe + the set of personas this instance can serve.
+         * @description Process liveness, independent of analytics and savings storage.
          */
         get: operations["health_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ready
+         * @description Check that the configured savings store can read its existing schema.
+         */
+        get: operations["ready_ready_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1025,7 +1147,12 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "draft" | "active" | "completed";
+            status: "draft" | "active" | "completed" | "cancelled";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "manual" | "demo" | "legacy";
             /** Current Round */
             current_round: number;
             /** Members */
@@ -1048,6 +1175,8 @@ export interface components {
             acceptances?: components["schemas"]["Acceptance"][];
             /** Events */
             events?: components["schemas"]["CircleEvent"][];
+            /** Payment Disputes */
+            payment_disputes?: components["schemas"]["PaymentDispute"][];
         };
         /** CircleEvent */
         CircleEvent: {
@@ -1338,6 +1467,12 @@ export interface components {
              * @default
              */
             rules: string;
+            /**
+             * Mode
+             * @default manual
+             * @enum {string}
+             */
+            mode: "manual" | "demo";
         };
         /** EmailInput */
         EmailInput: {
@@ -1546,7 +1681,12 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "draft" | "active" | "completed";
+            status: "draft" | "active" | "completed" | "cancelled";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "manual" | "demo" | "legacy";
             /** Member Count */
             member_count: number;
         };
@@ -1571,6 +1711,8 @@ export interface components {
         };
         /** MatchInput */
         MatchInput: {
+            /** Review Version */
+            review_version?: number | null;
             /** Transaction Id */
             transaction_id: string;
         };
@@ -1637,6 +1779,8 @@ export interface components {
         OrderInput: {
             /** Member Ids */
             member_ids: string[];
+            /** Agreement Version */
+            agreement_version?: number | null;
         };
         /** PasswordResetInput */
         PasswordResetInput: {
@@ -1672,6 +1816,30 @@ export interface components {
             confirmed_at?: string | null;
             /** Rejection Reason */
             rejection_reason?: string | null;
+            /**
+             * Review Version
+             * @default 1
+             */
+            review_version: number;
+        };
+        /** PaymentDispute */
+        PaymentDispute: {
+            /** Id */
+            id: string;
+            /** Payment Id */
+            payment_id: string;
+            /** Round Number */
+            round_number: number;
+            /** Opened By */
+            opened_by: string;
+            /** Opened At */
+            opened_at: string;
+            /** Reason */
+            reason: string;
+            /** Resolved At */
+            resolved_at?: string | null;
+            /** Resolution */
+            resolution?: string | null;
         };
         /** Payout */
         Payout: {
@@ -1727,8 +1895,26 @@ export interface components {
             /** Display Name */
             display_name: string;
         };
+        /** RejectContributionInput */
+        RejectContributionInput: {
+            /** Payment Ids */
+            payment_ids?: string[] | null;
+            /** Payment Versions */
+            payment_versions?: {
+                [key: string]: number;
+            } | null;
+            /** Reason */
+            reason: string;
+        };
         /** RejectInput */
         RejectInput: {
+            /** Reason */
+            reason: string;
+        };
+        /** RejectPaymentInput */
+        RejectPaymentInput: {
+            /** Review Version */
+            review_version?: number | null;
             /** Reason */
             reason: string;
         };
@@ -1742,6 +1928,20 @@ export interface components {
             rejected_at: string;
             /** Rejection Reason */
             rejection_reason: string;
+        };
+        /** ReviewContributionInput */
+        ReviewContributionInput: {
+            /** Payment Ids */
+            payment_ids?: string[] | null;
+            /** Payment Versions */
+            payment_versions?: {
+                [key: string]: number;
+            } | null;
+        };
+        /** ReviewPaymentInput */
+        ReviewPaymentInput: {
+            /** Review Version */
+            review_version?: number | null;
         };
         /** Session */
         Session: {
@@ -1761,6 +1961,11 @@ export interface components {
         SessionInput: {
             /** Display Name */
             display_name: string;
+        };
+        /** StartInput */
+        StartInput: {
+            /** Agreement Version */
+            agreement_version?: number | null;
         };
         /**
          * Totals
@@ -2269,7 +2474,9 @@ export interface operations {
     get_session_savings_session_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2282,6 +2489,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2319,10 +2535,82 @@ export interface operations {
             };
         };
     };
+    recover_operation_savings_operations__operation_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    abandon_operation_savings_operations__operation_id__abandon_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_circles_savings_circles_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2337,12 +2625,24 @@ export interface operations {
                     "application/json": components["schemas"]["Circle"][];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     create_circle_savings_circles_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2375,7 +2675,10 @@ export interface operations {
     join_circle_savings_join_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -2408,7 +2711,9 @@ export interface operations {
     get_circle_savings_circles__circle_id__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
             };
@@ -2439,7 +2744,10 @@ export interface operations {
     set_order_savings_circles__circle_id__order_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
             };
@@ -2474,7 +2782,86 @@ export interface operations {
     start_circle_savings_circles__circle_id__start_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_invite_savings_circles__circle_id__rotate_invite_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmptyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_draft_savings_circles__circle_id__cancel_draft_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
             };
@@ -2509,7 +2896,10 @@ export interface operations {
     submit_contribution_savings_circles__circle_id__contributions_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
             };
@@ -2544,7 +2934,10 @@ export interface operations {
     confirm_contribution_savings_circles__circle_id__contributions__member_id___round_number__confirm_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
                 member_id: string;
@@ -2554,7 +2947,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EmptyInput"];
+                "application/json": components["schemas"]["ReviewContributionInput"];
             };
         };
         responses: {
@@ -2581,7 +2974,10 @@ export interface operations {
     record_payout_savings_circles__circle_id__payouts_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
             };
@@ -2616,7 +3012,9 @@ export interface operations {
     preview_invitation_savings_invitations__invite_code__get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 invite_code: string;
             };
@@ -2647,7 +3045,10 @@ export interface operations {
     reject_contribution_savings_circles__circle_id__contributions__member_id___round_number__reject_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
                 member_id: string;
@@ -2657,7 +3058,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RejectInput"];
+                "application/json": components["schemas"]["RejectContributionInput"];
             };
         };
         responses: {
@@ -2684,7 +3085,10 @@ export interface operations {
     set_collection_account_savings_circles__circle_id__collection_account_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
             };
@@ -2719,7 +3123,10 @@ export interface operations {
     accept_agreement_savings_circles__circle_id__agreement_accept_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
             };
@@ -2754,7 +3161,9 @@ export interface operations {
     bank_feed_savings_circles__circle_id__bank_feed_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
             };
@@ -2785,7 +3194,10 @@ export interface operations {
     match_payment_savings_circles__circle_id__payments__payment_id__match_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
                 payment_id: string;
@@ -2821,7 +3233,10 @@ export interface operations {
     confirm_payment_savings_circles__circle_id__payments__payment_id__confirm_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
                 payment_id: string;
@@ -2830,7 +3245,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EmptyInput"];
+                "application/json": components["schemas"]["ReviewPaymentInput"];
             };
         };
         responses: {
@@ -2857,7 +3272,10 @@ export interface operations {
     reject_payment_savings_circles__circle_id__payments__payment_id__reject_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
                 payment_id: string;
@@ -2866,7 +3284,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RejectInput"];
+                "application/json": components["schemas"]["RejectPaymentInput"];
             };
         };
         responses: {
@@ -2893,7 +3311,49 @@ export interface operations {
     revoke_payment_savings_circles__circle_id__payments__payment_id__revoke_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
+            path: {
+                circle_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectPaymentInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Circle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dispute_payment_savings_circles__circle_id__payments__payment_id__dispute_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
                 payment_id: string;
@@ -2926,13 +3386,16 @@ export interface operations {
             };
         };
     };
-    dispute_payment_savings_circles__circle_id__payments__payment_id__dispute_post: {
+    resolve_payment_dispute_savings_circles__circle_id__payment_disputes__case_id__resolve_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
-                payment_id: string;
+                case_id: string;
             };
             cookie?: never;
         };
@@ -2965,7 +3428,10 @@ export interface operations {
     receive_payout_savings_circles__circle_id__payouts__round_number__receive_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
                 round_number: number;
@@ -3001,7 +3467,10 @@ export interface operations {
     dispute_payout_savings_circles__circle_id__payouts__round_number__dispute_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "X-Ajora-Actor"?: string | null;
+            };
             path: {
                 circle_id: string;
                 round_number: number;
@@ -3034,10 +3503,47 @@ export interface operations {
             };
         };
     };
+    export_circle_savings_circles__circle_id__export_get: {
+        parameters: {
+            query?: {
+                format?: "json" | "text" | "csv";
+            };
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
+            path: {
+                circle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     replace_recovery_key_savings_recovery_key_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3103,7 +3609,9 @@ export interface operations {
     logout_savings_logout_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3266,7 +3774,9 @@ export interface operations {
     email_status_auth_email_status_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3295,7 +3805,9 @@ export interface operations {
     request_verification_auth_email_request_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Ajora-Actor"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3442,6 +3954,26 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    ready_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

@@ -7,7 +7,7 @@ import * as React from "react";
  *
  * The engine is per-persona (`/users/{id}/…`), so one piece of state — the active
  * `userId` — drives every query on every route. The switcher in the top bar reads
- * the persona list from `/health` and flips this; all data hooks read it via
+ * the persona list from `/users` and flips this; all data hooks read it via
  * `usePersona()`.
  *
  * Default is `u_persona_a` (Adaeze) — the dedup hero (28.3% income inflation, clean
@@ -15,7 +15,7 @@ import * as React from "react";
  * the demo where you left it.
  */
 
-/** Fallback default until (and if) `/health` says otherwise. */
+/** Fallback until the synthetic roster loads. */
 export const DEFAULT_PERSONA = "u_persona_a";
 
 const STORAGE_KEY = "ajora.persona";

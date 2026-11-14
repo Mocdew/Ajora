@@ -10,14 +10,19 @@ import type { NextConfig } from "next";
  * same-origin `/api/engine/*`, and Next rewrites that to the engine server-side,
  * where CORS never applies.
  *
- * `AJORA_API_BASE` points at the engine (default http://localhost:8000). It is a
- * server-only var frozen into rewrites at build time. Vercel must point it at
- * the deployed HTTPS API; localhost is only a local-development fallback.
+ * The API target is frozen into rewrites at build time. Vercel previews require
+ * an explicit staging origin. Local development defaults to localhost:8000.
  */
-const configuredApiBase = process.env.AJORA_API_BASE?.trim();
 const onVercel = process.env.VERCEL === "1";
+const preview = onVercel && process.env.VERCEL_ENV === "preview";
+const primaryApiBase = process.env.AJORA_API_BASE?.trim();
+const configuredApiBase = preview ? process.env.AJORA_STAGING_API_BASE?.trim() : primaryApiBase;
 if (onVercel && !configuredApiBase) {
-  throw new Error("Set AJORA_API_BASE in Vercel to the hosted FastAPI HTTPS URL before deploying.");
+  const variable = preview ? "AJORA_STAGING_API_BASE" : "AJORA_API_BASE";
+  throw new Error(`Set ${variable} in Vercel to the appropriate hosted FastAPI HTTPS origin before deploying.`);
+}
+if (preview && !primaryApiBase) {
+  throw new Error("Set AJORA_API_BASE to the production API origin so Preview can verify separation.");
 }
 const apiUrl = new URL(configuredApiBase || "http://localhost:8000");
 if (!(["http:", "https:"].includes(apiUrl.protocol)) || apiUrl.username || apiUrl.password
@@ -25,13 +30,26 @@ if (!(["http:", "https:"].includes(apiUrl.protocol)) || apiUrl.username || apiUr
   throw new Error("AJORA_API_BASE must be an HTTP(S) API origin without a path, credentials, query, or fragment.");
 }
 if (onVercel && (apiUrl.protocol !== "https:" || ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"].includes(apiUrl.hostname))) {
-  throw new Error("AJORA_API_BASE on Vercel must use the public HTTPS API URL, not localhost.");
+  throw new Error("The API origin on Vercel must use the hosted HTTPS API URL.");
+}
+if (preview && primaryApiBase && apiUrl.origin === new URL(primaryApiBase).origin) {
+  throw new Error("Vercel Preview and production must target separate API origins.");
 }
 const AJORA_API_BASE = apiUrl.origin;
 
 const nextConfig: NextConfig = {
   // A production build must not delete chunks used by the running dev server.
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
+  async headers() {
+    return [{
+      source: "/:path*",
+      headers: [
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "Referrer-Policy", value: "no-referrer" },
+      ],
+    }];
+  },
   async rewrites() {
     return [
       {

@@ -21,8 +21,8 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0 space-y-4">
-        {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-        <h1 className="text-hero text-3xl font-normal leading-[1.12] tracking-[-0.045em] sm:text-4xl lg:text-[46px]">
+        {eyebrow ? <p className="eyebrow break-words">{eyebrow}</p> : null}
+        <h1 className="text-hero break-words text-3xl font-normal leading-[1.12] tracking-[-0.045em] sm:text-4xl lg:text-[46px]">
           {title.includes(". ") ? (
             <>
               {title.slice(0, title.indexOf(". ") + 1)}{" "}
@@ -37,7 +37,7 @@ export function PageHeader({
         ) : null}
       </div>
       {actions ? (
-        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
       ) : null}
     </div>
   );

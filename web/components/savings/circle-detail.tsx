@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowUp, ArrowDown } from "@phosphor-icons/react/dist/ssr";
 import { PageHeader } from "@/components/page-header";
 import {
+  isSavingsAccessError,
   useBankFeed,
   useCircle,
   useSavingsAction,
@@ -12,8 +13,10 @@ import {
   type SavingsSession,
 } from "@/lib/api/savings";
 import {
+  CircleMode,
   ErrorNotice,
   Loading,
+  SavingsActionNotice,
   SavingsGate,
   TrackingNote,
   dateLabel,
@@ -28,7 +31,7 @@ function ShareButton({ label, text }: { label: string; text: () => string }) {
   return (
     <button
       type="button"
-      className="btn-secondary"
+      className="btn-secondary max-w-full whitespace-normal break-words text-left"
       onClick={() =>
         window.open(
           `https://wa.me/?text=${encodeURIComponent(text())}`,
@@ -44,13 +47,16 @@ function ShareButton({ label, text }: { label: string; text: () => string }) {
 
 function Detail({ session, id }: { session: SavingsSession; id: string }) {
   const result = useCircle(session.user_id, id);
-  const action = useSavingsAction();
+  const action = useSavingsAction(session.user_id, id);
+  const blocked = action.isPending || action.uncertain;
   const owner = result.data?.organizer_id === session.user_id;
+  const demo = result.data?.mode === "demo";
   const feed = useBankFeed(
     session.user_id,
     id,
     Boolean(
       owner &&
+      demo &&
       result.data?.status === "active" &&
       result.data?.collection_account,
     ),
@@ -63,10 +69,16 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
   const [reasonTarget, setReasonTarget] = useState<{
     path: string;
     title: string;
+    reviewVersion?: number;
   } | null>(null);
   const [reason, setReason] = useState("");
+  const reasonInput = useRef<HTMLInputElement>(null);
+  const reasonTrigger = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (reasonTarget) reasonInput.current?.focus();
+  }, [reasonTarget]);
   if (result.isPending) return <Loading />;
-  if (result.error || !result.data)
+  if (!result.data || isSavingsAccessError(result.error))
     return <ErrorNotice error={result.error} retry={() => result.refetch()} />;
   const circle = result.data;
   const members = [...circle.members].sort((a, b) => a.position - b.position);
@@ -93,6 +105,8 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
   const target = circle.contribution_kobo * circle.member_limit;
   const recipient = members.find((m) => m.position === current);
   const payout = circle.payouts.find((p) => p.round_number === current);
+  const disputes = circle.payment_disputes ?? [];
+  const payoutHeld = disputes.some((item) => item.round_number === current && !item.resolved_at);
   const myAcceptance = (circle.acceptances ?? []).some(
     (a) =>
       a.member_id === session.user_id && a.version === circle.agreement_version,
@@ -101,17 +115,16 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
     (a) => a.version === circle.agreement_version,
   ).length;
   const due = circle.due_dates[current - 1];
-  const write = async (path: string, body: unknown = {}) => {
-    try {
-      await action.mutateAsync({ path: `/circles/${id}${path}`, body });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  const askReason = (path: string, title: string) => {
-    setReasonTarget({ path, title });
+  const write = (path: string, body: unknown = {}, onCommitted?: () => void) =>
+    action.submit({ path: `/circles/${id}${path}`, body, onCommitted });
+  const askReason = (path: string, title: string, reviewVersion?: number) => {
+    reasonTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setReasonTarget({ path, title, reviewVersion });
     setReason("");
+  };
+  const closeReason = () => {
+    setReasonTarget(null);
+    reasonTrigger.current?.focus();
   };
   const move = (index: number, offset: number) => {
     const ordered = members.map((m) => m.user_id);
@@ -119,7 +132,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
       ordered[index + offset],
       ordered[index],
     ];
-    void write("/order", { member_ids: ordered });
+    void write("/order", { member_ids: ordered, agreement_version: circle.agreement_version });
   };
   const memberName = (memberId: string) =>
     members.find((m) => m.user_id === memberId)?.display_name ?? "Member";
@@ -143,14 +156,15 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
             ? "Gathering your people"
             : circle.status === "active"
               ? `Round ${current} of ${circle.member_limit}`
-              : "Circle completed"
+              : circle.status === "cancelled" ? "Draft cancelled" : "Circle completed"
         }
         title={circle.name}
         description={`${money(circle.contribution_kobo)} per member · ${circle.frequency} · ${members.length}/${circle.member_limit} members`}
         actions={
-          <span className="badge-neutral">
-            {owner ? "Organiser" : "Member"} · {circle.status}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <CircleMode mode={circle.mode} />
+            <span className="badge-neutral">{owner ? "Organiser" : "Member"} · {circle.status}</span>
+          </div>
         }
       />
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -170,6 +184,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
             void result.refetch();
             if (
               owner &&
+              demo &&
               circle.status === "active" &&
               circle.collection_account
             )
@@ -180,9 +195,8 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
           Refresh circle
         </button>
       </div>
-      <div aria-live="polite">
-        <ErrorNotice error={action.error} />
-      </div>
+      {result.error && <p role="status" className="mb-3 text-sm text-muted-foreground">Ajora couldn’t refresh this circle. You’re viewing the last update.</p>}
+      <div className="mb-4"><SavingsActionNotice action={action} /></div>
       <section
         className="grid gap-4 sm:grid-cols-3"
         aria-label="Circle summary"
@@ -214,8 +228,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
           <div>
             <h2 className="text-xl font-semibold">Invite, agree, then start</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Every member accepts the final rules, collection account and
-              payout order. Changes require everyone to accept again.
+              Every member accepts the final rules and payout order. Changes require everyone to accept again.
             </p>
           </div>
           <label className="block text-sm font-medium">
@@ -230,10 +243,10 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
           <ShareButton
             label="Invite on WhatsApp"
             text={() =>
-              `Join ${circle.name} on Ajora: ${window.location.origin}/circles?invite=${encodeURIComponent(circle.invite_code)}\nInvite code: ${circle.invite_code}. Contribution: ${money(circle.contribution_kobo)} ${circle.frequency}. Review the agreement before accepting.`
+              `${demo ? "Demo circle · " : ""}Join ${circle.name} on Ajora: ${window.location.origin}/circles?invite=${encodeURIComponent(circle.invite_code)}\nInvite code: ${circle.invite_code}. Contribution: ${money(circle.contribution_kobo)} ${circle.frequency}. Review the agreement before accepting.`
             }
           />
-          {owner && (
+          {owner && demo && (
             <form
               className="panel-inset space-y-3 p-4"
               onSubmit={(event) => {
@@ -260,16 +273,16 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                   required
                 />
               </label>
-              <button className="btn-secondary" disabled={action.isPending}>
+              <button className="btn-secondary" disabled={blocked}>
                 Set demo collection account
               </button>
             </form>
           )}
           <p className="text-sm">
-            Collection account:{" "}
+            Payment tracking ·{" "}
             <strong>
               {circle.collection_account?.label ??
-                "Manual external payment tracking"}
+                (demo ? "Simulated practice records" : "Manual external payment tracking")}
             </strong>
             {circle.collection_account && " · Demo feed"}
           </p>
@@ -277,10 +290,11 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
             Agreement version {circle.agreement_version} · {acceptedCount}/
             {members.length} members accepted
           </p>
+          <a href="#payment-instructions" className="link-accent text-sm">Read the circle rules and payment instructions</a>
           <button
             type="button"
             className="btn-secondary"
-            disabled={action.isPending || myAcceptance}
+            disabled={blocked || myAcceptance}
             onClick={() =>
               void write("/agreement/accept", {
                 version: circle.agreement_version,
@@ -297,7 +311,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                 type="button"
                 className="btn-primary"
                 disabled={
-                  action.isPending ||
+                  blocked ||
                   members.length !== circle.member_limit ||
                   acceptedCount !== members.length
                 }
@@ -307,7 +321,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                       "Start this circle with the accepted rules and payout order? Membership and turns will be locked.",
                     )
                   )
-                    void write("/start");
+                    void write("/start", { agreement_version: circle.agreement_version });
                 }}
               >
                 Start circle
@@ -316,10 +330,19 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                 Fill all member places and obtain everyone’s agreement before
                 starting.
               </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button type="button" className="btn-secondary" disabled={blocked} onClick={() => {
+                  if (window.confirm("Replace the invite code? The previous link will stop working. Current members will keep their places.")) void write("/rotate-invite");
+                }}>Replace invite code</button>
+                <button type="button" className="btn-secondary" disabled={blocked} onClick={() => {
+                  if (window.confirm("Cancel this draft? The invite will close and members will be able to read the draft history.")) void write("/cancel-draft");
+                }}>Cancel draft</button>
+              </div>
             </div>
           )}
         </section>
       )}
+      {circle.status === "cancelled" && <p role="status" className="panel-inset mt-6 p-4 text-sm">This draft is closed. Any replacement circle needs a new invitation and a new agreement.</p>}
 
       {circle.status === "active" && (
         <section className="mt-6 grid gap-5 lg:grid-cols-2">
@@ -340,24 +363,23 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
               Submit each transfer separately, including instalments. Submitted
               payments await organiser review.
             </p>
+            {!demo && <a href="#payment-instructions" className="link-accent mt-3 text-sm">View agreed payment instructions</a>}
             {remainingClaim > 0 && !payout && (
               <form
                 className="mt-5 space-y-4"
-                onSubmit={async (event) => {
+                onSubmit={(event) => {
                   event.preventDefault();
                   const kobo = amount
                     ? Math.round(Number(amount) * 100)
                     : remainingClaim;
-                  if (
-                    await write("/contributions", {
+                  void write("/contributions", {
                       round_number: current,
                       reference: reference.trim(),
                       amount_kobo: kobo,
-                    })
-                  ) {
+                    }, () => {
                     setReference("");
                     setAmount("");
-                  }
+                  });
                 }}
               >
                 <label className="block text-sm font-medium">
@@ -370,7 +392,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                     max={remainingClaim / 100}
                     value={amount}
                     onChange={(event) => setAmount(event.target.value)}
-                    disabled={action.isPending}
+                    disabled={blocked}
                     placeholder={String(remainingClaim / 100)}
                   />
                 </label>
@@ -380,7 +402,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                     className={inputClass}
                     value={reference}
                     onChange={(event) => setReference(event.target.value)}
-                    disabled={action.isPending}
+                    disabled={blocked}
                     required
                     minLength={3}
                     maxLength={200}
@@ -389,7 +411,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                 </label>
                 <button
                   className="btn-primary"
-                  disabled={action.isPending || reference.trim().length < 3}
+                  disabled={blocked || reference.trim().length < 3}
                 >
                   Submit contribution
                 </button>
@@ -414,9 +436,9 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
               {money(target)}.
             </p>
             <p className="text-xs text-muted-foreground">
-              {money(matched)} matched to demo receipts ·{" "}
-              {money(confirmed - matched)} manually confirmed. These are
-              recorded contributions, not a live bank balance.
+              {demo
+                ? `${money(matched)} matched to simulated receipts · ${money(confirmed - matched)} manually recorded in this demo.`
+                : "The organiser confirms recorded contributions against external payments."}
             </p>
             <div className="h-2 overflow-hidden rounded-full bg-secondary">
               <div
@@ -429,9 +451,10 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
             <ShareButton
               label="Share round update on WhatsApp"
               text={() =>
-                `${circle.name} · Round ${current}\n${money(confirmed)} confirmed; ${money(Math.max(0, target - confirmed))} outstanding. Recipient: ${recipient?.display_name}. Due ${dateLabel(due)}. ${payout ? payoutLabel(payout.status) : "Payout not yet recorded"}. ${matched ? "Includes demo evidence; this is a demonstration." : "External payments, organiser confirmed."}`
+                `${demo ? "Demo circle · " : ""}${circle.name} · Round ${current}\n${money(confirmed)} confirmed; ${money(Math.max(0, target - confirmed))} outstanding. Recipient: ${recipient?.display_name}. Due ${dateLabel(due)}. ${payout ? payoutLabel(payout.status) : "Payout not yet recorded"}. ${demo ? "Practice records and simulated evidence." : "External payments, organiser confirmed."}`
               }
             />
+            {payoutHeld && <p role="status" className="panel-inset p-4 text-sm">Payout is on hold while an open payment case for this round is reviewed. See Payment cases below.</p>}
             {owner && !payout && (
               <form
                 className="space-y-4 border-t border-border pt-4"
@@ -457,13 +480,13 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                     required
                     minLength={3}
                     maxLength={200}
-                    disabled={confirmed < target}
+                    disabled={blocked || payoutHeld || confirmed < target}
                   />
                 </label>
                 <button
                   className="btn-primary"
                   disabled={
-                    action.isPending ||
+                    blocked || payoutHeld ||
                     confirmed < target ||
                     payoutReference.trim().length < 3
                   }
@@ -483,7 +506,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                   Reference: {payout.reference}
                 </p>
                 {payout.dispute_reason && (
-                  <p className="text-sm text-negative">
+                  <p className="break-words text-sm text-negative">
                     Reported problem: {payout.dispute_reason}
                   </p>
                 )}
@@ -494,7 +517,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                       <button
                         type="button"
                         className="btn-primary"
-                        disabled={action.isPending}
+                        disabled={blocked || payoutHeld}
                         onClick={() => {
                           if (
                             window.confirm(
@@ -510,6 +533,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                         <button
                           type="button"
                           className="btn-secondary"
+                          disabled={blocked}
                           onClick={() =>
                             askReason(
                               `/payouts/${current}/dispute`,
@@ -528,7 +552,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
         </section>
       )}
 
-      {owner && circle.status === "active" && circle.collection_account && (
+      {owner && demo && circle.status === "active" && circle.collection_account && (
         <section className="card-soft mt-6 p-6" aria-label="Demo bank matching">
           <h2 className="text-xl font-semibold">Demo bank matching</h2>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -574,10 +598,11 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                         <button
                           type="button"
                           className="btn-secondary"
-                          disabled={action.isPending}
+                          disabled={blocked}
                           onClick={() =>
                             void write(`/payments/${match.payment_id}/match`, {
                               transaction_id: receipt.id,
+                              review_version: payment.review_version ?? 1,
                             })
                           }
                           aria-label={`Approve demo match ${receipt.reference}`}
@@ -606,7 +631,8 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
         aria-label="Members and contributions"
       >
         <h2 className="text-xl font-semibold">Members & contributions</h2>
-        {circle.status !== "draft" && (
+        {owner && !demo && circle.status === "active" && <p className="mt-2 text-sm text-muted-foreground">Before confirming, compare the reference and amount with the external receipt. Check every circle using the same collection account so the receipt is credited once.</p>}
+        {(circle.status === "active" || circle.status === "completed") && (
           <label className="mt-4 block max-w-xs text-sm font-medium">
             View contribution round
             <select
@@ -637,8 +663,8 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
             return (
               <li key={member.user_id} className="py-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold">
+                  <div className="min-w-0">
+                    <h3 className="break-words font-semibold">
                       {member.position}. {member.display_name}
                       {member.user_id === session.user_id ? " (you)" : ""}
                     </h3>
@@ -650,7 +676,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                     </p>
                   </div>
                   {circle.status === "draft" ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="badge-neutral">
                         {accepted ? "Agreement accepted" : "Acceptance needed"}
                       </span>
@@ -660,7 +686,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                             type="button"
                             className="btn-icon"
                             aria-label={`Move ${member.display_name} earlier`}
-                            disabled={action.isPending || index === 0}
+                            disabled={blocked || index === 0}
                             onClick={() => move(index, -1)}
                           >
                             <ArrowUp className="h-4 w-4" />
@@ -670,7 +696,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                             className="btn-icon"
                             aria-label={`Move ${member.display_name} later`}
                             disabled={
-                              action.isPending || index === members.length - 1
+                              blocked || index === members.length - 1
                             }
                             onClick={() => move(index, 1)}
                           >
@@ -679,14 +705,14 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                         </>
                       )}
                     </div>
-                  ) : (
+                  ) : circle.status !== "cancelled" && (
                     <span className="badge-neutral">
                       {money(contribution?.confirmed_kobo ?? 0)} /{" "}
                       {money(circle.contribution_kobo)} confirmed
                     </span>
                   )}
                 </div>
-                {circle.status !== "draft" && (
+                {(circle.status === "active" || circle.status === "completed") && (
                   <div className="mt-4 space-y-3">
                     {payments.map((payment: Payment) => (
                       <div key={payment.id} className="panel-inset p-4">
@@ -706,7 +732,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                               Reference: {payment.reference}
                             </p>
                             {payment.rejection_reason && (
-                              <p className="mt-2 text-xs text-negative">
+                              <p className="mt-2 break-words text-xs text-negative">
                                 Reason: {payment.rejection_reason}
                               </p>
                             )}
@@ -721,11 +747,12 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                                     <button
                                       type="button"
                                       className="btn-secondary"
-                                      disabled={action.isPending}
+                                      disabled={blocked}
                                       aria-label={`Manually confirm ${payment.reference}`}
                                       onClick={() =>
                                         void write(
                                           `/payments/${payment.id}/confirm`,
+                                          { review_version: payment.review_version ?? 1 },
                                         )
                                       }
                                     >
@@ -734,10 +761,12 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                                     <button
                                       type="button"
                                       className="btn-secondary"
+                                      disabled={blocked}
                                       onClick={() =>
                                         askReason(
                                           `/payments/${payment.id}/reject`,
                                           `Reject ${payment.reference}`,
+                                          payment.review_version ?? 1,
                                         )
                                       }
                                     >
@@ -749,10 +778,12 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                                   <button
                                     type="button"
                                     className="btn-secondary"
+                                    disabled={blocked}
                                     onClick={() =>
                                       askReason(
                                         `/payments/${payment.id}/revoke`,
                                         `Correct confirmation for ${payment.reference}`,
+                                        payment.review_version ?? 1,
                                       )
                                     }
                                   >
@@ -761,10 +792,11 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                                 )}
                               </div>
                             )}
-                          {member.user_id === session.user_id && (
+                          {member.user_id === session.user_id && !disputes.some((item) => item.payment_id === payment.id && item.opened_by === session.user_id && !item.resolved_at) && (
                             <button
                               type="button"
                               className="btn-secondary"
+                              disabled={blocked}
                               onClick={() =>
                                 askReason(
                                   `/payments/${payment.id}/dispute`,
@@ -791,7 +823,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                         <ShareButton
                           label={`Remind ${member.display_name} on WhatsApp`}
                           text={() =>
-                            `${circle.name}: ${member.display_name}, ${money(circle.contribution_kobo - (contribution?.confirmed_kobo ?? 0))} remains unconfirmed for round ${current}, due ${dateLabel(due)}. If you have paid, please submit your reference in Ajora. ${window.location.origin}/circles/${id}`
+                            `${demo ? "Demo circle · " : ""}${circle.name}: ${member.display_name}, ${money(circle.contribution_kobo - (contribution?.confirmed_kobo ?? 0))} remains unconfirmed for round ${current}, due ${dateLabel(due)}. ${demo ? "Use a practice reference in Ajora." : "If you have paid, please submit your reference in Ajora."} ${window.location.origin}/circles/${id}`
                           }
                         />
                       )}
@@ -803,45 +835,68 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
         </ul>
       </section>
 
+      {disputes.length > 0 && (
+        <section className="card-soft mt-6 p-6" aria-label="Payment cases">
+          <h2 className="text-xl font-semibold">Payment cases</h2>
+          <ul className="mt-4 divide-y divide-border">
+            {disputes.map((item) => (
+              <li key={item.id} className="space-y-2 py-4 text-sm">
+                <p className="break-words font-semibold">Round {item.round_number} · {item.resolved_at ? "Resolved" : "Open"} · {memberName(item.opened_by)}</p>
+                <p className="break-all text-xs text-muted-foreground">Case {item.id} · {dateLabel(item.opened_at)}</p>
+                <p className="break-words">{item.reason}</p>
+                {item.resolved_at ? <p className="break-words text-muted-foreground">Resolved {dateLabel(item.resolved_at)} · {item.resolution}</p> : item.opened_by === session.user_id && (
+                  <button type="button" className="btn-secondary" disabled={blocked} onClick={() => askReason(`/payment-disputes/${item.id}/resolve`, `Resolve case ${item.id}`)}>Resolve my payment case</button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {reasonTarget && (
         <form
           className="card-soft mt-6 space-y-4 border border-negative/30 p-6"
           aria-label="Record a correction or problem"
-          onSubmit={async (event) => {
+          onSubmit={(event) => {
             event.preventDefault();
-            if (await write(reasonTarget.path, { reason: reason.trim() }))
-              setReasonTarget(null);
+            void write(reasonTarget.path, {
+              reason: reason.trim(),
+              ...(reasonTarget.reviewVersion === undefined ? {} : { review_version: reasonTarget.reviewVersion }),
+            }, closeReason);
           }}
         >
-          <h2 className="text-lg font-semibold">{reasonTarget.title}</h2>
+          <h2 className="break-words text-lg font-semibold">{reasonTarget.title}</h2>
           <label className="block text-sm font-medium">
             Reason
             <input
+              ref={reasonInput}
               className={inputClass}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               required
               minLength={3}
               maxLength={500}
+              disabled={blocked}
             />
           </label>
           <p className="text-xs text-muted-foreground">
             {reasonTarget.path.includes("/payments/") &&
             reasonTarget.path.endsWith("/dispute")
-              ? "This flags the payment for the organiser and adds your explanation to shared history. It does not change the payment’s confirmation or block payout."
+              ? "Members can read this case. An open case for the current round holds payout recording and receipt confirmation until you resolve it."
               : "This explanation remains in the circle’s shared history."}
           </p>
           <div className="flex flex-wrap gap-3">
             <button
               className="btn-primary"
-              disabled={action.isPending || reason.trim().length < 3}
+              disabled={blocked || reason.trim().length < 3}
             >
               Save explanation
             </button>
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => setReasonTarget(null)}
+              disabled={blocked}
+              onClick={closeReason}
             >
               Cancel
             </button>
@@ -867,7 +922,7 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
                 className="flex flex-wrap items-center justify-between gap-3 py-4"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold">
+                  <p className="break-words text-sm font-semibold">
                     Round {member.position} · {member.display_name}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -895,21 +950,21 @@ function Detail({ session, id }: { session: SavingsSession; id: string }) {
           })}
         </ol>
       </section>
-      <section className="card-soft mt-6 p-6">
-        <h2 className="text-xl font-semibold">Circle rules</h2>
+      <section id="payment-instructions" className="card-soft mt-6 scroll-mt-24 p-6" aria-label="Circle rules">
+        <h2 className="text-xl font-semibold">{demo ? "Demo circle rules" : "Agreed payment instructions and rules"}</h2>
         <p className="mt-3 whitespace-pre-wrap break-words text-sm text-muted-foreground">
           {circle.rules || "No additional rules recorded."}
         </p>
       </section>
       <section className="card-soft mt-6 p-6" aria-label="Circle history">
-        <h2 className="text-xl font-semibold">Shared history</h2>
+        <h2 className="text-xl font-semibold">{demo ? "Shared demo history" : "Shared history"}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Agreement changes, confirmations and problems remain visible here.
         </p>
         <ol className="mt-4 divide-y divide-border">
           {(circle.events ?? []).map((event) => (
             <li key={event.id} className="py-4">
-              <p className="text-sm font-semibold">
+              <p className="break-words text-sm font-semibold">
                 {event.kind.replaceAll("_", " ")} · {memberName(event.actor_id)}
               </p>
               <p className="mt-1 break-words text-sm text-muted-foreground">
@@ -999,7 +1054,7 @@ function Summary({ label, value }: { label: string; value: string }) {
 export function CircleDetail({ id }: { id: string }) {
   return (
     <SavingsGate>
-      {(session) => <Detail session={session} id={id} />}
+      {(session) => <Detail key={id} session={session} id={id} />}
     </SavingsGate>
   );
 }

@@ -46,8 +46,11 @@ def fund(clients, circle, number):
     owner, member, *_ = clients
     for client in [owner, member]:
         user = client.get("/savings/session").json()
-        assert client.post(f"{base}/contributions", json={"round_number": number, "reference": f"transfer-{number}-{user['user_id']}"}).status_code == 200
-        assert owner.post(f"{base}/contributions/{user['user_id']}/{number}/confirm", json={}).status_code == 200
+        response = client.post(f"{base}/contributions", json={"round_number": number, "reference": f"transfer-{number}-{user['user_id']}"})
+        assert response.status_code == 200
+        contribution = next(c for c in response.json()["contributions"] if c["member_id"] == user["user_id"] and c["round_number"] == number)
+        payment_id = contribution["payments"][0]["id"]
+        assert owner.post(f"{base}/payments/{payment_id}/confirm", json={}).status_code == 200
 
 
 def test_complete_lifecycle_and_durable_restart(savings):
@@ -155,8 +158,9 @@ def test_contribution_claims_require_receipt_confirmation(savings):
     assert outsider.post(f"{base}/contributions", json=claim).status_code == 403
     assert owner.post(f"{base}/payouts", json={"round_number": 1, "reference": "too-early"}).status_code == 409
     assert member.post(f"{base}/contributions/{uid}/1/confirm", json={}).status_code == 403
-    assert owner.post(f"{base}/contributions/{uid}/1/confirm", json={}).status_code == 200
-    assert owner.post(f"{base}/contributions/{uid}/1/confirm", json={}).status_code == 409
+    payment_ids = [result.json()["contributions"][0]["payments"][0]["id"]]
+    assert owner.post(f"{base}/contributions/{uid}/1/confirm", json={"payment_ids": payment_ids}).status_code == 200
+    assert owner.post(f"{base}/contributions/{uid}/1/confirm", json={"payment_ids": payment_ids}).status_code == 409
     assert owner.post(f"{base}/payouts", json={"round_number": 1, "reference": "still-short"}).status_code == 409
 
 
@@ -216,7 +220,7 @@ def test_invitation_preview_excludes_member_details(savings):
     circle = create(owner).json()
     preview = outsider.get(f"/savings/invitations/{circle['invite_code']}")
     assert preview.status_code == 200
-    assert preview.json()["rules"] == circle["rules"]
+    assert preview.json()["rules"] == ""
     assert preview.json()["member_count"] == 1
     assert "members" not in preview.json()
     assert "organizer_id" not in preview.json()
@@ -230,9 +234,11 @@ def test_rejected_claim_can_be_corrected_without_erasing_history(savings):
     base = f"/savings/circles/{circle['id']}"
     uid = member.get("/savings/session").json()["user_id"]
     path = f"{base}/contributions/{uid}/1"
-    assert member.post(f"{base}/contributions", json={"round_number": 1, "reference": "wrong-ref"}).status_code == 200
+    submitted = member.post(f"{base}/contributions", json={"round_number": 1, "reference": "wrong-ref"})
+    assert submitted.status_code == 200
+    payment_id = submitted.json()["contributions"][0]["payments"][0]["id"]
     assert member.post(f"{path}/reject", json={"reason": "No matching receipt"}).status_code == 403
-    rejected = owner.post(f"{path}/reject", json={"reason": "No matching receipt"}).json()
+    rejected = owner.post(f"{path}/reject", json={"reason": "No matching receipt", "payment_ids": [payment_id]}).json()
     assert rejected["contributions"][0]["status"] == "rejected"
     assert owner.post(f"{path}/confirm", json={}).status_code == 409
     assert owner.post(f"{path}/reject", json={"reason": "Repeated rejection"}).status_code == 409
@@ -241,5 +247,5 @@ def test_rejected_claim_can_be_corrected_without_erasing_history(savings):
     assert fixed["rejection_reason"] is None
     assert fixed["history"][0]["reference"] == "wrong-ref"
     assert fixed["history"][0]["rejection_reason"] == "No matching receipt"
-    assert owner.post(f"{path}/confirm", json={}).status_code == 200
+    assert owner.post(f"{path}/confirm", json={"payment_ids": [fixed["payments"][-1]["id"]]}).status_code == 200
     assert owner.post(f"{path}/reject", json={"reason": "Cannot reject confirmed"}).status_code == 409

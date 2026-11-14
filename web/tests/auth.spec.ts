@@ -140,7 +140,8 @@ test("session expiry removes private account content", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Save together. Grow together." })).toBeVisible();
   expired = true;
   await page.clock.runFor(10_000);
-  await expect(page.getByRole("form", { name: "Create account", exact: true })).toBeVisible();
+  await expect(page.getByRole("form", { name: "Log in", exact: true })).toBeVisible();
+  await expect(page.getByText("Sign in again to return to this page.")).toBeVisible();
   await expect(page.getByText("Account access · Ada Private", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Save together. Grow together." })).toHaveCount(0);
 });

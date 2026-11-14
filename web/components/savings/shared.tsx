@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useId, useState, type ReactNode } from "react";
+import { Fragment, Suspense, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,9 +13,12 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import { enginePost } from "@/lib/api/engine";
 import {
+  actorHeader,
   replaceSavingsSession,
   useSavingsLogout,
+  useSavingsOnline,
   useSavingsSession,
+  type SavingsAction,
   type SavingsSession,
   type Circle,
 } from "@/lib/api/savings";
@@ -84,15 +87,45 @@ export function Loading() {
   );
 }
 
-function AuthenticationForm({ guest }: { guest?: SavingsSession }) {
-  return <Suspense fallback={<Loading />}><AuthenticationFields guest={guest} /></Suspense>;
+export function SavingsActionNotice({ action }: { action: SavingsAction }) {
+  const online = useSavingsOnline();
+  return (
+    <div className="space-y-3">
+      {!online && <p role="status" className="text-sm text-muted-foreground">You’re offline. New changes will stay unsent until you reconnect and submit them.</p>}
+      {action.uncertain ? (
+        <div className="panel-inset space-y-3 p-4 text-sm">
+          <p role="status">{action.checking ? "Checking whether your change was saved…" : "Ajora couldn’t confirm whether your last change was saved. Check it before making another change."}</p>
+          {action.error?.name === "OutcomeCheckError" && <ErrorNotice error={action.error} />}
+          <button type="button" className="btn-secondary" disabled={!online || action.isPending} onClick={() => void action.check()}>
+            {action.restoredOperation ? "Check last change" : "Check and retry last change"}
+          </button>
+        </div>
+      ) : <ErrorNotice error={action.error} />}
+      {action.retryOriginal && (
+        <div className="space-y-3">
+          <p role="status" className="text-sm text-muted-foreground">The last change has no saved outcome yet. Review the latest record and repeat the earlier action, or discard the pending request. If it has since been saved, Ajora will show that outcome.</p>
+          <button type="button" className="btn-secondary" disabled={!online || action.isPending} onClick={() => void action.abandon()}>
+            Discard pending request
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
-function AuthenticationFields({ guest }: { guest?: SavingsSession }) {
+export function CircleMode({ mode }: { mode: Circle["mode"] }) {
+  return <span className="badge-neutral">{mode === "demo" ? "Demo circle" : mode === "manual" ? "External payments" : "Historical circle"}</span>;
+}
+
+function AuthenticationForm({ guest, expired }: { guest?: SavingsSession; expired?: boolean }) {
+  return <Suspense fallback={<Loading />}><AuthenticationFields guest={guest} expired={expired} /></Suspense>;
+}
+
+function AuthenticationFields({ guest, expired }: { guest?: SavingsSession; expired?: boolean }) {
   const client = useQueryClient();
   const searchParams = useSearchParams();
   const id = useId();
-  const [mode, setMode] = useState<"register" | "login">("register");
+  const [mode, setMode] = useState<"register" | "login">(expired ? "login" : "register");
   const [name, setName] = useState(guest?.display_name ?? "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -270,6 +303,10 @@ export function SavingsGate({
   children: (session: SavingsSession) => ReactNode;
 }) {
   const session = useSavingsSession();
+  const lastUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (session.data) lastUser.current = session.data.user_id;
+  }, [session.data]);
   const client = useQueryClient();
   const [recoveryKey, setRecoveryKey] = useState("");
   const recover = useMutation({
@@ -285,10 +322,10 @@ export function SavingsGate({
   if (session.isPending) return <Loading />;
   if (session.data)
     return (
-      <>
-        <AccountAccess key={`${session.data.user_id}:${session.data.email ?? ""}`} session={session.data} />
+      <Fragment key={session.data.user_id}>
+        <AccountAccess key={`${session.data.user_id}:${session.data.email ?? ""}`} session={session.data} onSignedOut={() => { lastUser.current = null; }} />
         {children(session.data)}
-      </>
+      </Fragment>
     );
   if (session.error && session.data === undefined)
     return (
@@ -319,7 +356,8 @@ export function SavingsGate({
           </div>
         </div>
         <div className="min-w-0">
-          <AuthenticationForm />
+          {lastUser.current && <p role="status" className="mb-4 text-sm text-muted-foreground">Sign in again to return to this page.</p>}
+          <AuthenticationForm expired={Boolean(lastUser.current)} />
           <details className="mt-6 rounded-xl border border-border px-4 py-3">
             <summary className="cursor-pointer text-sm text-muted-foreground">Recover an existing profile</summary>
           <form
@@ -375,16 +413,16 @@ export function SavingsGate({
     </div>
   );
 }
-function AccountAccess({ session }: { session: SavingsSession }) {
+function AccountAccess({ session, onSignedOut }: { session: SavingsSession; onSignedOut: () => void }) {
   const client = useQueryClient();
   const [key, setKey] = useState("");
   const [googlePending, setGooglePending] = useState(false);
   const recovery = useMutation({
     mutationFn: () =>
-      enginePost<{ recovery_key: string }>("/savings/recovery-key", {}),
+      enginePost<{ recovery_key: string }>("/savings/recovery-key", {}, undefined, actorHeader(session.user_id)),
     onSuccess: (data) => setKey(data.recovery_key),
   });
-  const logout = useSavingsLogout();
+  const logout = useSavingsLogout(session.user_id, onSignedOut);
   return (
     <div className="mb-7">
       <details className="account-access rounded-xl border border-border bg-card px-4 py-3">
@@ -510,14 +548,15 @@ export function CircleCard({ circle }: { circle: Circle }) {
             ? "Gathering members"
             : circle.status === "active"
               ? `Round ${circle.current_round} of ${circle.member_limit}`
-              : "Completed"}
+              : circle.status === "cancelled" ? "Draft cancelled" : "Completed"}
         </span>
       </div>
       <div>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-medium tracking-tight">{circle.name}</h2>
+          <h2 className="min-w-0 break-words text-xl font-medium tracking-tight">{circle.name}</h2>
           <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" aria-hidden />
         </div>
+        {circle.mode !== "manual" && <div className="mt-3"><CircleMode mode={circle.mode} /></div>}
         <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <p className="font-mono text-2xl font-normal tracking-tighter">{money(circle.contribution_kobo)}</p>
           <p className="text-xs text-muted-foreground">per member · {circle.frequency}</p>
@@ -533,14 +572,14 @@ export function CircleCard({ circle }: { circle: Circle }) {
               ? `${money(confirmed)} confirmed this round`
               : circle.status === "draft"
                 ? "Waiting to start"
-                : `${circle.payouts.length} payouts recorded`}
+                : circle.status === "cancelled" ? "Invitations closed" : `${circle.payouts.length} payouts recorded`}
           </span>
         </div>
         <div className="circle-progress mt-4 h-1.5 overflow-hidden rounded-full bg-secondary">
           <div
             className="h-full rounded-full bg-foreground"
             style={{
-              width: `${100 * (circle.status === "active" ? confirmed / (circle.contribution_kobo * circle.member_limit) : circle.status === "completed" ? 1 : circle.members.length / circle.member_limit)}%`,
+              width: `${100 * (circle.status === "active" ? confirmed / (circle.contribution_kobo * circle.member_limit) : circle.status === "completed" ? 1 : circle.status === "draft" ? circle.members.length / circle.member_limit : 0)}%`,
             }}
           />
         </div>

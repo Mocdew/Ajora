@@ -14,6 +14,7 @@ import time
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import Field
 
+from .rate_limits import check_rate_limits, rate_limit_scope
 from .savings import (
     COOKIE, SESSION_SECONDS, EmptyInput, Input, Session, current_user, database,
     get_savings_path, require_identity_request,
@@ -74,6 +75,9 @@ def recover_identity(
     body: RecoverInput, request: Request, response: Response,
     path: Path = Depends(get_savings_path),
 ) -> dict:
+    address = request.client.host if request.client else "unknown"
+    with database(path, write=True) as conn:
+        check_rate_limits(conn, [(rate_limit_scope("guest-recover:ip", address), 30)])
     token = secrets.token_urlsafe(32)
     with database(path, write=True) as conn:
         ensure_recovery_table(conn)

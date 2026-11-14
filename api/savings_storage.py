@@ -14,6 +14,10 @@ _write_lock = threading.RLock()
 _initialized_schemas: set[tuple[str, str]] = set()
 
 
+class StorageConfigurationError(RuntimeError):
+    """Invalid or unavailable connection configuration."""
+
+
 class RemoteRow(dict):
     """Match sqlite3.Row's name/index access and dict(row) conversion."""
     def __getitem__(self, key):
@@ -132,7 +136,7 @@ def _connect_remote(url: str, token: str):
     try:
         import libsql
     except ImportError:
-        raise RuntimeError("Turso storage requires the libsql driver and a supported Python runtime.") from None
+        raise StorageConfigurationError("Turso storage requires the libsql driver and a supported Python runtime.") from None
     try:
         return libsql.connect(database=url, auth_token=token, timeout=15, isolation_level=None)
     except Exception:
@@ -143,7 +147,7 @@ def connect_savings(path: Path):
     url = os.environ.get("TURSO_DATABASE_URL")
     token = os.environ.get("TURSO_AUTH_TOKEN")
     if os.environ.get("AJORA_REQUIRE_REMOTE_SAVINGS") == "true" and not (url and token):
-        raise RuntimeError("Remote savings storage is required. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together.")
+        raise StorageConfigurationError("Remote savings storage is required. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together.")
     if url is None and token is None:
         path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(path, timeout=15)
@@ -157,7 +161,7 @@ def connect_savings(path: Path):
     except ValueError:
         valid = False
     if not valid:
-        raise RuntimeError("Set a valid TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together.")
+        raise StorageConfigurationError("Set a valid TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together.")
     connection = _connect_remote(url, token)
     identity = hashlib.sha256((url + "\0" + token).encode()).hexdigest()
     return RemoteConnection(connection, identity)

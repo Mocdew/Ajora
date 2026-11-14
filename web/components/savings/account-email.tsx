@@ -161,11 +161,11 @@ export function VerifyEmailPage() {
 export function EmailVerificationStatus({ userId }: { userId: string }) {
   const status = useQuery({
     queryKey: accountEmailKey(userId),
-    queryFn: ({ signal }) => getAccountEmailStatus(signal),
+    queryFn: ({ signal }) => getAccountEmailStatus(userId, signal),
     retry: false,
     refetchOnWindowFocus: true,
   });
-  const request = useMutation({ mutationFn: requestEmailVerification });
+  const request = useMutation({ mutationFn: () => requestEmailVerification(userId) });
   if (status.isPending) return <p role="status" className="mt-3 text-xs text-muted-foreground">Checking email verification…</p>;
   if (status.isError) return <div className="mt-3 space-y-3"><RequestError error={status.error} /><button type="button" className="btn-secondary" onClick={() => status.refetch()}>Check email status again</button></div>;
   if (!status.data.email) return null;

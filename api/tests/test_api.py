@@ -22,12 +22,10 @@ PERSONA = "u_persona_c"
 VALID_RELATIONSHIP_TYPES = {"ajo_esusu", "dependent", "informal_lending", "remittance"}
 
 
-def test_health_lists_personas() -> None:
+def test_health_does_not_list_personas() -> None:
     r = client.get("/health")
     assert r.status_code == 200
-    body = r.json()
-    assert body["status"] == "ok"
-    assert PERSONA in body["users"]
+    assert r.json() == {"status": "ok"}
 
 
 def test_transactions_endpoint() -> None:

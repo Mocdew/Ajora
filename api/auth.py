@@ -17,6 +17,7 @@ import time
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .rate_limits import check_rate_limits, rate_limit_scope
 from .savings import (
     COOKIE, SESSION_SECONDS, Session, database, get_savings_path,
     require_identity_request, session_user,
@@ -31,7 +32,6 @@ router = APIRouter(
     responses={422: {"model": AuthErrorResponse}},
 )
 PASSWORD_ITERATIONS = 600_000
-ATTEMPT_WINDOW = 15 * 60
 EMAIL_PATTERN = re.compile(r"[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\Z")
 
 
@@ -81,29 +81,17 @@ _DUMMY_PASSWORD_HASH = hash_password(secrets.token_urlsafe(32))
 
 
 def email_scope(action: str, email: str) -> str:
-    return action + ":email:" + hashlib.sha256(email.encode()).hexdigest()
+    return rate_limit_scope(action + ":email", email)
 
 
 def check_attempts(request: Request, email: str, path: Path, action: str) -> None:
-    stamp = int(time.time())
     address = request.client.host if request.client else "unknown"
     scopes = [
-        (action + ":ip:" + hashlib.sha256(address.encode()).hexdigest(), 100 if action == "login" else 50),
+        (rate_limit_scope(action + ":ip", address), 100 if action == "login" else 50),
         (email_scope(action, email), 10),
     ]
     with database(path, write=True) as conn:
-        conn.execute("DELETE FROM auth_attempts WHERE started_at<=?", (stamp - ATTEMPT_WINDOW,))
-        for scope, limit in scopes:
-            row = conn.execute("SELECT attempts, started_at FROM auth_attempts WHERE scope=?", (scope,)).fetchone()
-            if row and row["attempts"] >= limit:
-                raise HTTPException(429, "Too many attempts. Please try again later.", headers={
-                    "Retry-After": str(max(1, row["started_at"] + ATTEMPT_WINDOW - stamp)),
-                })
-        for scope, _ in scopes:
-            conn.execute(
-                "INSERT INTO auth_attempts VALUES (?, 1, ?) "
-                "ON CONFLICT(scope) DO UPDATE SET attempts=attempts+1", (scope, stamp),
-            )
+        check_rate_limits(conn, scopes)
 
 
 def issue_session(conn, user_id: str) -> str:

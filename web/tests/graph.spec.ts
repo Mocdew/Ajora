@@ -68,7 +68,10 @@ async function mockRelationships(page: Page) {
     userId: user.user_id, userName: user.full_name, generatedBy: "stub-offline", explanations: {},
   };
   await page.route("**/api/engine/health", (route) => route.fulfill({
-    json: { status: "ok", users: [user.user_id] },
+    json: { status: "ok" },
+  }));
+  await page.route("**/api/engine/users", (route) => route.fulfill({
+    json: [{ id: user.user_id }],
   }));
   for (const [path, json] of Object.entries({ graph, insights, transactions, explanations })) {
     await page.route(`**/api/engine/users/${user.user_id}/${path}`, (route) => route.fulfill({ json }));

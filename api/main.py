@@ -11,6 +11,12 @@ the optional bank-insights engine remains stateless.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import json
+import logging
+import os
+import sqlite3
+from time import perf_counter
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,14 +25,17 @@ from fastapi.exceptions import RequestValidationError
 
 from engine.dedup import UnsupportedCurrencyError
 
-from .deps import get_provider
 from .routes import router
 from .savings import router as savings_router, get_savings_path
+from .savings_export import router as savings_export_router
 from .savings_identity import router as savings_identity_router
 from .auth import router as auth_router
 from .account_email import router as account_email_router
 from .google_auth import router as google_auth_router
 from .demo_account import seed_demo_account
+from .savings_storage import StorageConfigurationError, connect_savings
+
+logger = logging.getLogger("uvicorn.error")
 
 # The Next.js dev server. Explicit list (not "*") because credentials are allowed.
 # Note: the frontend normally reaches the API through its same-origin `/api/engine`
@@ -68,33 +77,72 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(savings_router)
+app.include_router(savings_export_router)
 app.include_router(savings_identity_router)
 app.include_router(auth_router)
 app.include_router(account_email_router)
 app.include_router(google_auth_router)
 
 
+@app.middleware("http")
+async def request_summary(request: Request, call_next):
+    request_id = uuid4().hex
+    started = perf_counter()
+    path = request.scope["path"]
+    private = path.startswith(("/savings/", "/auth/"))
+    error_type = None
+    try:
+        response = await call_next(request)
+    except (sqlite3.OperationalError, StorageConfigurationError):
+        error_type = "storage_unavailable"
+        response = JSONResponse(status_code=503, content={
+            "detail": "Savings storage is temporarily unavailable. Check the latest record before trying again.",
+        })
+    except Exception as exc:
+        error_type = type(exc).__name__
+        response = JSONResponse(status_code=500, content={"detail": "The request could not be completed."})
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    if private or path in {"/health", "/ready"} or response.status_code >= 500:
+        response.headers["Cache-Control"] = "no-store"
+    route = request.scope.get("route")
+    summary = {
+        "request_id": request_id,
+        "method": request.method,
+        "route": getattr(route, "path", "unmatched"),
+        "status": response.status_code,
+        "duration_ms": round((perf_counter() - started) * 1000, 1),
+    }
+    if error_type:
+        summary["error"] = error_type
+    logger.log(logging.WARNING if response.status_code >= 500 else logging.INFO, "%s", json.dumps(summary))
+    return response
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
-    if request.url.path == "/savings/recover":
+    path = request.scope["path"]
+    if path == "/savings/recover":
         # Recovery keys grant account access, so redact them like passwords.
         return JSONResponse(status_code=422, content={
             "detail": "Enter a valid recovery key.",
         }, headers={"Cache-Control": "no-store"})
-    if request.url.path.startswith("/auth/"):
+    if path.startswith("/auth/"):
         # FastAPI's default validation response includes submitted field values.
         # Keep password-bearing requests out of responses and client error logs.
         return JSONResponse(status_code=422, content={
             "detail": ("Google sign-in could not be completed. Please try again."
-                       if request.url.path.startswith("/auth/google") else
+                       if path.startswith("/auth/google") else
                        "Enter a valid link and a new password of 15–128 characters."
-                       if request.url.path == "/auth/password/reset" else
+                       if path == "/auth/password/reset" else
                        "Enter a valid verification link."
-                       if request.url.path == "/auth/email/verify" else
+                       if path == "/auth/email/verify" else
                        "Enter a valid email address."
-                       if request.url.path == "/auth/password/forgot" else
+                       if path == "/auth/password/forgot" else
                        "Enter a valid email and password. New passwords need 15–128 characters; names need 2–80 characters."),
         }, headers={"Cache-Control": "no-store"})
+    if path.startswith("/savings/"):
+        return JSONResponse(status_code=422, content={"detail": "Check the fields and try again."})
     from fastapi.exception_handlers import request_validation_exception_handler
     return await request_validation_exception_handler(request, exc)
 
@@ -106,5 +154,22 @@ async def missing_exchange_rate(_request: Request, exc: UnsupportedCurrencyError
 
 @app.get("/health", tags=["meta"])
 def health() -> dict:
-    """Liveness probe + the set of personas this instance can serve."""
-    return {"status": "ok", "users": get_provider().list_users()}
+    """Process liveness, independent of analytics and savings storage."""
+    return {"status": "ok"}
+
+
+@app.get("/ready", tags=["meta"])
+def ready():
+    """Check that the configured savings store can read its existing schema."""
+    path = get_savings_path()
+    if not path.is_file() and "TURSO_DATABASE_URL" not in os.environ and "TURSO_AUTH_TOKEN" not in os.environ:
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
+    try:
+        conn = connect_savings(path)
+        try:
+            conn.execute("SELECT id FROM savings_circles LIMIT 1").fetchone()
+        finally:
+            conn.close()
+    except (sqlite3.Error, StorageConfigurationError):
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
+    return {"status": "ready"}

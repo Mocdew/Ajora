@@ -1,9 +1,7 @@
 """Data providers for the API — the seam between HTTP and the engine.
 
-Every route reaches its data through a :class:`DataProvider`, never by touching
-files directly. Today the only implementation is :class:`FilePersonaProvider`
-(the labelled demo personas on disk); a live ``MonoProvider`` / ``OkraProvider``
-would implement the same two methods and slot in with no route changes.
+Every route reaches its data through a :class:`DataProvider`. Public routes use
+only the reviewed synthetic dataset. FilePersonaProvider supports offline tools.
 
 Per the no-database architecture, nothing is persisted here. The provider holds an
 in-memory index of ``user_id -> file path`` (metadata, not bank data) and re-reads
@@ -13,6 +11,7 @@ between calls.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -29,6 +28,13 @@ _MOCK_DIR = _DATA_DIR / "mock"
 _PRIVATE_DIR = _DATA_DIR / "private"
 # A small standalone demo persona (u_demo_stephen) lives outside the mock dir.
 _SAMPLE_PATH = _DATA_DIR / "sample_transactions.json"
+# Only the seeded generator output is approved for public use. Pin its contents
+# so accidentally replacing an approved file cannot publish private data.
+_PUBLIC_FIXTURES = {
+    "u_persona_a": ("persona_a.json", "b617e0df5efcbe5137f7430908b00778f160f218887d2303b235dac82c73605d"),
+    "u_persona_b": ("persona_b.json", "5545ed5fc584513971deb8d47e666724802643b0d352dd9033d6690ab6d7e5e0"),
+    "u_persona_c": ("persona_c.json", "e05e895684af464029678f9c946e83f6421f8716ab4bf3cbaba3b7ee4b5874f4"),
+}
 
 
 class UserNotFound(KeyError):
@@ -105,3 +111,20 @@ class FilePersonaProvider:
             raise UserNotFound(user_id)
         raw = json.loads(path.read_text(encoding="utf-8"))
         return TransactionBatch.model_validate(raw)
+
+
+class PublicDemoProvider:
+    """Allow only the reviewed synthetic fixtures on unauthenticated routes."""
+
+    def list_users(self) -> List[str]:
+        return list(_PUBLIC_FIXTURES)
+
+    def get_batch(self, user_id: str) -> TransactionBatch:
+        try:
+            filename, checksum = _PUBLIC_FIXTURES[user_id]
+            contents = (_MOCK_DIR / filename).read_bytes()
+        except (KeyError, OSError):
+            raise UserNotFound(user_id) from None
+        if hashlib.sha256(contents).hexdigest() != checksum:
+            raise UserNotFound(user_id)
+        return TransactionBatch.model_validate_json(contents)

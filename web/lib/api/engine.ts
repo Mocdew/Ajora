@@ -30,12 +30,13 @@ export class EngineError extends Error {
 export async function engineGet<T>(
   path: string,
   signal?: AbortSignal,
+  headers?: Record<string, string>,
 ): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${ENGINE_BASE}${path}`, {
       signal,
-      headers: { Accept: "application/json" },
+      headers: { Accept: "application/json", ...headers },
     });
   } catch (err) {
     // Network error / proxy target down.
@@ -69,6 +70,7 @@ export async function enginePost<T>(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
+  headers?: Record<string, string>,
 ): Promise<T> {
   let res: Response;
   try {
@@ -78,6 +80,7 @@ export async function enginePost<T>(
       headers: {
         Accept: "application/json",
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -127,5 +130,4 @@ export const engineKeys = {
 
 export interface HealthResponse {
   status: string;
-  users: string[];
 }
