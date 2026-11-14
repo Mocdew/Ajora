@@ -1,8 +1,10 @@
 import json
 import logging
+import secrets
 import sqlite3
 
 from fastapi.testclient import TestClient
+import pytest
 
 from api import savings_storage
 from api.main import app
@@ -73,3 +75,41 @@ def test_malformed_host_cannot_bypass_credential_redaction():
     assert "private-password" not in response.text
     assert "not-an-email" not in response.text
     assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.parametrize("token", [None, "", "short-token"])
+def test_required_staging_access_fails_closed_if_token_unusable(monkeypatch, token):
+    monkeypatch.setenv("AJORA_STAGING_ACCESS_REQUIRED", "true")
+    if token is not None:
+        monkeypatch.setenv("AJORA_STAGING_ACCESS_TOKEN", token)
+    with TestClient(app) as client:
+        assert client.get("/health").json() == {"status": "ok"}
+        assert client.head("/health").status_code == 200
+        assert client.post("/health").status_code == 403
+        assert client.get("/health/").status_code == 403
+        assert client.get("/ready", headers={"X-Ajora-Staging-Access": token or ""}).status_code == 403
+        assert not get_savings_path().exists()
+
+
+def test_staging_access_guards_all_other_routes_before_identity_or_storage(monkeypatch, caplog):
+    token = secrets.token_urlsafe(32)
+    monkeypatch.setenv("AJORA_STAGING_ACCESS_TOKEN", token)
+    monkeypatch.setenv("AJORA_STAGING_ACCESS_REQUIRED", "true")
+    allowed = {"X-Ajora-Staging-Access": token}
+    wrong_token = "wrong-staging-token"
+    with TestClient(app) as client, caplog.at_level(logging.INFO, "uvicorn.error"):
+        for path in ("/", "/ready", "/openapi.json", "/docs", "/users", "/savings/session", "/savings/circles"):
+            response = client.get(path, headers={"X-Ajora-Staging-Access": wrong_token})
+            assert response.status_code == 403 and response.headers["cache-control"] == "no-store"
+            assert response.headers["x-request-id"]
+            assert token not in response.text and wrong_token not in response.text
+
+        assert client.post("/savings/session", json={"display_name": "Synthetic member"}).status_code == 403
+        assert not get_savings_path().exists()
+        assert client.get("/savings/session", headers=allowed).status_code == 401
+        created = client.post("/savings/session", headers=allowed, json={"display_name": "Synthetic member"})
+        assert created.status_code == 201 and created.headers["cache-control"] == "no-store"
+        assert client.get("/savings/session", headers=allowed).json()["user_id"] == created.json()["user_id"]
+        assert client.get("/savings/session").status_code == 403
+        assert client.get("/ready", headers=allowed).status_code == 200
+        assert token not in caplog.text and wrong_token not in caplog.text

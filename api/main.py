@@ -14,6 +14,8 @@ from contextlib import asynccontextmanager
 import json
 import logging
 import os
+import re
+from secrets import compare_digest
 import sqlite3
 from time import perf_counter
 from uuid import uuid4
@@ -36,6 +38,7 @@ from .demo_account import seed_demo_account
 from .savings_storage import StorageConfigurationError, connect_savings
 
 logger = logging.getLogger("uvicorn.error")
+_STAGING_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_-]{43,128}")
 
 # The Next.js dev server. Explicit list (not "*") because credentials are allowed.
 # Note: the frontend normally reaches the API through its same-origin `/api/engine`
@@ -90,9 +93,19 @@ async def request_summary(request: Request, call_next):
     started = perf_counter()
     path = request.scope["path"]
     private = path.startswith(("/savings/", "/auth/"))
+    staging_token = os.environ.get("AJORA_STAGING_ACCESS_TOKEN")
+    staging_required = os.environ.get("AJORA_STAGING_ACCESS_REQUIRED", "false").strip().lower() != "false"
+    staging_protected = staging_required or staging_token is not None
+    liveness = path == "/health" and request.method in {"GET", "HEAD"}
     error_type = None
     try:
-        response = await call_next(request)
+        if staging_protected and not liveness and (
+            staging_token is None or not _STAGING_TOKEN_PATTERN.fullmatch(staging_token)
+            or not compare_digest(staging_token.encode(), request.headers.get("X-Ajora-Staging-Access", "").encode())
+        ):
+            response = JSONResponse(status_code=403, content={"detail": "Staging access is restricted."})
+        else:
+            response = await call_next(request)
     except (sqlite3.OperationalError, StorageConfigurationError):
         error_type = "storage_unavailable"
         response = JSONResponse(status_code=503, content={
@@ -103,7 +116,7 @@ async def request_summary(request: Request, call_next):
         response = JSONResponse(status_code=500, content={"detail": "The request could not be completed."})
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
-    if private or path in {"/health", "/ready"} or response.status_code >= 500:
+    if private or staging_protected or path in {"/health", "/ready"} or response.status_code >= 500:
         response.headers["Cache-Control"] = "no-store"
     route = request.scope.get("route")
     summary = {
@@ -153,6 +166,7 @@ async def missing_exchange_rate(_request: Request, exc: UnsupportedCurrencyError
 
 
 @app.get("/health", tags=["meta"])
+@app.head("/health", include_in_schema=False)
 def health() -> dict:
     """Process liveness, independent of analytics and savings storage."""
     return {"status": "ok"}

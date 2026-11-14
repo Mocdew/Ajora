@@ -26,6 +26,8 @@ def tmp_trust_state(tmp_path, monkeypatch):
     monkeypatch.delenv("TURSO_AUTH_TOKEN", raising=False)
     monkeypatch.delenv("AJORA_REQUIRE_REMOTE_SAVINGS", raising=False)
     monkeypatch.delenv("AJORA_MANUAL_SAVINGS_ENABLED", raising=False)
+    monkeypatch.delenv("AJORA_STAGING_ACCESS_REQUIRED", raising=False)
+    monkeypatch.delenv("AJORA_STAGING_ACCESS_TOKEN", raising=False)
     monkeypatch.delenv("AJORA_DEMO_EMAIL", raising=False)
     monkeypatch.delenv("AJORA_DEMO_PASSWORD", raising=False)
     for key in ("AJORA_RESEND_API_KEY", "AJORA_EMAIL_FROM", "AJORA_PUBLIC_WEB_URL"):

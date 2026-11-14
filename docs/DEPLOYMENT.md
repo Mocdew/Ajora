@@ -159,6 +159,19 @@ Preview. Match the frontend circle selector to the API policy in that environmen
 Add only trusted, exact preview
 origins to that API's allow-list; do not allow every `*.vercel.app` domain.
 
+For synthetic staging rehearsals on a public API host, set both
+`AJORA_STAGING_ACCESS_REQUIRED=true` and the server-only
+`AJORA_STAGING_ACCESS_TOKEN` on the dedicated staging API. Generate a random
+URL-safe token with at least 32 bytes of entropy, for example
+`secrets.token_urlsafe(32)`. Only `GET` and `HEAD` on exact `/health` are available
+without it. Keep Vercel Preview behind deployment protection. An authorised
+test runner sends `X-Ajora-Staging-Access` only to that Preview's API path or
+the exact staging API origin. Test refusal at the direct API and through the
+Preview before starting the synthetic journey. Keep the token out of client
+environment variables, traces, URLs, logs, and screenshots. Rotate or remove
+it at the end of the rehearsal. Leave both settings unset outside synthetic
+staging.
+
 ## Saved records and local development
 
 Local development runs at `http://localhost:3200`. This port does not become the
