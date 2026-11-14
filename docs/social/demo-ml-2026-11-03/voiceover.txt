@@ -1,0 +1,23 @@
+Your own transfer should not look like new income. Meet Ajora, a financial insights demo for Nigeria.
+
+Emeka banks across four accounts. A naive total says he earned six point nine nine million naira. Some of that money was already his.
+
+Ajora compares amounts, timestamps, payment references and fuzzy name similarity across banks. These features score candidate debit and credit pairs.
+
+The Hungarian algorithm selects pairs globally. Each transaction can be matched only once. The current demo uses explainable rules for confidence scoring.
+
+High confidence matches apply automatically. Uncertain pairs stay in cashflow until confirmed, and users can inspect or reject any match.
+
+Eight internal transfers are removed. Income becomes five point six million naira. Transfer fees remain in spending, so net cashflow stays the same.
+
+On the bundled labelled demo data: all eighteen transfer pairs found, with no false matches. Broader validation is still needed.
+
+On the cleaned ledger, graph patterns and narration cues reveal remittances and recurring family support. Every relationship can be inspected.
+
+The engine computes. The offline narrator explains those facts. The demo checks every quoted number against its structured inputs.
+
+Revoke the domiciliary account. The remittance disappears, and the remaining figures are recalculated.
+
+The audit log records which accounts were served, and which were excluded by revoked consent.
+
+Try Ajora’s sample data demo. Select Persona B to explore the full story.

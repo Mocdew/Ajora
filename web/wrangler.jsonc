@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ajora-staging-web",
+  "main": "./worker/staging.ts",
+  "compatibility_date": "2026-11-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "secrets": { "required": ["AJORA_STAGING_WEB_PASSWORD", "AJORA_STAGING_RELAY_TOKEN"] },
+  "services": [{ "binding": "AJORA_API", "service": "ajora-staging-api-free" }],
+  "assets": {
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "none",
+    "run_worker_first": true
+  },
+  "observability": {
+    "enabled": true,
+    "logs": { "invocation_logs": false },
+    "traces": { "enabled": false }
+  }
+}

@@ -4,12 +4,16 @@ from __future__ import annotations
 from email.utils import parseaddr
 import hashlib
 from html import escape
+import json
 import os
 import re
+import sys
 from typing import Literal
 from urllib.parse import urlencode, urlsplit
 
 import httpx
+
+RESEND_EMAIL_URL = "https://api.resend.com/emails"
 
 
 class MailDeliveryError(RuntimeError):
@@ -55,17 +59,41 @@ def delivery_available() -> bool:
 def _send(email: str, subject: str, text: str, html: str, *, key: str, sender: str, identity: str) -> None:
     if not _valid_mailbox(email) or any(ord(char) < 32 for char in email):
         raise MailDeliveryError()
+    headers = {"Authorization": "Bearer " + key, "Idempotency-Key": identity}
+    body = {"from": sender, "to": [email], "subject": subject, "text": text, "html": html}
     try:
-        response = httpx.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": "Bearer " + key, "Idempotency-Key": identity},
-            json={"from": sender, "to": [email], "subject": subject, "text": text, "html": html},
-            timeout=10, follow_redirects=False,
-        )
-        if response.status_code != 200 or not isinstance(response.json().get("id"), str):
+        if sys.platform == "emscripten":
+            message_id = _send_worker(headers, body)
+        else:
+            response = httpx.post(RESEND_EMAIL_URL, headers=headers, json=body, timeout=10, follow_redirects=False)
+            message_id = response.json().get("id") if response.status_code == 200 else None
+        if not isinstance(message_id, str):
             raise MailDeliveryError()
     except (httpx.HTTPError, ValueError, AttributeError):
         # Provider errors can contain recipient addresses, message bodies or credentials.
+        raise MailDeliveryError() from None
+
+
+def _send_worker(headers: dict, body: dict) -> str | None:
+    from js import AbortSignal, Object, Request, fetch
+    from pyodide.ffi import run_sync, to_js
+
+    try:
+        request = Request.new(RESEND_EMAIL_URL, to_js({
+            "method": "POST",
+            "headers": [[name, value] for name, value in {**headers, "Content-Type": "application/json"}.items()],
+            "body": json.dumps(body),
+            "redirect": "manual",
+            "signal": AbortSignal.timeout(10_000),
+        }, dict_converter=Object.fromEntries))
+        response = run_sync(fetch(request))
+        if response.status != 200:
+            if response.body is not None:
+                run_sync(response.body.cancel())
+            return None
+        return json.loads(run_sync(response.text())).get("id")
+    except Exception:
+        # Do not pass provider response or transport diagnostics to app logs.
         raise MailDeliveryError() from None
 
 

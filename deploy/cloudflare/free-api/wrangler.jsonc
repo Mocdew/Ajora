@@ -1,0 +1,58 @@
+{
+  "name": "ajora-staging-api-free",
+  "main": "src/main.py",
+  "compatibility_date": "2026-11-14",
+  "compatibility_flags": ["python_workers"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [],
+  "send_metrics": false,
+  "vars": {
+    "AJORA_DEPLOYMENT_ENV": "staging",
+    "TURSO_DATABASE_URL": "libsql://ajora-p0-staging-olumide.aws-us-west-2.turso.io"
+  },
+  "secrets": { "required": ["AJORA_STAGING_ACCESS_TOKEN", "TURSO_AUTH_TOKEN"] },
+  "durable_objects": {
+    "bindings": [{ "name": "AJORA_API_COMPUTE", "class_name": "AjoraApiCompute" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AjoraApiCompute"] }],
+  "rules": [{ "type": "Text", "globs": ["data/mock/*.json"], "fallthrough": true }],
+  "python_modules": {
+    "exclude": [
+      "**/*.pyc", "**/__pycache__/**", "**/tests/**", "**/*.pyi", "**/*.pxd",
+      // Ajora calls only SciPy's linear_sum_assignment. prepare.py preserves
+      // the compiled solver and narrows scipy.optimize's package imports.
+      "scipy/cluster/**", "scipy/constants/**", "scipy/datasets/**",
+      "scipy/differentiate/**", "scipy/fft/**", "scipy/fftpack/**",
+      "scipy/integrate/**", "scipy/interpolate/**", "scipy/io/**",
+      "scipy/linalg/**", "scipy/misc/**", "scipy/ndimage/**", "scipy/odr/**",
+      "scipy/signal/**", "scipy/sparse/**", "scipy/spatial/**", "scipy/special/**",
+      "scipy/stats/**", "scipy.libs/**"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "logs": { "invocation_logs": false },
+    "traces": { "enabled": false }
+  },
+  "env": {
+    "production": {
+      "name": "ajora-production-api",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [],
+      "vars": {
+        "AJORA_DEPLOYMENT_ENV": "production",
+        "AJORA_PRODUCTION_WEB_ORIGIN": "https://ajora-production-web.anthonyerinfolami.workers.dev",
+        "TURSO_DATABASE_URL": "libsql://ajora-savings-olumide.aws-us-west-2.turso.io"
+      },
+      "secrets": {
+        "required": ["AJORA_PRODUCTION_RELAY_TOKEN", "TURSO_AUTH_TOKEN", "AJORA_RESEND_API_KEY", "AJORA_EMAIL_FROM"]
+      },
+      "durable_objects": {
+        "bindings": [{ "name": "AJORA_API_COMPUTE", "class_name": "AjoraApiCompute" }]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AjoraApiCompute"] }]
+    }
+  }
+}

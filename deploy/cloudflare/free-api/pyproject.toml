@@ -1,0 +1,21 @@
+[project]
+name = "ajora-free-api"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "anyio==4.16.0",
+    "fastapi==0.162.7",
+    "google-auth[requests]==2.62.2",
+    "httpx==0.28.1",
+    "networkx==3.7",
+    "numpy==2.4.6",
+    "pycryptodome==3.23.0",
+    "rapidfuzz==3.14.5",
+    "scipy==1.18.0",
+]
+
+[dependency-groups]
+dev = ["workers-py==1.17.9", "workers-runtime-sdk==1.9.6"]
+
+[tool.uv.sources]
+rapidfuzz = { path = "wheels/rapidfuzz-3.14.5-py3-none-any.whl" }

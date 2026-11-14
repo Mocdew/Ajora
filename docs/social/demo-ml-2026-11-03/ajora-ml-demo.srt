@@ -1,0 +1,91 @@
+1
+00:00:00,300 --> 00:00:03,414
+Your own transfer should not look like new income. Meet Ajora, a financial insights
+
+2
+00:00:03,414 --> 00:00:06,527
+demo for Nigeria.
+
+3
+00:00:07,600 --> 00:00:11,482
+Emeka banks across four accounts. A naive total says he earned six point nine nine
+
+4
+00:00:11,482 --> 00:00:15,364
+million naira. Some of that money was already his.
+
+5
+00:00:16,433 --> 00:00:21,145
+Ajora compares amounts, timestamps, payment references and fuzzy name similarity
+
+6
+00:00:21,145 --> 00:00:25,857
+across banks. These features score candidate debit and credit pairs.
+
+7
+00:00:26,933 --> 00:00:31,473
+The Hungarian algorithm selects pairs globally. Each transaction can be matched
+
+8
+00:00:31,473 --> 00:00:36,013
+only once. The current demo uses explainable rules for confidence scoring.
+
+9
+00:00:37,067 --> 00:00:41,117
+High confidence matches apply automatically. Uncertain pairs stay in cashflow until
+
+10
+00:00:41,117 --> 00:00:45,167
+confirmed, and users can inspect or reject any match.
+
+11
+00:00:46,233 --> 00:00:50,713
+Eight internal transfers are removed. Income becomes five point six million naira.
+
+12
+00:00:50,713 --> 00:00:55,193
+Transfer fees remain in spending, so net cashflow stays the same.
+
+13
+00:00:56,267 --> 00:01:00,060
+On the bundled labelled demo data: all eighteen transfer pairs found, with no false
+
+14
+00:01:00,060 --> 00:01:03,854
+matches. Broader validation is still needed.
+
+15
+00:01:04,933 --> 00:01:08,930
+On the cleaned ledger, graph patterns and narration cues reveal remittances and
+
+16
+00:01:08,930 --> 00:01:12,927
+recurring family support. Every relationship can be inspected.
+
+17
+00:01:14,000 --> 00:01:17,865
+The engine computes. The offline narrator explains those facts. The demo checks
+
+18
+00:01:17,865 --> 00:01:21,731
+every quoted number against its structured inputs.
+
+19
+00:01:22,800 --> 00:01:25,822
+Revoke the domiciliary account. The remittance disappears, and the remaining
+
+20
+00:01:25,822 --> 00:01:28,844
+figures are recalculated.
+
+21
+00:01:29,900 --> 00:01:32,273
+The audit log records which accounts were served, and which were excluded by
+
+22
+00:01:32,273 --> 00:01:34,647
+revoked consent.
+
+23
+00:01:35,700 --> 00:01:40,414
+Try Ajora’s sample data demo. Select Persona B to explore the full story.

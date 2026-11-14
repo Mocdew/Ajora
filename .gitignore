@@ -40,3 +40,9 @@ data/private/
 .idea/
 .vscode/
 *.swp
+
+# Cloudflare staging local state and credentials
+.wrangler/
+/deploy/cloudflare/api/node_modules/
+/deploy/cloudflare/api/.dev.vars*
+/deploy/cloudflare/api/.env*

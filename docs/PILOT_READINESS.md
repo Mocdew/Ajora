@@ -26,6 +26,32 @@
 
 Use [pilot operating procedures](PILOT_OPERATIONS.md) for the draft decisions, drill scripts, acceptance measurements and provider references.
 
+### Cloudflare Free staging rehearsal
+
+On 14 November 2026 (Africa/Lagos), the [protected Cloudflare Worker](https://ajora-staging-web.anthonyerinfolami.workers.dev) version `32cdfbc2-3e3c-428c-994d-5dd19486549c` served the staging frontend. Its same-origin API relay used the dedicated [Render Free deployment](https://dashboard.render.com/web/srv-dbs4hsifngtc73bmvbm0/deploys/dep-dbs6r1m1egvs73d0eag0) at `1c76cf6` and the isolated `ajora-p0-staging` Turso database. The staging database credential expires after seven days.
+
+Anonymous requests to the frontend, a stylesheet and the relayed API received `401`. Direct unauthorised Render readiness returned `403`, and authorised readiness through Cloudflare returned `200`. The hosted synthetic API walkthrough passed 54 checks across two password accounts and two rounds, including dispute holds, recipient-only payout acknowledgement, duplicate operations and matching exports. Render recorded restart event `evt-dbs6ruifngtc73bst170`. After the restart, all 17 persistence and access checks passed, including fresh sign-in and matching ledger exports from both accounts.
+
+The hosted Chrome walkthrough passed the two-round manual savings flow in separate browser contexts, including a mobile-sized member view, payment review, a dispute hold, both payout acknowledgements and account recovery.
+
+### Cloudflare Workers Free backend rehearsal
+
+The protected rehearsal frontend `ajora-staging-api-check` at version `d54bb46b-c657-4882-b295-37f66d3fd06f` called the private Python Worker at version `b5670f41-8489-482c-a3b9-3e5137788b11`. Authenticated readiness reached the existing isolated Turso database. Anonymous requests to the frontend and relayed API returned `401`. The backend's direct hostname returned `404` and its preview URLs were disabled.
+
+The serial API walkthrough passed 54 checks across two accounts and two rounds, including agreement, split contributions, dispute holds, recipient-only payout acknowledgement, idempotent retries, matching exports and a returning sign-in. Median response time was 5.9 seconds. The backend was redeployed with immediate Durable Object updates in deployment `ca9c8f48-18cb-4887-b569-80941e9bee43`. All 17 subsequent access and persistence checks passed. Both accounts signed in again and retrieved the same completed ledger and export.
+
+The Python Worker also returned the same eight synthetic cashflow, insights, graph and offline explainer payloads as Render staging and local FastAPI. Synthetic analytics state uses temporary files. Production audit, consent, and correction retention remain open.
+
+Chrome verified account registration, the secure session cookie, the dashboard, and navigation to My circles with the normal browser request and polling settings. A separate reload and parallel-read check also passed. The full two-round browser test timed out during earlier builds; the successful two-round rehearsal above used the API.
+
+The [regular protected staging URL](https://ajora-staging-web.anthonyerinfolami.workers.dev) then switched to the verified API using frontend version `52092d1a-5f92-43f1-9979-b9ab54398b32`. All 17 access and persistence checks passed again at that URL. The temporary rehearsal frontend was removed. Frontend version `32cdfbc2-3e3c-428c-994d-5dd19486549c` is the Render rollback point. The Worker's staging Turso credential expires on 21 November 2026 at 15:32 Africa/Lagos.
+
+The full two-round manual savings walkthrough subsequently passed in Chrome on the regular protected staging URL in 10 minutes with normal browser routing and polling. Both members joined and accepted the agreement, submitted eight split instalments, resolved a dispute that held payout, and confirmed receipt for both rounds. The member cleared cookies and recovered the same profile between rounds. The final ledger showed both payouts received, and both desktop and mobile-sized activity views showed the expected history. The test used synthetic accounts and payment references.
+
+The [production frontend](https://ajora-production-web.anthonyerinfolami.workers.dev) then deployed at Worker version `8fd2a250-a075-484e-ab34-12667354c00f`, with private API version `e53843e2-10cf-414b-8373-ba29ae2b2da5`. Turso readiness and authentication passed. The existing demo account returned the identity and two circle IDs found in the pre-cutover Turso snapshot. Chrome rendered both circles, offered demo-only creation, and signed out successfully. Anonymous savings reads, cross-site sign-in, and new manual circles were rejected as expected. Account mail was configured with the existing sandbox sender. This rehearsal did not send a production email.
+
+The old Vercel hostname redirects page visits to Workers. Checks confirmed that the invite query parameter and the email-link fragment survive the redirect. Old Vercel API requests return `503` with `Cache-Control: no-store`. The legacy production Render service was suspended after these checks. Protected staging and production Turso readiness passed after cutover.
+
 ## P0 tracker
 
 | ID | Accountable role | Status | Acceptance evidence | Blocker | Next action |

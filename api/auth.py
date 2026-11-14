@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import secrets
 import sqlite3
+import sys
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -62,9 +63,21 @@ class RegisterInput(LoginInput):
         return value.strip() if isinstance(value, str) else value
 
 
+def _password_digest(password: str, salt: bytes, iterations: int) -> bytes:
+    secret = password.encode()
+    if sys.platform == "emscripten":
+        # Pyodide omits OpenSSL's hashlib bindings. Keep the stored hashes
+        # compatible with the native API and retain the same work factor.
+        from Crypto.Hash import SHA256
+        from Crypto.Protocol.KDF import PBKDF2
+
+        return PBKDF2(secret, salt, dkLen=32, count=iterations, hmac_hash_module=SHA256)
+    return hashlib.pbkdf2_hmac("sha256", secret, salt, iterations)
+
+
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PASSWORD_ITERATIONS)
+    digest = _password_digest(password, salt, PASSWORD_ITERATIONS)
     return f"pbkdf2_sha256${PASSWORD_ITERATIONS}${salt.hex()}${digest.hex()}"
 
 
@@ -72,12 +85,13 @@ def verify_password(password: str, encoded: str) -> bool:
     algorithm, iterations, salt, expected = encoded.split("$")
     if algorithm != "pbkdf2_sha256" or int(iterations) != PASSWORD_ITERATIONS:
         return False
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), int(iterations))
+    digest = _password_digest(password, bytes.fromhex(salt), int(iterations))
     return hmac.compare_digest(digest, bytes.fromhex(expected))
 
 
-# Unknown accounts do the same password-hashing work as existing ones.
-_DUMMY_PASSWORD_HASH = hash_password(secrets.token_urlsafe(32))
+# Unknown accounts run the same verification. Dummy values can be public
+# because a missing account always fails authentication.
+_DUMMY_PASSWORD_HASH = f"pbkdf2_sha256${PASSWORD_ITERATIONS}${'00' * 16}${'00' * 32}"
 
 
 def email_scope(action: str, email: str) -> str:

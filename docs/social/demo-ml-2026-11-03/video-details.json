@@ -1,0 +1,91 @@
+{
+  "duration_seconds": 101.17,
+  "resolution": "1920x1080",
+  "fps": 30,
+  "video": "H.264",
+  "audio": "AAC, synthetic Samantha voice",
+  "source": "https://ajora-demo.onrender.com",
+  "scenes": [
+    {
+      "kind": "intro",
+      "title": "The same naira. Counted once.",
+      "caption": "Ajora · Entity resolution for multi-bank finance",
+      "voice": "Your own transfer should not look like new income. Meet Ajora, a financial insights demo for Nigeria."
+    },
+    {
+      "image": "01-raw.jpg",
+      "stage": "01 / THE PROBLEM",
+      "title": "When your own money looks like income",
+      "caption": "Emeka’s raw inflow: ₦6.99M across four accounts.",
+      "voice": "Emeka banks across four accounts. A naive total says he earned six point nine nine million naira. Some of that money was already his."
+    },
+    {
+      "image": "04-evidence.jpg",
+      "stage": "02 / FEATURE ENGINEERING",
+      "title": "Find evidence across institutions",
+      "caption": "Amount + timing + references + fuzzy name similarity",
+      "voice": "Ajora compares amounts, timestamps, payment references and fuzzy name similarity across banks. These features score candidate debit and credit pairs."
+    },
+    {
+      "kind": "pipeline",
+      "title": "One debit. One credit.",
+      "caption": "Rule-based confidence scoring + Hungarian assignment",
+      "voice": "The Hungarian algorithm selects pairs globally. Each transaction can be matched only once. The current demo uses explainable rules for confidence scoring."
+    },
+    {
+      "image": "04-evidence.jpg",
+      "stage": "03 / CONFIDENCE + REVIEW",
+      "title": "Show the evidence. Keep the user in control.",
+      "caption": "High confidence → apply. Uncertain → ask. Every match can be reviewed.",
+      "voice": "High confidence matches apply automatically. Uncertain pairs stay in cashflow until confirmed, and users can inspect or reject any match."
+    },
+    {
+      "image": "02-clean.jpg",
+      "stage": "04 / THE RECONCILED VIEW",
+      "title": "₦6.99M → ₦5.60M income",
+      "caption": "8 self-transfers removed. Fees stay in spending. Net cashflow stays the same.",
+      "voice": "Eight internal transfers are removed. Income becomes five point six million naira. Transfer fees remain in spending, so net cashflow stays the same."
+    },
+    {
+      "kind": "evaluation",
+      "title": "Measure the matching pipeline",
+      "caption": "Precision and recall on labelled demo fixtures",
+      "voice": "On the bundled labelled demo data: all eighteen transfer pairs found, with no false matches. Broader validation is still needed."
+    },
+    {
+      "image": "07-inspector.jpg",
+      "stage": "05 / RELATIONSHIP ANALYSIS",
+      "title": "The communal economy, made visible",
+      "caption": "Graph structure + transaction cues → remittances, family support and more",
+      "voice": "On the cleaned ledger, graph patterns and narration cues reveal remittances and recurring family support. Every relationship can be inspected."
+    },
+    {
+      "image": "08-narration.jpg",
+      "stage": "06 / GROUNDED EXPLANATIONS",
+      "title": "The engine computes. The narrator explains.",
+      "caption": "Offline templates in this demo. Quoted numbers checked against computed facts.",
+      "voice": "The engine computes. The offline narrator explains those facts. The demo checks every quoted number against its structured inputs."
+    },
+    {
+      "image": "10-confirm.jpg",
+      "image2": "11-revoked.jpg",
+      "stage": "07 / CONSENT IN ACTION",
+      "title": "Revoke an account. Recalculate the view.",
+      "caption": "Domiciliary account excluded → remittance disappears → figures update",
+      "voice": "Revoke the domiciliary account. The remittance disappears, and the remaining figures are recalculated."
+    },
+    {
+      "image": "12-audit.jpg",
+      "stage": "08 / AUDITABLE ACCESS",
+      "title": "See what was served — and excluded",
+      "caption": "Append-only access log · no database server",
+      "voice": "The audit log records which accounts were served, and which were excluded by revoked consent."
+    },
+    {
+      "kind": "outro",
+      "title": "See the financial life underneath.",
+      "caption": "Try the live sample-data demo · select Persona B",
+      "voice": "Try Ajora’s sample data demo. Select Persona B to explore the full story."
+    }
+  ]
+}

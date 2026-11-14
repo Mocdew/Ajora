@@ -20,7 +20,7 @@ See [Render's free service limits](https://render.com/docs/free).
    | --- | --- |
    | `AJORA_RESEND_API_KEY` | Private Resend sending key |
    | `AJORA_EMAIL_FROM` | Approved sender, for example `Ajora <accounts@your-domain.example>` |
-   | `AJORA_PUBLIC_WEB_URL` | Exact frontend origin: `https://ajora-one.vercel.app` for the current deployment |
+   | `AJORA_PUBLIC_WEB_URL` | Exact frontend origin: `https://ajora-production-web.anthonyerinfolami.workers.dev` for the current deployment |
 
 4. Restart or redeploy the API after setting the values. Deploy the accompanying
    frontend pages before sending real account links. No frontend email secret is
@@ -135,3 +135,20 @@ For this initial local run, sender configuration was saved in Render using
 initial sender supports restricted testing to the Resend account
 owner. Verify an owned sending domain and replace `AJORA_EMAIL_FROM` before
 enabling delivery for other members.
+
+### Cloudflare production verification — 14 November 2026
+
+The existing Resend sandbox sender accepted verification, reset, and password
+change emails for a disposable production account with a labeled Resend test
+address. Resend recorded all three simulated delivery events. Both links opened
+the Cloudflare production pages and the browser removed their token fragments.
+Opening the verification page left the account unverified until explicit
+confirmation. The reset succeeded through the production API with the emailed
+token. Reusing that token failed, the original session and password were
+rejected, and the new password restored the same verified account. The test
+session was signed out. This run verified simulated delivery in Resend.
+
+A separate production check confirmed that a new password-reset email from the
+existing Resend sender arrived in the Resend account owner's Gmail inbox. The
+message linked to the Cloudflare production reset page. The test left the link
+unused and checked delivery only.

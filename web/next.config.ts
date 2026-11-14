@@ -51,6 +51,8 @@ const nextConfig: NextConfig = {
     }];
   },
   async rewrites() {
+    // Cloudflare serves the same-origin API through a Worker service binding.
+    if (process.env.AJORA_CLOUDFLARE_WORKER === "true") return [];
     return [
       {
         source: "/api/engine/:path*",

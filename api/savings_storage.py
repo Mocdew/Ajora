@@ -5,12 +5,13 @@ import hashlib
 import os
 from pathlib import Path
 import sqlite3
+import sys
 import threading
 from urllib.parse import urlsplit
 
 
-_schema_lock = threading.Lock()
-_write_lock = threading.RLock()
+_schema_lock = threading.Lock() if sys.platform != "emscripten" else None
+_write_lock = threading.RLock() if sys.platform != "emscripten" else None
 _initialized_schemas: set[tuple[str, str]] = set()
 
 
@@ -146,7 +147,8 @@ def _connect_remote(url: str, token: str):
 def connect_savings(path: Path):
     url = os.environ.get("TURSO_DATABASE_URL")
     token = os.environ.get("TURSO_AUTH_TOKEN")
-    if os.environ.get("AJORA_REQUIRE_REMOTE_SAVINGS") == "true" and not (url and token):
+    worker = sys.platform == "emscripten"
+    if (worker or os.environ.get("AJORA_REQUIRE_REMOTE_SAVINGS") == "true") and not (url and token):
         raise StorageConfigurationError("Remote savings storage is required. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together.")
     if url is None and token is None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -162,6 +164,9 @@ def connect_savings(path: Path):
         valid = False
     if not valid:
         raise StorageConfigurationError("Set a valid TURSO_DATABASE_URL and TURSO_AUTH_TOKEN together.")
+    if worker:
+        from .turso_http import TursoHttpConnection
+        return TursoHttpConnection(url, token)
     connection = _connect_remote(url, token)
     identity = hashlib.sha256((url + "\0" + token).encode()).hexdigest()
     return RemoteConnection(connection, identity)

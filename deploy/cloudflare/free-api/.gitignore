@@ -1,0 +1,9 @@
+/.dev.vars*
+/.env*
+/.venv-workers/
+/node_modules/
+/python_modules/
+/src/api/
+/src/data/
+/src/engine/
+/wheels/
