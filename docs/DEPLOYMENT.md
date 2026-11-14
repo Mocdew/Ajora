@@ -172,6 +172,14 @@ environment variables, traces, URLs, logs, and screenshots. Rotate or remove
 it at the end of the rehearsal. Leave both settings unset outside synthetic
 staging.
 
+The `codex/ajora-p0-staging` Preview can relay the server credential for a
+browser rehearsal behind Vercel Deployment Protection. Apply the same token
+as `AJORA_STAGING_RELAY_TOKEN` in Vercel's Sensitive Preview settings for that
+branch only. The relay pins API requests to the existing dedicated staging
+origin and forwards Ajora's own session cookies. Verify that a signed-out
+visitor is refused by Vercel and that the direct Render API still refuses
+tokenless requests. Remove the Preview setting and redeploy after the rehearsal.
+
 ## Saved records and local development
 
 Local development runs at `http://localhost:3200`. This port does not become the
